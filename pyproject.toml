@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "document-converter-skill"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local-first multi-format document to Markdown/HTML converter"
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
@@ -33,3 +33,4 @@ document-converter = "document_converter.cli:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--cov=document_converter --cov-report=term-missing --cov-fail-under=80"

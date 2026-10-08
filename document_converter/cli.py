@@ -16,6 +16,8 @@ def convert(
     output: Path = typer.Option(Path("./converted"), "--output", "-o"),
     engine: str = typer.Option("auto", "--engine", help="auto, docling, marker, mineru"),
     images: str = typer.Option("none", "--images", help="none, referenced, embedded"),
+    clean: bool = typer.Option(False, "--clean", help="Clean up markdown formatting and page artifacts"),
+    preserve_layout: bool = typer.Option(False, "--preserve-layout", help="Preserve raw page breaks and layout in markdown"),
 ):
     """Convert local documents to Markdown/HTML/JSON/text."""
     valid = {"md", "html", "json", "txt"}
@@ -30,12 +32,17 @@ def convert(
     inputs = discover_inputs(source)
     table = Table("Source", "Engine", "Type", "Outputs", "Status")
     for path in inputs:
-        # Preserve directory structure for batch jobs.
         rel_parent = path.parent.relative_to(source) if source.is_dir() else Path(".")
         outdir = output / rel_parent
         try:
             result = convert_one(path, engine, images)
-            write_result(result, outdir, to)
+            write_result(
+                result=result,
+                output_dir=outdir,
+                formats=to,
+                clean=clean,
+                preserve_layout=preserve_layout,
+            )
             profile = result.metadata.get("pdf_profile")
             doc_type = profile.classification if profile else path.suffix.lower()
             status = "OK"

@@ -1,12 +1,23 @@
 from pathlib import Path
 from .models import ConversionResult, OutputFormat
+from .cleaner import clean_markdown
 
-def write_result(result: ConversionResult, output_dir: Path, formats: list[OutputFormat]):
+def write_result(
+    result: ConversionResult,
+    output_dir: Path,
+    formats: list[OutputFormat],
+    clean: bool = False,
+    preserve_layout: bool = False,
+):
     output_dir.mkdir(parents=True, exist_ok=True)
     stem = result.source.stem
 
+    md = result.markdown
+    if md and clean:
+        md = clean_markdown(md, preserve_layout=preserve_layout)
+
     values = {
-        "md": result.markdown,
+        "md": md,
         "html": result.html,
         "json": result.json_text,
         "txt": result.text,
@@ -14,8 +25,8 @@ def write_result(result: ConversionResult, output_dir: Path, formats: list[Outpu
     for fmt in formats:
         value = values.get(fmt)
         if value is None:
-            if fmt == "html" and result.markdown:
-                value = markdown_fallback_html(result.markdown, stem)
+            if fmt == "html" and md:
+                value = markdown_fallback_html(md, stem)
             else:
                 result.warnings.append(f"{fmt} is unavailable from engine {result.engine}")
                 continue
