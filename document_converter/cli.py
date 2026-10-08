@@ -2,8 +2,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 from rich.table import Table
-from .pipeline import discover_inputs, convert_one
-from .writer import write_result
+from .pipeline import discover_inputs, process_batch, MAX_WORKER_LIMIT
 from .detector import inspect_pdf
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
@@ -18,6 +17,7 @@ def convert(
     images: str = typer.Option("none", "--images", help="none, referenced, embedded"),
     clean: bool = typer.Option(False, "--clean", help="Clean up markdown formatting and page artifacts"),
     preserve_layout: bool = typer.Option(False, "--preserve-layout", help="Preserve raw page breaks and layout in markdown"),
+    parallel: int = typer.Option(1, "--parallel", "-p", help="Concurrent worker count (1-8)"),
 ):
     """Convert local documents to Markdown/HTML/JSON/text."""
     valid = {"md", "html", "json", "txt"}
@@ -28,31 +28,39 @@ def convert(
         raise typer.BadParameter("engine must be auto, docling, marker, or mineru")
     if images not in {"none", "referenced", "embedded"}:
         raise typer.BadParameter("images must be none, referenced, or embedded")
+    if parallel < 1:
+        raise typer.BadParameter("--parallel must be at least 1")
+    if parallel > MAX_WORKER_LIMIT:
+        console.print(f"[yellow]warning:[/yellow] Clamping --parallel to safe limit {MAX_WORKER_LIMIT} to avoid OOM.")
 
     inputs = discover_inputs(source)
+    batch_results = process_batch(
+        inputs=inputs,
+        output_dir=output,
+        formats=to,
+        engine_name=engine,
+        image_mode=images,
+        clean=clean,
+        preserve_layout=preserve_layout,
+        parallel=parallel,
+        source_root=source,
+    )
+
     table = Table("Source", "Engine", "Type", "Outputs", "Status")
-    for path in inputs:
-        rel_parent = path.parent.relative_to(source) if source.is_dir() else Path(".")
-        outdir = output / rel_parent
-        try:
-            result = convert_one(path, engine, images)
-            write_result(
-                result=result,
-                output_dir=outdir,
-                formats=to,
-                clean=clean,
-                preserve_layout=preserve_layout,
-            )
-            profile = result.metadata.get("pdf_profile")
+    for item in batch_results:
+        path = item["path"]
+        if item["success"]:
+            profile = item.get("metadata", {}).get("pdf_profile")
             doc_type = profile.classification if profile else path.suffix.lower()
             status = "OK"
-            if result.warnings:
+            if item.get("warnings"):
                 status = "OK (warnings)"
-            table.add_row(str(path), result.engine, doc_type, ", ".join(to), status)
-            for warning in result.warnings:
+            table.add_row(str(path), item.get("engine", "-"), doc_type, ", ".join(to), status)
+            for warning in item.get("warnings", []):
                 console.print(f"[yellow]warning:[/yellow] {path}: {warning}")
-        except Exception as exc:
-            table.add_row(str(path), "-", path.suffix.lower(), ", ".join(to), f"FAILED: {exc}")
+        else:
+            table.add_row(str(path), "-", path.suffix.lower(), ", ".join(to), f"FAILED: {item.get('error')}")
+
     console.print(table)
 
 @app.command("inspect")
