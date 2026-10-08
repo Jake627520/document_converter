@@ -2,7 +2,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 from rich.table import Table
-from .pipeline import discover_inputs, process_batch, MAX_WORKER_LIMIT
+from .pipeline import discover_inputs, process_batch, DEFAULT_PARALLEL, MAX_WORKER_LIMIT
 from .detector import inspect_pdf
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
@@ -17,7 +17,7 @@ def convert(
     images: str = typer.Option("none", "--images", help="none, referenced, embedded"),
     clean: bool = typer.Option(False, "--clean", help="Clean up markdown formatting and page artifacts"),
     preserve_layout: bool = typer.Option(False, "--preserve-layout", help="Preserve raw page breaks and layout in markdown"),
-    parallel: int = typer.Option(1, "--parallel", "-p", help="Concurrent worker count (1-8)"),
+    parallel: int = typer.Option(DEFAULT_PARALLEL, "--parallel", "-p", help=f"Concurrent worker count (1-{MAX_WORKER_LIMIT})"),
 ):
     """Convert local documents to Markdown/HTML/JSON/text."""
     valid = {"md", "html", "json", "txt"}
@@ -31,7 +31,7 @@ def convert(
     if parallel < 1:
         raise typer.BadParameter("--parallel must be at least 1")
     if parallel > MAX_WORKER_LIMIT:
-        console.print(f"[yellow]warning:[/yellow] Clamping --parallel to safe limit {MAX_WORKER_LIMIT} to avoid OOM.")
+        raise typer.BadParameter(f"--parallel cannot exceed the safe limit of {MAX_WORKER_LIMIT}")
 
     inputs = discover_inputs(source)
     batch_results = process_batch(

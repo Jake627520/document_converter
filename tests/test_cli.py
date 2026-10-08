@@ -9,7 +9,7 @@ except ImportError:
 
 @unittest.skipUnless(HAS_TYPER, "typer not installed in current environment")
 class TestCli(unittest.TestCase):
-    """Ref: specs/001-cli-interface.md"""
+    """Ref: openspec/specs/cli-interface/spec.md"""
 
     def setUp(self):
         self.runner = CliRunner()

@@ -14,14 +14,15 @@
 1. **獨立原生渲染 (Zero External Runtime Dependency)**：
    - 提供內建的 HTML 渲染引擎，不強制依賴外部編譯器。
    - 由內建 parser 處理 Headings, Code Blocks, Tables, Paragraphs, Lists, Inline Code/Emphasis 與 HTML escaping；不載入或執行 Markdown 原始 HTML。
-2. **嚴格離線 (100% Offline / Zero CDN)**：
+2. **自包含輸出 (No External Resources)**：
    - HTML 樣式直接內嵌於 `<style>` 標籤中，不包含任何外部 `<link href="http...">` 或 `<script src="http...">`。
 3. **安全性與跳脫 (XSS Defense)**：
    - 原始文字中的 `<script>`, `&`, `<`, `>` 嚴格跳脫，避免 HTML 注入。
-4. **與現有 Writer 100% 向後相容**：
+4. **與現有 Writer 相容**：
    - `write_result` 介面保持不變，自動替換 fallback 邏輯。
 
 ## 4. Open Design Decisions
+- **Renderer implementation**：採用小型內建 parser，避免新增 runtime dependency；範圍限於本文件列出的 Markdown 語法。
 - **數學公式 (LaTeX Math)**：本 change 不執行 MathJax/KaTeX，也不特別轉換公式；公式標記作一般文字處理並跳脫 HTML。未來若加入離線數學 renderer，另以獨立 change 定義。
 
 ## 5. Acceptance Criteria

@@ -5,7 +5,7 @@ from document_converter.pipeline import discover_inputs, choose_engine
 from document_converter.detector import PdfProfile
 
 class TestPipeline(unittest.TestCase):
-    """Ref: specs/002-engine-adapter.md & specs/005-ocr-detection.md"""
+    """Ref: openspec/specs/engine-adapter/spec.md & openspec/specs/pdf-detection/spec.md"""
 
     def test_discover_inputs_single_file(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

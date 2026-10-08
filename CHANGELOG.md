@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0] - 2026-10-08
 
 ### Added
-- **OpenSpec Driven Architecture**: Introduced `specs/` directory covering CLI interface, Engine adapters, Output serialization, Security baselines, and OCR detection (`specs/001` through `specs/005`).
+- **OpenSpec Driven Architecture**: Introduced canonical `openspec/specs/` baseline specifications for CLI interface, engine adapters, output serialization, security, and PDF text-layer detection.
 - **PDF Text-Layer vs Scanned Auto-Detection**: Zero-dependency built-in PDF stream analyzer and metadata profiling (`document_converter.detector`).
 - **Markdown Cleaner**: `--clean` mode with fenced code block and LaTeX math formula preservation, excessive whitespace compression, and page number noise elimination (`document_converter.cleaner`).
 - **Layout Preservation**: `--preserve-layout` flag to maintain exact page break spacing.

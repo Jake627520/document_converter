@@ -2,7 +2,7 @@ import unittest
 from document_converter.cleaner import clean_markdown
 
 class TestCleaner(unittest.TestCase):
-    """Ref: specs/003-output-formats.md"""
+    """Ref: openspec/specs/output-formats/spec.md"""
 
     def test_clean_excess_newlines(self):
         raw = "Heading\n\n\n\nParagraph 1\n\n\n\nParagraph 2\n"

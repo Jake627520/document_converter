@@ -1,22 +1,8 @@
-"""
-TDD Test Suite for HTML Renderer
-
-Change ID: 001
-Status: Red Phase (Tests expected to fail initially)
-"""
+"""Supplementary HTML renderer regression tests for CHG-001."""
 
 import unittest
 from pathlib import Path
-
-# 這會失敗，因為 renderer.py 尚未實作
-# 這正是 TDD 的 Red 階段：先寫失敗測試
-try:
-    from document_converter.renderer import render_html
-    RENDERER_AVAILABLE = True
-except ImportError:
-    RENDERER_AVAILABLE = False
-    def render_html(md: str) -> str:
-        raise NotImplementedError("Renderer not yet implemented")
+from document_converter.renderer import render_html
 
 
 class TestHTMLRenderer(unittest.TestCase):
@@ -139,22 +125,20 @@ def hello():
         self.assertIn('name="viewport"', result)
 
     def test_full_document_with_fixture(self):
-        """測試：使用 Fixture 驗證完整文件"""
-        # 讀取測試 fixture
-        fixtures_dir = Path("tests/fixtures")
-        expected_path = fixtures_dir / "expected" / "sample_text.html"
-
-        if expected_path.exists():
-            expected_html = expected_path.read_text(encoding="utf-8")
-            # 讀取對應的 Markdown
-            md_path = fixtures_dir / "sample_text.md"
-            if md_path.exists():
-                md = md_path.read_text(encoding="utf-8")
-                result = render_html(md)
-                # 簡化比較：檢查關鍵內容
-                self.assertIn("Document Converter Spec Test Sample", result)
-                self.assertIn("<h1>", result)
-        # 若 fixture 不存在，跳過此測試（不影響 TDD 流程）
+        """Fixture files are repository-relative and must render key content."""
+        fixtures_dir = Path(__file__).parent / "fixtures"
+        md = (fixtures_dir / "sample_text.md").read_text(encoding="utf-8")
+        expected_html = (fixtures_dir / "expected" / "sample_text.html").read_text(
+            encoding="utf-8"
+        )
+        result = render_html(md)
+        self.assertIn("Document Converter Spec Test Sample", result)
+        for expected_fragment in (
+            "<h1>Document Converter Spec Test Sample</h1>",
+            "<p>This is a test paragraph.</p>",
+        ):
+            self.assertIn(expected_fragment, expected_html)
+            self.assertIn(expected_fragment, result)
 
 
 class TestHTMLRendererEdgeCases(unittest.TestCase):

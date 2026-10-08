@@ -9,9 +9,10 @@ def write_result(
     formats: list[OutputFormat],
     clean: bool = False,
     preserve_layout: bool = False,
+    output_stem: str | None = None,
 ):
     output_dir.mkdir(parents=True, exist_ok=True)
-    stem = result.source.stem
+    stem = output_stem or result.source.stem
 
     md = result.markdown
     if md and clean:

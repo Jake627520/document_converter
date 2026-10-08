@@ -1,4 +1,5 @@
 import concurrent.futures
+import hashlib
 from pathlib import Path
 from .engines.base import EngineError
 from .engines.docling_engine import DoclingEngine
@@ -13,8 +14,8 @@ SUPPORTED = {
     ".png", ".jpg", ".jpeg", ".webp", ".csv", ".rtf", ".odt", ".ods", ".odp"
 }
 
-DEFAULT_MAX_WORKERS = 4
-MAX_WORKER_LIMIT = 8
+DEFAULT_PARALLEL = 1
+MAX_WORKER_LIMIT = 4
 
 def discover_inputs(source: Path) -> list[Path]:
     if source.is_file():
@@ -98,6 +99,7 @@ def _process_single_item(
     clean: bool,
     preserve_layout: bool,
     source_root: Path | None,
+    output_stem: str,
 ) -> dict:
     rel_parent = path.parent.relative_to(source_root) if (source_root and source_root.is_dir()) else Path(".")
     target_outdir = output_dir / rel_parent
@@ -109,6 +111,7 @@ def _process_single_item(
             formats=formats,
             clean=clean,
             preserve_layout=preserve_layout,
+            output_stem=output_stem,
         )
         return {
             "path": path,
@@ -134,15 +137,53 @@ def process_batch(
     image_mode: str = "none",
     clean: bool = False,
     preserve_layout: bool = False,
-    parallel: int = 1,
+    parallel: int = DEFAULT_PARALLEL,
     source_root: Path | None = None,
 ) -> list[dict]:
     """
     Process a list of input documents sequentially or in parallel.
     Fault-tolerant: individual file errors do not abort the overall batch.
-    Clamps workers to MAX_WORKER_LIMIT to prevent system OOM with local models.
+    Rejects unsafe worker counts instead of silently increasing or clamping them.
     """
-    if parallel <= 1 or len(inputs) <= 1:
+    if parallel < 1 or parallel > MAX_WORKER_LIMIT:
+        raise ValueError(f"parallel must be between 1 and {MAX_WORKER_LIMIT}")
+
+    # Preserve nested source directories. If inputs would otherwise target the
+    # same output stem, add the extension and, for remaining collisions, a
+    # stable digest of the source identity.
+    output_stems: dict[Path, str] = {}
+    groups: dict[tuple[str, str], list[Path]] = {}
+    source_is_dir = source_root is not None and source_root.is_dir()
+    for path in inputs:
+        rel_path = path.relative_to(source_root) if source_is_dir else Path(path.name)
+        # macOS commonly uses case-insensitive filesystems. Group the normalized
+        # destination before assigning names so case-only variants cannot race
+        # to write the same file when no source_root is supplied.
+        output_parent = rel_path.parent.as_posix().casefold()
+        groups.setdefault((output_parent, path.stem.casefold()), []).append(path)
+
+    for paths in groups.values():
+        if len(paths) == 1:
+            output_stems[paths[0]] = paths[0].stem
+            continue
+        paths = sorted(paths, key=lambda item: (item.as_posix().casefold(), item.as_posix()))
+        stem = paths[0].stem
+        candidates: dict[str, list[Path]] = {}
+        for path in paths:
+            candidates.setdefault(f"{stem}_{path.suffix.lower().lstrip('.')}", []).append(path)
+        for candidate, colliding_paths in candidates.items():
+            for path in colliding_paths:
+                identity = (
+                    path.relative_to(source_root).as_posix()
+                    if source_is_dir
+                    else path.as_posix()
+                )
+                digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:8]
+                output_stems[path] = (
+                    candidate if len(colliding_paths) == 1 else f"{candidate}_{digest}"
+                )
+
+    if parallel == 1 or len(inputs) <= 1:
         # Sequential execution
         return [
             _process_single_item(
@@ -154,12 +195,13 @@ def process_batch(
                 clean=clean,
                 preserve_layout=preserve_layout,
                 source_root=source_root,
+                output_stem=output_stems[p],
             )
             for p in inputs
         ]
 
-    # Parallel execution with bounded workers
-    workers = min(max(parallel, 1), MAX_WORKER_LIMIT)
+    # Parallel execution with a hard resource-safe worker limit.
+    workers = parallel
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
         future_to_path = {
@@ -173,6 +215,7 @@ def process_batch(
                 clean,
                 preserve_layout,
                 source_root,
+                output_stems[p],
             ): p
             for p in inputs
         }

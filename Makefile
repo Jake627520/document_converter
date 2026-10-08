@@ -15,8 +15,8 @@ audit:
 	pip-licenses --fail-on="AGPL;GPLv3"
 
 specs:
-	@echo "Checking OpenSpec specifications..."
-	@test -d specs && ls -la specs/*.md
+	@echo "Validating OpenSpec changes and specs..."
+	openspec validate --all
 
 help:
 	document-converter --help
