@@ -1,0 +1,59 @@
+# Virtual environments and Python caches
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+*.pyd
+
+# Build & packaging artifacts
+dist/
+build/
+*.egg-info/
+*.egg
+
+# Secrets, credentials and environment variables
+.env
+.env.*
+*.pem
+*.key
+*.cert
+*.crt
+id_rsa
+*.token
+credentials.json
+
+# Local conversion outputs and temporary artifacts
+converted/
+outputs/
+inputs/
+out/
+*_assets/
+.document-converter-*/
+*.tmp
+*.log
+
+# Sensitive test files & user documents (prevent accidental commit of real documents)
+test_docs/real/
+sample_documents/
+*.pdf
+*.docx
+*.doc
+*.pptx
+*.ppt
+*.xlsx
+*.xls
+
+# Model weights, caches and checkpoints
+models/
+checkpoints/
+.cache/
+huggingface/
+torch_cache/
+
+# OS specific files
+.DS_Store
+Thumbs.db
