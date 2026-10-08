@@ -1,4 +1,7 @@
 import unittest
+import shutil
+import tempfile
+from pathlib import Path
 
 try:
     from typer.testing import CliRunner
@@ -31,6 +34,21 @@ class TestCli(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertIn("sample_text.pdf", result.output)
         self.assertIn("text_based", result.output)
+
+    def test_inspect_directory_shows_distinguishable_relative_paths(self):
+        fixture = Path(__file__).parent / "fixtures" / "sample_text.pdf"
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "input"
+            (root / "department-a").mkdir(parents=True)
+            (root / "department-b").mkdir()
+            shutil.copyfile(fixture, root / "department-a" / "statement.pdf")
+            shutil.copyfile(fixture, root / "department-b" / "statement.pdf")
+
+            result = self.runner.invoke(app, ["inspect", str(root)])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("department-a/statement.pdf", result.output)
+        self.assertIn("department-b/statement.pdf", result.output)
 
 if __name__ == "__main__":
     unittest.main()

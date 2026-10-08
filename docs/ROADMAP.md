@@ -6,8 +6,8 @@
 - **CHG-002 — Batch parallel processing**: implemented with a default of one worker, a hard limit of four, per-file fault isolation, relative-directory preservation, and collision-safe output names. Its OpenSpec change remains in the change history pending review/archive workflow.
 - **PDF text/scanned detection**: already implemented in `document_converter/detector.py` and integrated into engine selection in `document_converter/pipeline.py`. Do not create a new OCR-detection implementation change unless a specific missing behavior is identified.
 
-## Next candidate
+## Active development
 
-- **CHG-003 — Watch mode**: a candidate for a future proposal to monitor an input directory and convert new or changed files. It is not yet specified or implemented. Before implementation, define stable-file detection, duplicate-event handling, output-directory exclusion, per-file errors, shutdown behavior, and any proposed dependency/license impact in an OpenSpec change.
+- **CHG-003 — Watch mode**: in development under `openspec/changes/CHG-003-watch-mode/`. Uses standard-library polling, stable-file fingerprints, output-subtree exclusion, and existing batch fault isolation. Local-first; no runtime dependency or model is added.
 
-This roadmap is a planning note; it does not claim that the candidate has been approved or scheduled.
+CHG-003 is approved for implementation in this development session; it has not yet been committed or released.

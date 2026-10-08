@@ -4,6 +4,7 @@ from rich.console import Console
 from rich.table import Table
 from .pipeline import discover_inputs, process_batch, DEFAULT_PARALLEL, MAX_WORKER_LIMIT
 from .detector import inspect_pdf
+from .watcher import watch_directory, validate_watch_paths, validate_watch_interval
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 console = Console()
@@ -18,6 +19,8 @@ def convert(
     clean: bool = typer.Option(False, "--clean", help="Clean up markdown formatting and page artifacts"),
     preserve_layout: bool = typer.Option(False, "--preserve-layout", help="Preserve raw page breaks and layout in markdown"),
     parallel: int = typer.Option(DEFAULT_PARALLEL, "--parallel", "-p", help=f"Concurrent worker count (1-{MAX_WORKER_LIMIT})"),
+    watch: bool = typer.Option(False, "--watch", help="Watch a directory for new or changed files"),
+    watch_interval: float = typer.Option(1.0, "--watch-interval", help="Finite polling interval in seconds when --watch is enabled"),
 ):
     """Convert local documents to Markdown/HTML/JSON/text."""
     valid = {"md", "html", "json", "txt"}
@@ -32,6 +35,38 @@ def convert(
         raise typer.BadParameter("--parallel must be at least 1")
     if parallel > MAX_WORKER_LIMIT:
         raise typer.BadParameter(f"--parallel cannot exceed the safe limit of {MAX_WORKER_LIMIT}")
+    if watch:
+        try:
+            validate_watch_interval(watch, watch_interval)
+            validate_watch_paths(source, output)
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc)) from exc
+
+        def report_watch_results(batch_results):
+            for item in batch_results:
+                if item["success"]:
+                    console.print(f"[green]converted[/green] {item['path']}")
+                    for warning in item.get("warnings", []):
+                        console.print(f"[yellow]warning:[/yellow] {item['path']}: {warning}")
+                else:
+                    console.print(f"[red]failed[/red] {item['path']}: {item.get('error')}")
+
+        try:
+            watch_directory(
+                source,
+                output,
+                interval=watch_interval,
+                formats=to,
+                engine_name=engine,
+                image_mode=images,
+                clean=clean,
+                preserve_layout=preserve_layout,
+                parallel=parallel,
+                on_results=report_watch_results,
+            )
+        except KeyboardInterrupt:
+            console.print("Watch stopped.")
+        return
 
     inputs = discover_inputs(source)
     batch_results = process_batch(
@@ -69,13 +104,21 @@ def inspect_cmd(
 ):
     """Inspect whether a PDF has text layers or is scanned/image-based."""
     inputs = discover_inputs(source)
-    table = Table("File", "Pages", "Text Chars", "Text Layer", "Classification", "Analyzer")
+    table = Table()
+    table.add_column("File", overflow="fold")
+    table.add_column("Pages")
+    table.add_column("Chars")
+    table.add_column("Layer")
+    table.add_column("Type")
+    table.add_column("Tool")
+    source_root = source if source.is_dir() else source.parent
     for path in inputs:
+        display_path = path.relative_to(source_root).as_posix() if source.is_dir() else path.name
         if path.suffix.lower() == ".pdf":
             try:
                 prof = inspect_pdf(path)
                 table.add_row(
-                    str(path),
+                    display_path,
                     str(prof.page_count),
                     str(prof.total_chars),
                     "Yes" if prof.has_text_layer else "No",
@@ -83,9 +126,9 @@ def inspect_cmd(
                     prof.details.get("analyzer", "default"),
                 )
             except Exception as e:
-                table.add_row(str(path), "-", "-", "-", f"ERROR: {e}", "-")
+                table.add_row(display_path, "-", "-", "-", f"ERROR: {e}", "-")
         else:
-            table.add_row(str(path), "-", "-", "-", "non-pdf", "-")
+            table.add_row(display_path, "-", "-", "-", "non-pdf", "-")
     console.print(table)
 
 @app.command("list-engines")
