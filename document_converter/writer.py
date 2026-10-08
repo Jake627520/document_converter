@@ -1,6 +1,7 @@
 from pathlib import Path
 from .models import ConversionResult, OutputFormat
 from .cleaner import clean_markdown
+from .renderer import render_html
 
 def write_result(
     result: ConversionResult,
@@ -25,8 +26,8 @@ def write_result(
     for fmt in formats:
         value = values.get(fmt)
         if value is None:
-            if fmt == "html" and md:
-                value = markdown_fallback_html(md, stem)
+            if fmt == "html" and md is not None:
+                value = render_html(md, title=stem)
             else:
                 result.warnings.append(f"{fmt} is unavailable from engine {result.engine}")
                 continue
@@ -40,19 +41,5 @@ def write_result(
             target.write_bytes(data)
 
 def markdown_fallback_html(md: str, title: str) -> str:
-    try:
-        import markdown
-        body = markdown.markdown(md, extensions=["tables", "fenced_code"])
-    except Exception:
-        body = "<pre>" + _escape(md) + "</pre>"
-    return f"""<!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><title>{_escape(title)}</title></head>
-<body>
-{body}
-</body>
-</html>
-"""
-
-def _escape(s: str) -> str:
-    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    """Backwards compatibility helper."""
+    return render_html(md, title=title)
