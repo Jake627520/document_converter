@@ -26,8 +26,9 @@ The built-in renderer MUST support headings, paragraphs, ordered and unordered l
 - **THEN** the renderer omits the language class rather than emitting an unsafe attribute
 
 ### Requirement: Preserve engine HTML
-When a conversion engine supplies HTML, the writer MUST write that HTML unchanged and MUST NOT replace it with the Markdown fallback.
+When a conversion engine supplies HTML, the writer MUST preserve it as the HTML source and MUST NOT replace it with the Markdown fallback. In `referenced` image mode, it MAY rewrite only local `<img src>` attributes matching accepted returned assets; all other HTML content MUST remain unchanged.
 
 #### Scenario: Engine provides native HTML
 - **WHEN** HTML output is requested and both native HTML and Markdown are present
-- **THEN** the output file contains the native HTML unchanged
+- **THEN** the output file uses native HTML rather than Markdown fallback
+- **AND** its content remains unchanged except for matched local image `src` values in `referenced` mode

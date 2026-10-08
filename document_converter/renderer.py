@@ -6,6 +6,7 @@ Change ID: 001 - Standalone Offline HTML Renderer
 import html
 import re
 from typing import Optional
+from urllib.parse import unquote, urlsplit
 
 EMBEDDED_CSS = """
 :root {
@@ -119,13 +120,17 @@ ul, ol {
 }
 """
 
-def render_html(markdown: str, title: Optional[str] = "Document") -> str:
+def render_html(
+    markdown: str,
+    title: Optional[str] = "Document",
+    image_paths: dict[str, str] | None = None,
+) -> str:
     """
     Convert Markdown to semantic HTML5.
     100% offline self-contained document with zero external network CDN dependencies.
     """
     safe_title = html.escape(title or "Document")
-    body_content = _parse_markdown_to_body(markdown)
+    body_content = _parse_markdown_to_body(markdown, image_paths=image_paths)
     
     return f"""<!doctype html>
 <html lang="zh-TW">
@@ -151,7 +156,7 @@ def _escape_html(text: str) -> str:
     """Escape HTML special characters."""
     return html.escape(text)
 
-def _format_inline(text: str) -> str:
+def _format_inline(text: str, image_paths: dict[str, str] | None = None) -> str:
     """Handle inline formatting: inline code, bold, italic, and HTML escaping."""
     parts = re.split(r"(`[^`]+`)", text)
     formatted_parts = []
@@ -160,13 +165,42 @@ def _format_inline(text: str) -> str:
             code_content = html.escape(part[1:-1])
             formatted_parts.append(f"<code>{code_content}</code>")
         else:
-            escaped = html.escape(part)
-            escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
-            escaped = re.sub(r"\*([^*]+)\*", r"<em>\1</em>", escaped)
-            formatted_parts.append(escaped)
+            cursor = 0
+            for image_match in re.finditer(r"!\[([^\]]*)\]\((<[^>]*>|[^)\s]+)\)", part):
+                formatted_parts.append(_format_text(part[cursor:image_match.start()]))
+                raw_src = image_match.group(2)
+                src = raw_src[1:-1] if raw_src.startswith("<") and raw_src.endswith(">") else raw_src
+                parsed_src = urlsplit(src)
+                decoded_path = unquote(parsed_src.path)
+                mapped_src = image_paths.get(parsed_src.path) if image_paths else None
+                if (
+                    mapped_src is not None
+                    and not parsed_src.scheme
+                    and not parsed_src.netloc
+                    and not src.startswith("//")
+                    and "\\" not in decoded_path
+                    and not decoded_path.startswith("/")
+                    and ".." not in decoded_path.split("/")
+                ):
+                    alt = html.escape(image_match.group(1), quote=True)
+                    query = f"?{parsed_src.query}" if parsed_src.query else ""
+                    fragment = f"#{parsed_src.fragment}" if parsed_src.fragment else ""
+                    safe_src = html.escape(f"{mapped_src}{query}{fragment}", quote=True)
+                    formatted_parts.append(f'<img src="{safe_src}" alt="{alt}">')
+                else:
+                    formatted_parts.append(_format_text(image_match.group(0)))
+                cursor = image_match.end()
+            formatted_parts.append(_format_text(part[cursor:]))
     return "".join(formatted_parts)
 
-def _parse_markdown_to_body(md: str) -> str:
+
+def _format_text(text: str) -> str:
+    escaped = html.escape(text)
+    escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
+    escaped = re.sub(r"\*([^*]+)\*", r"<em>\1</em>", escaped)
+    return escaped
+
+def _parse_markdown_to_body(md: str, image_paths: dict[str, str] | None = None) -> str:
     if not md or not md.strip():
         return ""
 
@@ -208,7 +242,7 @@ def _parse_markdown_to_body(md: str) -> str:
         h_match = re.match(r"^(#{1,6})\s+(.+)$", stripped)
         if h_match:
             level = len(h_match.group(1))
-            heading_text = _format_inline(h_match.group(2).strip())
+            heading_text = _format_inline(h_match.group(2).strip(), image_paths)
             output.append(f"<h{level}>{heading_text}</h{level}>")
             idx += 1
             continue
@@ -222,7 +256,7 @@ def _parse_markdown_to_body(md: str) -> str:
                 idx += 2
                 table_html = ["<table>", "<thead><tr>"]
                 for hc in header_cells:
-                    table_html.append(f"<th>{_format_inline(hc)}</th>")
+                    table_html.append(f"<th>{_format_inline(hc, image_paths)}</th>")
                 table_html.append("</tr></thead>")
                 
                 rows_html = []
@@ -231,7 +265,7 @@ def _parse_markdown_to_body(md: str) -> str:
                     if not (row_line.startswith("|") and row_line.endswith("|")):
                         break
                     cells = [c.strip() for c in row_line[1:-1].split("|")]
-                    rows_html.append("<tr>" + "".join(f"<td>{_format_inline(c)}</td>" for c in cells) + "</tr>")
+                    rows_html.append("<tr>" + "".join(f"<td>{_format_inline(c, image_paths)}</td>" for c in cells) + "</tr>")
                     idx += 1
                 if rows_html:
                     table_html.append("<tbody>" + "".join(rows_html) + "</tbody>")
@@ -244,7 +278,7 @@ def _parse_markdown_to_body(md: str) -> str:
             items = []
             while idx < total and re.match(r"^[-*]\s+", lines[idx].strip()):
                 item_text = re.sub(r"^[-*]\s+", "", lines[idx].strip())
-                items.append(f"<li>{_format_inline(item_text)}</li>")
+                items.append(f"<li>{_format_inline(item_text, image_paths)}</li>")
                 idx += 1
             output.append("<ul>" + "".join(items) + "</ul>")
             continue
@@ -254,7 +288,7 @@ def _parse_markdown_to_body(md: str) -> str:
             items = []
             while idx < total and re.match(r"^\d+\.\s+", lines[idx].strip()):
                 item_text = re.sub(r"^\d+\.\s+", "", lines[idx].strip())
-                items.append(f"<li>{_format_inline(item_text)}</li>")
+                items.append(f"<li>{_format_inline(item_text, image_paths)}</li>")
                 idx += 1
             output.append("<ol>" + "".join(items) + "</ol>")
             continue
@@ -279,6 +313,6 @@ def _parse_markdown_to_body(md: str) -> str:
 
         if p_lines:
             raw_p_text = "\n".join(p_lines)
-            output.append(f"<p>{_format_inline(raw_p_text)}</p>")
+            output.append(f"<p>{_format_inline(raw_p_text, image_paths)}</p>")
 
     return "\n\n".join(output)

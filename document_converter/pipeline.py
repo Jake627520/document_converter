@@ -112,6 +112,7 @@ def _process_single_item(
             clean=clean,
             preserve_layout=preserve_layout,
             output_stem=output_stem,
+            image_mode=image_mode,
         )
         return {
             "path": path,
