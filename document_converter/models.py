@@ -15,3 +15,4 @@ class ConversionResult:
     text: str | None = None
     assets: dict[str, bytes] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
+    metadata: dict[str, object] = field(default_factory=dict)

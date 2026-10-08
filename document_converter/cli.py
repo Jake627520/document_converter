@@ -4,6 +4,7 @@ from rich.console import Console
 from rich.table import Table
 from .pipeline import discover_inputs, convert_one
 from .writer import write_result
+from .detector import inspect_pdf
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 console = Console()
@@ -27,7 +28,7 @@ def convert(
         raise typer.BadParameter("images must be none, referenced, or embedded")
 
     inputs = discover_inputs(source)
-    table = Table("Source", "Engine", "Outputs", "Status")
+    table = Table("Source", "Engine", "Type", "Outputs", "Status")
     for path in inputs:
         # Preserve directory structure for batch jobs.
         rel_parent = path.parent.relative_to(source) if source.is_dir() else Path(".")
@@ -35,14 +36,41 @@ def convert(
         try:
             result = convert_one(path, engine, images)
             write_result(result, outdir, to)
+            profile = result.metadata.get("pdf_profile")
+            doc_type = profile.classification if profile else path.suffix.lower()
             status = "OK"
             if result.warnings:
-                status = "OK / warnings"
-            table.add_row(str(path), result.engine, ", ".join(to), status)
+                status = "OK (warnings)"
+            table.add_row(str(path), result.engine, doc_type, ", ".join(to), status)
             for warning in result.warnings:
                 console.print(f"[yellow]warning:[/yellow] {path}: {warning}")
         except Exception as exc:
-            table.add_row(str(path), "-", ", ".join(to), f"FAILED: {exc}")
+            table.add_row(str(path), "-", path.suffix.lower(), ", ".join(to), f"FAILED: {exc}")
+    console.print(table)
+
+@app.command("inspect")
+def inspect_cmd(
+    source: Path = typer.Argument(..., exists=True, readable=True),
+):
+    """Inspect whether a PDF has text layers or is scanned/image-based."""
+    inputs = discover_inputs(source)
+    table = Table("File", "Pages", "Text Chars", "Text Layer", "Classification", "Analyzer")
+    for path in inputs:
+        if path.suffix.lower() == ".pdf":
+            try:
+                prof = inspect_pdf(path)
+                table.add_row(
+                    str(path),
+                    str(prof.page_count),
+                    str(prof.total_chars),
+                    "Yes" if prof.has_text_layer else "No",
+                    prof.classification,
+                    prof.details.get("analyzer", "default"),
+                )
+            except Exception as e:
+                table.add_row(str(path), "-", "-", "-", f"ERROR: {e}", "-")
+        else:
+            table.add_row(str(path), "-", "-", "-", "non-pdf", "-")
     console.print(table)
 
 @app.command("list-engines")
