@@ -14,6 +14,19 @@ The CLI MUST accept a file or directory and support Markdown, HTML, JSON, and pl
 - **WHEN** the user invokes `document-converter inspect` with a file or directory
 - **THEN** the CLI reports PDF page, text-layer, and classification information for PDF inputs, showing a basename for a file source and root-relative paths for directory sources
 
+### Requirement: Select an engine and cleaning behavior
+The convert command MUST accept `auto`, `docling`, `docling-native`, `marker` and
+`mineru` as engine names and reject any other value. With `--clean`, bare numeric
+lines MUST be preserved unless `--strip-page-numbers` is also given.
+
+#### Scenario: Unknown engine name
+- **WHEN** the user passes an engine name outside the supported set
+- **THEN** the CLI reports an input error listing the supported names
+
+#### Scenario: Opt into bare page-number removal
+- **WHEN** the user passes `--clean --strip-page-numbers`
+- **THEN** lines holding only digits are removed from the Markdown output
+
 ### Requirement: Watch a local input directory
 The convert command MUST be able to watch a local directory and convert supported new or changed files after they become stable. Polling MUST use the Python standard library and MUST NOT add runtime dependencies or send local files to a remote service.
 

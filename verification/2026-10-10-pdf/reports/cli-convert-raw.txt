@@ -1,0 +1,2 @@
+$ document-converter convert verification/2026-10-10-pdf/samples --to md --to html --to json --to txt -o verification/2026-10-10-pdf/results-raw --engine docling-native   # no --clean
+exit=0

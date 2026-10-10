@@ -3,6 +3,7 @@ import hashlib
 from pathlib import Path
 from .engines.base import EngineError
 from .engines.docling_engine import DoclingEngine
+from .engines.docling_native_engine import DoclingNativePdfEngine
 from .engines.command_engine import MarkerEngine, MinerUEngine
 from .models import ConversionResult, ImageMode
 from .detector import inspect_pdf, PdfProfile
@@ -25,6 +26,7 @@ def discover_inputs(source: Path) -> list[Path]:
 def choose_engine(name: str, path: Path, profile: PdfProfile | None = None):
     engines = {
         "docling": DoclingEngine(),
+        "docling-native": DoclingNativePdfEngine(),
         "marker": MarkerEngine(),
         "mineru": MinerUEngine(),
     }
@@ -39,9 +41,14 @@ def choose_engine(name: str, path: Path, profile: PdfProfile | None = None):
     is_image = path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
 
     if is_pdf and profile and profile.is_scanned:
-        # Scanned PDF without text layer: prioritize engines with dedicated OCR/VLM capabilities
-        return [engines["docling"], engines["mineru"], engines["marker"]]
-    elif is_pdf or is_image:
+        # Scanned PDF without text layer: prioritize engines with dedicated OCR/VLM
+        # capabilities, then fall back to the model-free reader as a last resort.
+        return [engines["docling"], engines["mineru"], engines["marker"], engines["docling-native"]]
+    elif is_pdf:
+        # The model-free PDF reader runs last: it needs no model weights, so it keeps
+        # conversion working where the model-based engines are unavailable.
+        return [engines["docling"], engines["marker"], engines["mineru"], engines["docling-native"]]
+    elif is_image:
         return [engines["docling"], engines["marker"], engines["mineru"]]
     else:
         return [engines["docling"]]
@@ -78,7 +85,9 @@ def convert_one(path: Path, engine_name: str, image_mode: ImageMode) -> Conversi
                 result.metadata["pdf_profile"] = profile
                 if profile.is_scanned:
                     result.warnings.append(
-                        f"Scanned PDF detected ({profile.page_count} pages, {profile.total_chars} text chars). OCR processing applied."
+                        f"Scanned PDF detected ({profile.page_count} pages, {profile.total_chars} text chars). "
+                        f"Text recovery depends on OCR support in the {result.engine} engine; "
+                        "check the output before relying on it."
                     )
             return result
         except Exception as e:
@@ -95,6 +104,7 @@ def _process_single_item(
     preserve_layout: bool,
     source_root: Path | None,
     output_stem: str,
+    strip_bare_numbers: bool = False,
 ) -> dict:
     rel_parent = path.parent.relative_to(source_root) if (source_root and source_root.is_dir()) else Path(".")
     target_outdir = output_dir / rel_parent
@@ -108,6 +118,7 @@ def _process_single_item(
             preserve_layout=preserve_layout,
             output_stem=output_stem,
             image_mode=image_mode,
+            strip_bare_numbers=strip_bare_numbers,
         )
         return {
             "path": path,
@@ -135,6 +146,7 @@ def process_batch(
     preserve_layout: bool = False,
     parallel: int = DEFAULT_PARALLEL,
     source_root: Path | None = None,
+    strip_bare_numbers: bool = False,
 ) -> list[dict]:
     """
     Process a list of input documents sequentially or in parallel.
@@ -192,6 +204,7 @@ def process_batch(
                 preserve_layout=preserve_layout,
                 source_root=source_root,
                 output_stem=output_stems[p],
+                strip_bare_numbers=strip_bare_numbers,
             )
             for p in inputs
         ]
@@ -212,6 +225,7 @@ def process_batch(
                 preserve_layout,
                 source_root,
                 output_stems[p],
+                strip_bare_numbers,
             ): p
             for p in inputs
         }

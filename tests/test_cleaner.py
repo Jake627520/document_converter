@@ -18,6 +18,29 @@ class TestCleaner(unittest.TestCase):
         self.assertIn("Body text", cleaned)
         self.assertIn("More text", cleaned)
 
+    def test_keeps_a_standalone_number_that_is_document_content(self):
+        """A table cell on its own line must survive --clean."""
+        raw = "LED count\n\n84\n\nmatrix ADB\n"
+        cleaned = clean_markdown(raw)
+        self.assertIn("84", cleaned.splitlines())
+        self.assertIn("LED count", cleaned)
+        self.assertIn("matrix ADB", cleaned)
+
+    def test_strip_bare_numbers_removes_standalone_numerals_on_request(self):
+        raw = "LED count\n\n84\n\nmatrix ADB\n"
+        cleaned = clean_markdown(raw, strip_bare_numbers=True)
+        self.assertNotIn("84", cleaned.splitlines())
+        self.assertIn("LED count", cleaned)
+        self.assertIn("matrix ADB", cleaned)
+
+    def test_labelled_page_markers_are_removed_without_the_flag(self):
+        raw = "Body\nPage 3 of 12\n4 / 20\n- 5 -\nEnd\n"
+        cleaned = clean_markdown(raw)
+        for marker in ("Page 3 of 12", "4 / 20", "- 5 -"):
+            self.assertNotIn(marker, cleaned)
+        self.assertIn("Body", cleaned)
+        self.assertIn("End", cleaned)
+
     def test_protects_fenced_code_blocks(self):
         code = "```python\ndef foo():\n\n\n    return 42\n```"
         raw = f"Intro\n\n\n\n{code}\n\n\n\nOutro"

@@ -53,6 +53,33 @@ The default local engine is Docling:
 pip install docling
 ```
 
+### PDF Without PyTorch (`docling-native`)
+
+Docling's default PDF pipeline runs layout and table models: it needs PyTorch
+(a multi-gigabyte install) and downloads model weights from huggingface.co on
+first use. The `docling-native` engine uses Docling's model-free
+`NativePdfPipeline` instead, which reads the text and bitmaps the PDF already
+contains and runs no models, so it works offline from a much smaller install:
+
+```bash
+# instead of pip install -e . , which pulls docling and PyTorch
+pip install "docling-slim[convert-core,format-pdf]" typer rich pypdf
+pip install -e . --no-deps
+```
+
+That install is roughly 0.4 GB and contains no PyTorch. `--engine auto` also
+works there: the model-based engines fail to load and the model-free reader
+converts the file.
+
+It converts PDF only, and it reconstructs no structure: no heading levels, no
+Markdown tables, no reading-order recovery and no OCR, so a scanned page yields
+no text. Every conversion records that limitation as a warning. `auto` keeps it
+last, so model-based engines are preferred wherever they are installed.
+
+```bash
+document-converter convert paper.pdf --engine docling-native --to md --to html
+```
+
 ### Optional Engines (Isolated)
 
 ```bash
@@ -62,6 +89,13 @@ pip install ".[marker]"
 # MinerU (verify the exact package, model artifact, and deployment terms before use)
 # Consult docs/LICENSE_AUDIT.md; install its CLI separately if appropriate.
 ```
+
+### Private macOS Application Candidate (Two Profiles)
+
+兩個已審查的發行設定檔：`text` 只收 `.md`/`.markdown`/`.txt`（原本的版本，不含任何引擎與
+模型）；`pdf` 另外收**有文字層的 PDF**，用不需模型的讀取器轉換（沒有 OCR、不重建標題與表格、
+不含 PyTorch、不下載模型，掃描檔會明確告知沒有文字層）。建置與驗收指令見
+[macOS 建置與本機使用指南](docs-release/macos.md)。
 
 ### Private macOS Application Candidate
 
@@ -101,7 +135,7 @@ App 審查流程處理。此 App 只提供 Apple Silicon macOS；**Windows 沒�
 #### 開發者：從原始碼執行
 
 以下是開發者流程，**一般使用者不需要執行**。從原始碼安裝需要 Python
-（版本 `3.10` 至 `3.14`）與 pip；啟動瀏覽器介面還要安裝 web 依賴：
+（版本 `3.11` 至 `3.14`）與 pip；啟動瀏覽器介面還要安裝 web 依賴：
 
 ```bash
 python -m venv .venv
@@ -138,9 +172,23 @@ Force an engine:
 
 ```bash
 document-converter convert paper.pdf --engine docling --to md --to html
+document-converter convert paper.pdf --engine docling-native --to md   # no PyTorch, no model download
 document-converter convert paper.pdf --engine marker --to md
 document-converter convert paper.pdf --engine mineru --to md
 ```
+
+Clean up Markdown noise:
+
+```bash
+document-converter convert paper.pdf --to md --clean
+document-converter convert paper.pdf --to md --clean --strip-page-numbers
+```
+
+`--clean` removes labelled page markers such as `Page 3 of 12`, `4 / 20` and
+`- 5 -`. It keeps a line that holds only digits, because engines emit table
+cells and other document values on their own line; add `--strip-page-numbers`
+when a document's page numbers survive as bare numerals and you accept that
+standalone numeric values are removed with them.
 
 ## 5. Architecture & Design
 

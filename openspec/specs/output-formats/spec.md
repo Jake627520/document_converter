@@ -14,6 +14,23 @@ The writer MUST emit requested available formats as UTF-8 files and report when 
 - **WHEN** HTML output is requested and an engine supplies Markdown but no HTML
 - **THEN** the built-in renderer writes a complete HTML5 document with embedded styles and no external resources
 
+### Requirement: Clean Markdown without discarding content
+Cleaning MUST remove labelled page markers and MUST preserve a line that holds only
+digits, because engines emit table cells and other document values on their own
+line. Removing those lines MUST be opt-in.
+
+#### Scenario: Document value on its own line
+- **WHEN** cleaned Markdown contains a line holding only digits
+- **THEN** that line is preserved in the output
+
+#### Scenario: Labelled page marker
+- **WHEN** cleaned Markdown contains a marker such as `Page 3 of 12`, `4 / 20` or `- 5 -`
+- **THEN** that line is removed
+
+#### Scenario: Bare page numbers are opted into
+- **WHEN** the caller requests bare-number stripping
+- **THEN** lines holding only digits are removed as well
+
 ### Requirement: Escape generated HTML content
 The built-in renderer MUST escape source text and the document title, and MUST NOT execute raw HTML.
 

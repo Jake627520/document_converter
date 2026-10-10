@@ -1,0 +1,8 @@
+$ document-converter convert verification/2026-10-10-pdf/samples/headlamp_spec_zh.pdf --to md -o <tmp> --clean --strip-page-numbers --engine docling-native
+exit=0
+
+# diff: default --clean (left) vs --clean --strip-page-numbers (right)
+37,38d36
+< 84
+< 
+(the 84 is the LED-count table value; it survives by default and is dropped only on request)

@@ -1,4 +1,10 @@
-"""Text-only release integration checks without installing test dependencies."""
+"""Release integration checks without installing test dependencies.
+
+Each reviewed profile runs the real launcher from its own isolated build
+environment: `text` from build/private-release/venv, `pdf` from
+build/private-release/venv-pdf. A profile whose environment is absent is
+skipped, so this file is safe to run from a plain checkout.
+"""
 from __future__ import annotations
 
 import json
@@ -6,27 +12,50 @@ from pathlib import Path
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import unittest
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from pdf_samples import write_scanned_pdf, write_text_pdf
+
 ROOT = Path(__file__).resolve().parents[1]
 BUILD_PYTHON = ROOT / "build/private-release/venv/bin/python"
+PDF_BUILD_PYTHON = ROOT / "build/private-release/venv-pdf/bin/python"
 LAUNCHER = ROOT / "scripts/packaging/release_launcher.py"
 
 
-@unittest.skipUnless(BUILD_PYTHON.is_file(), "prepare the isolated release environment first")
-class ReleaseRuntimeTests(unittest.TestCase):
+class ReleaseRuntimeMixin:
+    """Start the launcher from an isolated build environment and talk to it."""
+
+    build_python = BUILD_PYTHON
+    launch_arguments: tuple[str, ...] = ()
+
+    @classmethod
+    def launcher_command(cls, *arguments):
+        argv = [str(LAUNCHER), *cls.launch_arguments, *arguments]
+        return [
+            str(cls.build_python),
+            "-I",
+            "-c",
+            f"import runpy,sys;sys.path.insert(0,{str(ROOT)!r});sys.argv={argv!r};"
+            f"runpy.run_path({str(LAUNCHER)!r},run_name='__main__')",
+        ]
+
     @classmethod
     def setUpClass(cls):
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))
             cls.port = sock.getsockname()[1]
         cls.base = f"http://127.0.0.1:{cls.port}"
-        code = f"import runpy,sys;sys.path.insert(0,{str(ROOT)!r});sys.argv=[{str(LAUNCHER)!r},'--no-browser','--port',{str(cls.port)!r}];runpy.run_path({str(LAUNCHER)!r},run_name='__main__')"
-        cls.process = subprocess.Popen([str(BUILD_PYTHON), "-I", "-c", code], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        for _ in range(80):
+        cls.process = subprocess.Popen(
+            cls.launcher_command("--no-browser", "--port", str(cls.port)),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        for _ in range(200):
             try:
                 with urlopen(cls.base, timeout=0.2):
                     return
@@ -36,7 +65,7 @@ class ReleaseRuntimeTests(unittest.TestCase):
                 time.sleep(0.05)
         cls.process.terminate()
         cls.process.wait(timeout=5)
-        raise RuntimeError("Isolated text release did not start")
+        raise RuntimeError("Isolated release did not start")
 
     @classmethod
     def tearDownClass(cls):
@@ -48,10 +77,46 @@ class ReleaseRuntimeTests(unittest.TestCase):
         body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"target\"\r\n\r\n{target}\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"files\"; filename=\"{filename}\"\r\nContent-Type: application/octet-stream\r\n\r\n").encode() + data + f"\r\n--{boundary}--\r\n".encode()
         request = Request(self.base + "/convert", data=body, headers={"Content-Type": f"multipart/form-data; boundary={boundary}", **(headers or {})})
         try:
-            with urlopen(request, timeout=5) as response:
+            with urlopen(request, timeout=60) as response:
                 return response.status, response.read()
         except HTTPError as exc:
             return exc.code, exc.read()
+
+    def diagnostics(self):
+        result = subprocess.run(self.launcher_command("--diagnostics"), check=True, capture_output=True, text=True)
+        return json.loads(result.stdout)
+
+    def assert_shared_behavior(self):
+        """Checks every profile must pass."""
+        data = "# Release smoke\n\n**本機文件**\n".encode()
+        self.assertEqual(self.request_conversion("notes.md", data), (200, data))
+        status, html = self.request_conversion("notes.markdown", data, "html")
+        self.assertEqual(status, 200)
+        self.assertIn(b"<h1>Release smoke</h1>", html)
+        self.assertIn("<strong>本機文件</strong>".encode(), html)
+        status, html = self.request_conversion("plain.txt", "本機 UTF-8 文字".encode(), "html")
+        self.assertEqual(status, 200)
+        self.assertIn("<p>本機 UTF-8 文字</p>".encode(), html)
+        self.assertEqual(self.request_conversion("plain.txt", b"\xff")[0], 422)
+        self.assertEqual(self.request_conversion("report.docx", b"stub")[0], 400)
+        self.assertEqual(self.request_conversion("notes.md", b"hello", headers={"Origin": "https://attacker.example"})[0], 403)
+        try:
+            urlopen(Request(self.base, headers={"Host": "attacker.example"}))
+            self.fail("Remote Host accepted")
+        except HTTPError as exc:
+            self.assertEqual(exc.code, 400)
+        diagnostic = self.diagnostics()
+        self.assertEqual(diagnostic["forbidden_loaded"], [])
+        for path in diagnostic["paths"]:
+            if "site-packages" in path:
+                self.assertTrue(Path(path).resolve().is_relative_to(self.build_python.parents[1].resolve()))
+        return diagnostic
+
+
+@unittest.skipUnless(BUILD_PYTHON.is_file(), "prepare the isolated text release environment first")
+class TextReleaseRuntimeTests(ReleaseRuntimeMixin, unittest.TestCase):
+    build_python = BUILD_PYTHON
+    launch_arguments = ("--profile", "text")
 
     def test_page_has_only_reviewed_inputs(self):
         with urlopen(self.base) as response:
@@ -60,42 +125,48 @@ class ReleaseRuntimeTests(unittest.TestCase):
         self.assertIn("此版本不提供 PDF、Office、圖片或 OCR", page)
         self.assertNotIn('accept=".pdf', page)
 
-    def test_markdown_round_trip_and_html(self):
-        data = "# Release smoke\n\n**本機文件**\n".encode()
-        self.assertEqual(self.request_conversion("notes.md", data), (200, data))
-        status, html = self.request_conversion("notes.markdown", data, "html")
-        self.assertEqual(status, 200)
-        self.assertIn(b"<h1>Release smoke</h1>", html)
-        self.assertIn("<strong>本機文件</strong>".encode(), html)
-
-    def test_text_to_html(self):
-        status, html = self.request_conversion("plain.txt", "本機 UTF-8 文字".encode(), "html")
-        self.assertEqual(status, 200)
-        self.assertIn("<p>本機 UTF-8 文字</p>".encode(), html)
-
     def test_pdf_is_rejected(self):
         self.assertEqual(self.request_conversion("sample.pdf", b"%PDF-1.7")[0], 400)
 
-    def test_invalid_utf8_does_not_fall_back_to_engines(self):
-        self.assertEqual(self.request_conversion("plain.txt", b"\xff")[0], 422)
-
-    def test_security_boundary_is_shared(self):
-        self.assertEqual(self.request_conversion("notes.md", b"hello", headers={"Origin": "https://attacker.example"})[0], 403)
-        try:
-            urlopen(Request(self.base, headers={"Host": "attacker.example"}))
-            self.fail("Remote Host accepted")
-        except HTTPError as exc:
-            self.assertEqual(exc.code, 400)
-
-    def test_release_does_not_load_optional_engines_or_system_packages(self):
-        code = f"import runpy,sys;sys.path.insert(0,{str(ROOT)!r});sys.argv=[{str(LAUNCHER)!r},'--diagnostics'];runpy.run_path({str(LAUNCHER)!r},run_name='__main__')"
-        result = subprocess.run([str(BUILD_PYTHON), "-I", "-c", code], check=True, capture_output=True, text=True)
-        diagnostic = json.loads(result.stdout)
-        self.assertEqual(diagnostic["forbidden_loaded"], [])
+    def test_shared_conversion_and_security_behavior(self):
+        diagnostic = self.assert_shared_behavior()
         self.assertEqual(diagnostic["profile"], "text-only")
-        for path in diagnostic["paths"]:
-            if "site-packages" in path:
-                self.assertTrue(Path(path).resolve().is_relative_to(BUILD_PYTHON.parents[1].resolve()))
+        self.assertEqual(diagnostic["inputs"], [".markdown", ".md", ".txt"])
+
+
+@unittest.skipUnless(PDF_BUILD_PYTHON.is_file(), "prepare the isolated pdf release environment first")
+class PdfReleaseRuntimeTests(ReleaseRuntimeMixin, unittest.TestCase):
+    build_python = PDF_BUILD_PYTHON
+    launch_arguments = ("--profile", "pdf")
+
+    def test_page_offers_pdf_and_states_its_limits(self):
+        with urlopen(self.base) as response:
+            page = response.read().decode()
+        self.assertIn('accept=".pdf,.md,.markdown,.txt"', page)
+        self.assertIn("僅限已有文字層者", page)
+        self.assertIn("此版本不含 OCR", page)
+
+    def test_text_layer_pdf_converts(self):
+        with tempfile.TemporaryDirectory() as temp:
+            sample = write_text_pdf(Path(temp) / "sample.pdf").read_bytes()
+        status, markdown = self.request_conversion("sample.pdf", sample)
+        self.assertEqual(status, 200)
+        self.assertIn("readable text stream".encode(), markdown)
+        status, html = self.request_conversion("sample.pdf", sample, "html")
+        self.assertEqual(status, 200)
+        self.assertIn(b"<html", html.lower())
+
+    def test_scanned_pdf_is_explained_rather_than_returned_empty(self):
+        with tempfile.TemporaryDirectory() as temp:
+            sample = write_scanned_pdf(Path(temp) / "scan.pdf").read_bytes()
+        status, body = self.request_conversion("scan.pdf", sample)
+        self.assertEqual(status, 422)
+        self.assertIn("沒有文字層", body.decode())
+
+    def test_shared_conversion_and_security_behavior(self):
+        diagnostic = self.assert_shared_behavior()
+        self.assertEqual(diagnostic["profile"], "pdf-text")
+        self.assertEqual(diagnostic["inputs"], [".markdown", ".md", ".pdf", ".txt"])
 
 
 if __name__ == "__main__":

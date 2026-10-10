@@ -148,13 +148,14 @@ def write_result(
     preserve_layout: bool = False,
     output_stem: str | None = None,
     image_mode: str = "none",
+    strip_bare_numbers: bool = False,
 ):
     output_dir.mkdir(parents=True, exist_ok=True)
     stem = output_stem or result.source.stem
 
     md = result.markdown
     if md and clean:
-        md = clean_markdown(md, preserve_layout=preserve_layout)
+        md = clean_markdown(md, preserve_layout=preserve_layout, strip_bare_numbers=strip_bare_numbers)
 
     referenced_assets: dict[str, tuple[Path, bytes]] = {}
     asset_paths: dict[str, str] = {}

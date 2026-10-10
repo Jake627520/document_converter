@@ -6,3 +6,7 @@ SUPPORTED = {
 }
 
 TEXT_SUPPORTED = frozenset({".md", ".markdown", ".txt"})
+
+# Release profile that adds PDF through the model-free reader: text-layer PDFs
+# only, with no OCR, no Office formats and no model weights.
+PDF_TEXT_SUPPORTED = frozenset(TEXT_SUPPORTED | {".pdf"})

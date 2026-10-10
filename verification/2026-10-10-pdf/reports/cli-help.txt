@@ -1,0 +1,44 @@
+$ document-converter --help
+                                                                                
+ Usage: document-converter [OPTIONS] COMMAND [ARGS]...                          
+                                                                                
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ───────────────────────────────────────────────────────────────────╮
+│ convert       Convert local documents to Markdown/HTML/JSON/text.            │
+│ inspect       Inspect whether a PDF has text layers or is                    │
+│               scanned/image-based.                                           │
+│ list-engines  Show available engines.                                        │
+│ web           Start the local browser workbench at http://127.0.0.1:<port>.  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+$ document-converter convert --help
+                                                                                                    
+ Usage: document-converter convert [OPTIONS] SOURCE                                                 
+                                                                                                    
+ Convert local documents to Markdown/HTML/JSON/text.                                                
+                                                                                                    
+╭─ Arguments ──────────────────────────────────────────────────────────────────────────────────────╮
+│ *    source      PATH  [required]                                                                │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────────────────────────╮
+│ --to                          TEXT     Outputs: md html json txt. Repeat --to. [default: md]     │
+│ --output              -o      PATH     [default: converted]                                      │
+│ --engine                      TEXT     auto, docling, docling-native, marker, mineru             │
+│                                        [default: auto]                                           │
+│ --images                      TEXT     none, referenced, embedded [default: none]                │
+│ --clean                                Clean up markdown formatting and page artifacts           │
+│ --strip-page-numbers                   With --clean, also drop lines holding only digits. Off by │
+│                                        default because those lines are often table values rather │
+│                                        than page numbers.                                        │
+│ --preserve-layout                      Preserve raw page breaks and layout in markdown           │
+│ --parallel            -p      INTEGER  Concurrent worker count (1-4) [default: 1]                │
+│ --watch                                Watch a directory for new or changed files                │
+│ --watch-interval              FLOAT    Finite polling interval in seconds when --watch is        │
+│                                        enabled                                                   │
+│                                        [default: 1.0]                                            │
+│ --help                                 Show this message and exit.                               │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+

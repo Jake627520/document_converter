@@ -1,0 +1,5 @@
+$ document-converter list-engines
+docling        installed    primary/local              pip install docling
+docling-native installed    model-free PDF text reader pip install docling-slim
+marker         not detected optional PDF fallback      pip install marker-pdf
+mineru         not detected optional PDF/OCR fallback  install local MinerU 4.x

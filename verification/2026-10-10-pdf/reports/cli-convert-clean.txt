@@ -1,0 +1,19 @@
+$ document-converter convert verification/2026-10-10-pdf/samples --to md --to html --to json --to txt -o verification/2026-10-10-pdf/results-clean --clean --engine docling-native
+warning: verification/2026-10-10-pdf/samples/headlamp_spec_zh.pdf: docling-native ran no layout, table or OCR model: text and images are extracted as the PDF 
+stores them, without heading levels, Markdown tables or reading-order recovery.
+warning: verification/2026-10-10-pdf/samples/scanned_inspection_sheet.pdf: docling-native ran no layout, table or OCR model: text and images are extracted as 
+the PDF stores them, without heading levels, Markdown tables or reading-order recovery.
+warning: verification/2026-10-10-pdf/samples/scanned_inspection_sheet.pdf: No text was recovered. The PDF has no text layer and this engine runs no OCR; use an 
+engine with OCR support for scanned pages.
+warning: verification/2026-10-10-pdf/samples/scanned_inspection_sheet.pdf: Scanned PDF detected (1 pages, 0 text chars). Text recovery depends on OCR support in
+the docling-native engine; check the output before relying on it.
+warning: verification/2026-10-10-pdf/samples/tv_panel_memo_en.pdf: docling-native ran no layout, table or OCR model: text and images are extracted as the PDF 
+stores them, without heading levels, Markdown tables or reading-order recovery.
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+┃ Source                                                           ┃ Engine         ┃ Type       ┃ Outputs             ┃ Status        ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+│ verification/2026-10-10-pdf/samples/headlamp_spec_zh.pdf         │ docling-native │ text_based │ md, html, json, txt │ OK (warnings) │
+│ verification/2026-10-10-pdf/samples/scanned_inspection_sheet.pdf │ docling-native │ scanned    │ md, html, json, txt │ OK (warnings) │
+│ verification/2026-10-10-pdf/samples/tv_panel_memo_en.pdf         │ docling-native │ text_based │ md, html, json, txt │ OK (warnings) │
+└──────────────────────────────────────────────────────────────────┴────────────────┴────────────┴─────────────────────┴───────────────┘
+exit=0

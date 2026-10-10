@@ -1,3 +1,4 @@
+import base64
 import re
 import zlib
 from dataclasses import dataclass, field
@@ -116,6 +117,43 @@ def _inspect_with_fitz(path: Path, max_pages: int) -> PdfProfile:
         details={"analyzer": "pymupdf", "sampled_pages": sample_pages},
     )
 
+def _ascii85_decode(payload: bytes) -> bytes:
+    stripped = payload.strip()
+    if not stripped.startswith(b"<~"):
+        stripped = b"<~" + stripped
+    if not stripped.endswith(b"~>"):
+        stripped = stripped + b"~>"
+    return base64.a85decode(stripped, adobe=True, ignorechars=b" \t\r\n\x0b\x0c")
+
+
+def _decode_stream(stream_bytes: bytes) -> list[bytes]:
+    """Return plausible decodings of one content stream, best candidate first.
+
+    The built-in analyzer reads the raw file without a PDF object parser, so the
+    stream's /Filter entry is not available here. Instead each common text-stream
+    encoding is attempted and the caller keeps whichever decoding exposes a
+    `BT`/`ET` text block: stored, FlateDecode, ASCII85Decode, and ASCII85 wrapping
+    Flate, which is what several generators emit.
+    """
+    candidates: list[bytes] = []
+    for payload in dict.fromkeys((stream_bytes.strip(b"\r\n"), stream_bytes)):
+        candidates.append(payload)
+        try:
+            candidates.append(zlib.decompress(payload))
+        except Exception:
+            pass
+        try:
+            unascii = _ascii85_decode(payload)
+        except Exception:
+            continue
+        candidates.append(unascii)
+        try:
+            candidates.append(zlib.decompress(unascii))
+        except Exception:
+            pass
+    return candidates
+
+
 def _inspect_builtin(path: Path, max_pages: int) -> PdfProfile:
     data = path.read_bytes()
 
@@ -125,27 +163,25 @@ def _inspect_builtin(path: Path, max_pages: int) -> PdfProfile:
 
     has_images = bool(re.search(rb"/Subtype\s*/Image\b", data))
 
-    # Extract text from PDF content streams (handling FlateDecode if compressed)
-    stream_pattern = re.compile(rb"stream\r?\n(.*?)\r?\nendstream", re.DOTALL)
+    # Extract text from PDF content streams. The closing keyword is not required to
+    # sit on its own line: many producers write the stream bytes and `endstream`
+    # without an intervening EOL.
+    stream_pattern = re.compile(rb"stream\r?\n(.*?)endstream", re.DOTALL)
     total_chars = 0
 
     for match in stream_pattern.finditer(data):
-        stream_bytes = match.group(1)
-        decompressed = None
-        try:
-            decompressed = zlib.decompress(stream_bytes)
-        except Exception:
-            decompressed = stream_bytes
-
-        # Look for PDF text show operators: (text) Tj, [(t) 10 (ext)] TJ, ' or "
-        # Or look for Begin Text (BT) ... End Text (ET) blocks
-        if b"BT" in decompressed and b"ET" in decompressed:
+        for decoded in _decode_stream(match.group(1)):
+            # Look for PDF text show operators: (text) Tj, [(t) 10 (ext)] TJ, ' or "
+            # Or look for Begin Text (BT) ... End Text (ET) blocks
+            if b"BT" not in decoded or b"ET" not in decoded:
+                continue
             # Extract parenthesized strings: (sample text)
-            literal_strings = re.findall(rb"\(([^)]+)\)", decompressed)
+            literal_strings = re.findall(rb"\(([^)]+)\)", decoded)
             for s in literal_strings:
                 # filter out non-printable ASCII noise
                 chars = [c for c in s if 32 <= c <= 126 or c in (9, 10, 13)]
                 total_chars += len(chars)
+            break
 
     has_text, is_scanned, classification = _classify(page_count, total_chars, has_images)
     return PdfProfile(

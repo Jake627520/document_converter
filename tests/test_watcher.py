@@ -4,6 +4,8 @@ import math
 from pathlib import Path
 from unittest.mock import patch
 
+from pdf_samples import write_text_pdf
+
 from document_converter.watcher import (
     DirectoryWatcher,
     validate_watch_interval,
@@ -125,7 +127,9 @@ class TestWatchCli(unittest.TestCase):
         from typer.testing import CliRunner
         from document_converter.cli import app
 
-        result = CliRunner().invoke(app, ["convert", "tests/fixtures/sample_text.pdf", "--watch"])
+        with tempfile.TemporaryDirectory() as temp:
+            source = write_text_pdf(Path(temp) / "statement.pdf")
+            result = CliRunner().invoke(app, ["convert", str(source), "--watch"])
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("directory", result.output.lower())
 

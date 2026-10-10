@@ -14,6 +14,25 @@ Each engine adapter MUST expose capability detection and conversion through the 
 - **WHEN** an adapter does not support the input format
 - **THEN** it reports that it cannot handle the input without leaking engine-specific behavior into the CLI
 
+### Requirement: Convert PDFs without model weights
+A model-free PDF adapter MUST convert PDF input using only the text and images the
+file already contains, without model weights or a deep-learning runtime, and MUST
+report its reduced fidelity. Automatic engine selection MUST place it after the
+model-based engines so it serves as the fallback that keeps PDF conversion working.
+
+#### Scenario: Model-based engines are unavailable
+- **WHEN** a PDF is converted and no model-based engine can run
+- **THEN** the model-free adapter converts the file and records a warning that no
+  layout, table or OCR model ran
+
+#### Scenario: Scanned page reaches the model-free adapter
+- **WHEN** the adapter recovers no text because the PDF has no text layer
+- **THEN** it records a warning that no OCR ran rather than reporting usable output
+
+#### Scenario: Non-PDF input
+- **WHEN** the model-free adapter is selected for input that is not a PDF
+- **THEN** it reports that it cannot handle the input
+
 ### Requirement: Keep optional engines optional
 Marker and MinerU MUST remain outside the default dependency set and MUST be invoked through their adapters as local command-line tools.
 

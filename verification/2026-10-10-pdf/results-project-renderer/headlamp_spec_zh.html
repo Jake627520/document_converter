@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>headlamp_spec_zh</title>
+    <style>:root {
+  --bg-color: #ffffff;
+  --text-color: #1f2328;
+  --border-color: #d0d7de;
+  --code-bg: #f6f8fa;
+  --table-zebra: #f6f8fa;
+  --link-color: #0969da;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-color: #0d1117;
+    --text-color: #e6edf3;
+    --border-color: #30363d;
+    --code-bg: #161b22;
+    --table-zebra: #161b22;
+    --link-color: #4493f8;
+  }
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-color);
+  background-color: var(--bg-color);
+  margin: 0;
+  padding: 40px 20px;
+}
+
+.markdown-body {
+  box-sizing: border-box;
+  min-width: 200px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+h1 { font-size: 2em; border-bottom: 1px solid var(--border-color); padding-bottom: .3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid var(--border-color); padding-bottom: .3em; }
+h3 { font-size: 1.25em; }
+
+p { margin-top: 0; margin-bottom: 16px; }
+
+code {
+  padding: .2em .4em;
+  margin: 0;
+  font-size: 85%;
+  background-color: var(--code-bg);
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+pre {
+  padding: 16px;
+  overflow: auto;
+  font-size: 85%;
+  line-height: 1.45;
+  background-color: var(--code-bg);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+pre code {
+  padding: 0;
+  background-color: transparent;
+  border-radius: 0;
+}
+
+table {
+  border-spacing: 0;
+  border-collapse: collapse;
+  margin-top: 0;
+  margin-bottom: 16px;
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+}
+
+table tr {
+  background-color: var(--bg-color);
+  border-top: 1px solid var(--border-color);
+}
+
+table tr:nth-child(2n) {
+  background-color: var(--table-zebra);
+}
+
+table th, table td {
+  padding: 6px 13px;
+  border: 1px solid var(--border-color);
+}
+
+table th {
+  font-weight: 600;
+}
+
+ul, ol {
+  padding-left: 2em;
+  margin-top: 0;
+  margin-bottom: 16px;
+}</style>
+</head>
+<body>
+    <main class="markdown-body">
+<p>車燈模組規格報告 Headlamp Module Spec</p>
+
+<ol><li>專案背景 Background</li></ol>
+
+<p>本文件說明 ADB 矩陣式頭燈模組的量產規格，供 PM 與供應商審閱。This document describes the</p>
+
+<p>production spec of the ADB matrix headlamp module.</p>
+
+<ol><li>關鍵規格 Key specifications</li></ol>
+
+<p>項目 Item</p>
+
+<p>規格 Spec</p>
+
+<p>備註 Note</p>
+
+<p>光通量 Luminous flux</p>
+
+<p>1200 lm</p>
+
+<p>25 degC</p>
+
+<p>色溫 Color temperature</p>
+
+<p>5500 K</p>
+
+<p>+/- 300 K</p>
+
+<p>工作電壓 Voltage</p>
+
+<p>9 - 16 V</p>
+
+<p>12 V nominal</p>
+
+<p>LED 顆數 LED count</p>
+
+<p>84</p>
+
+<p>matrix ADB</p>
+
+<p>防水等級 Ingress</p>
+
+<p>IP6K9K</p>
+
+<p>ISO 20653</p>
+
+<ol><li>驗證項目 Validation items</li></ol>
+
+<p>3.1 配光測試：依 ECE R149 於暗室量測。Photometry per ECE R149.</p>
+
+<p>3.2 熱衝擊：-40 degC 至 85 degC，循環 100 次。Thermal shock, 100 cycles.</p>
+
+<p>3.3 振動測試：隨機振動 10 - 2000 Hz。Random vibration 10 - 2000 Hz.</p>
+
+<ol><li>時程 Schedule</li></ol>
+
+<p>DV 完成 2026 Q1；PV 完成 2026 Q2；SOP 2026 Q3。DV done 2026 Q1, PV done 2026 Q2, SOP</p>
+
+<p>2026 Q3.</p>
+
+<ol><li>風險 Risks</li></ol>
+
+<p>供應鏈 LED binning 交期風險；散熱鰭片模具開發風險。LED binning lead time risk and heat sink</p>
+
+<p>tooling risk.</p>
+    </main>
+</body>
+</html>

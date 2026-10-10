@@ -14,9 +14,15 @@ def convert(
     source: Path = typer.Argument(..., exists=True, readable=True),
     to: list[str] = typer.Option(["md"], "--to", help="Outputs: md html json txt. Repeat --to."),
     output: Path = typer.Option(Path("./converted"), "--output", "-o"),
-    engine: str = typer.Option("auto", "--engine", help="auto, docling, marker, mineru"),
+    engine: str = typer.Option("auto", "--engine", help="auto, docling, docling-native, marker, mineru"),
     images: str = typer.Option("none", "--images", help="none, referenced, embedded"),
     clean: bool = typer.Option(False, "--clean", help="Clean up markdown formatting and page artifacts"),
+    strip_page_numbers: bool = typer.Option(
+        False,
+        "--strip-page-numbers",
+        help="With --clean, also drop lines holding only digits. Off by default because those lines "
+             "are often table values rather than page numbers.",
+    ),
     preserve_layout: bool = typer.Option(False, "--preserve-layout", help="Preserve raw page breaks and layout in markdown"),
     parallel: int = typer.Option(DEFAULT_PARALLEL, "--parallel", "-p", help=f"Concurrent worker count (1-{MAX_WORKER_LIMIT})"),
     watch: bool = typer.Option(False, "--watch", help="Watch a directory for new or changed files"),
@@ -27,8 +33,8 @@ def convert(
     bad = set(to) - valid
     if bad:
         raise typer.BadParameter(f"Unsupported output(s): {', '.join(sorted(bad))}")
-    if engine not in {"auto", "docling", "marker", "mineru"}:
-        raise typer.BadParameter("engine must be auto, docling, marker, or mineru")
+    if engine not in {"auto", "docling", "docling-native", "marker", "mineru"}:
+        raise typer.BadParameter("engine must be auto, docling, docling-native, marker, or mineru")
     if images not in {"none", "referenced", "embedded"}:
         raise typer.BadParameter("images must be none, referenced, or embedded")
     if parallel < 1:
@@ -62,6 +68,7 @@ def convert(
                 clean=clean,
                 preserve_layout=preserve_layout,
                 parallel=parallel,
+                strip_bare_numbers=strip_page_numbers,
                 on_results=report_watch_results,
             )
         except KeyboardInterrupt:
@@ -79,6 +86,7 @@ def convert(
         preserve_layout=preserve_layout,
         parallel=parallel,
         source_root=source,
+        strip_bare_numbers=strip_page_numbers,
     )
 
     table = Table("Source", "Engine", "Type", "Outputs", "Status")
@@ -137,16 +145,18 @@ def list_engines():
     import shutil
     rows = [
         ("docling", "pip install docling", "primary/local"),
+        ("docling-native", "pip install docling-slim", "model-free PDF text reader"),
         ("marker", "pip install marker-pdf", "optional PDF fallback"),
         ("mineru", "install local MinerU 4.x", "optional PDF/OCR fallback"),
     ]
     for name, install, role in rows:
         found = "installed" if (
             (name == "docling" and _importable("docling")) or
+            (name == "docling-native" and _importable("docling.pipeline.native_pdf_pipeline")) or
             (name == "marker" and shutil.which("marker_single")) or
             (name == "mineru" and (shutil.which("mineru") or shutil.which("mineru-kit")))
         ) else "not detected"
-        console.print(f"{name:8} {found:12} {role:24} {install}")
+        console.print(f"{name:14} {found:12} {role:26} {install}")
 
 @app.command("web")
 def web(

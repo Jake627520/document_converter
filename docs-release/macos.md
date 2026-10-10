@@ -1,3 +1,46 @@
+# macOS 候選包（文字版／PDF 版）
+
+本專案有兩個已審查的發行設定檔（profile）：
+
+| profile | 接受的輸入 | 打包內容 | 約略大小 |
+|---|---|---|---|
+| `text`（原本的版本） | `.md`、`.markdown`、`.txt` | 不含任何文件引擎或模型 | 數十 MB |
+| `pdf`（新增） | 上述再加上**有文字層的 `.pdf`** | 另含 Docling 不跑模型的 PDF 讀取器 | 數百 MB |
+
+`pdf` profile 的 PDF 轉檔只抽取 PDF 內既有的文字：**沒有 OCR、不重建標題階層與表格**，
+掃描檔會明確回報「沒有文字層」而不是給你一個空檔案。它不含 PyTorch，也不下載模型。
+Office 與圖片格式兩個 profile 都不接受。
+
+```sh
+# 文字版（預設，與原本相同）
+BUILD_PYTHON="$HOME/.local/bin/python3.12" sh scripts/packaging/bootstrap_macos.sh \
+    --output-dir build/private-release/candidate-text
+
+# PDF 版
+RELEASE_PROFILE=pdf BUILD_PYTHON="$HOME/.local/bin/python3.12" sh scripts/packaging/bootstrap_macos.sh \
+    --output-dir build/private-release/candidate-pdf
+```
+
+`RELEASE_PROFILE=pdf` 會建立獨立的 `build/private-release/venv-pdf`，並從
+`scripts/packaging/requirements-macos-arm64-pdf.lock` 安裝 60 個 hash 鎖定的 wheel。
+該 lock 由 PyPI metadata 針對 CPython 3.12 / macOS arm64 產生；若 `uv pip sync` 回報
+hash 不符，請在 Mac 上重新產生（指令寫在 lock 檔開頭）。
+
+建置後的驗收：
+
+```sh
+build/private-release/venv-pdf/bin/python -I -m unittest discover -s tests -p test_release_packaging.py -v
+"build/private-release/candidate-pdf/Document-Converter-macos-arm64-pdf-local-candidate/Document Converter.app/Contents/MacOS/Document Converter" --diagnostics
+```
+
+`--diagnostics` 應顯示 `"profile": "pdf-text"`、`inputs` 含 `.pdf`、`forbidden_loaded` 為空。
+
+**尚未在 Mac 上驗證。** PDF profile 的程式與打包設定已在 Linux 上以等效的 PyInstaller
+凍結建置驗證過（凍結後可轉中文與英文文字層 PDF、掃描檔回報 422、Markdown 正常、docx 被擋、
+多檔輸出 ZIP），但 macOS arm64 的 `.app`、codesign、Finder 雙擊與 ZIP 產出都還沒跑過。
+
+---
+
 # macOS 文字版候選包
 
 本流程建立 Apple Silicon（arm64）的本機測試 `.app` 與 ZIP。沿用 `web_app.py` 的 FastAPI UI、請求限制與 writer；發行入口固定使用文字版，只接受 UTF-8 `.md`、`.markdown`、`.txt`，輸出 Markdown 或 HTML。不提供 PDF、OCR、Office、圖片或模型下載。
