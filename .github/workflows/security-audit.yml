@@ -38,8 +38,14 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          # The runner's own setuptools carries PYSEC-2026-3447, fixed in 83.0.0.
+          python -m pip install --upgrade pip "setuptools>=83"
           pip install ".[dev]"
+          # This project is not published to PyPI, so pip-audit can never audit
+          # the installed document-converter-skill itself and --strict treats
+          # that as a failed audit. Remove it and audit its dependencies, which
+          # stay installed.
+          pip uninstall -y document-converter-skill
 
       - name: Run pip-audit
         run: |
