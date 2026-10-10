@@ -30,6 +30,10 @@ python -m pip install -U pip
 pip install -e .
 ```
 
+The Windows commands above are setup instructions for the Python source tree;
+they do not indicate that Windows has a packaged application or has passed
+platform testing. No Windows installer is currently available.
+
 ### Local Browser Workbench (Optional)
 
 Install the web extra and start the local interface:
@@ -64,6 +68,35 @@ pip install ".[marker]"
 The self-contained Apple Silicon candidate uses the same browser workbench and
 accepts only UTF-8 Markdown (`.md`, `.markdown`) and text (`.txt`), with Markdown
 or HTML output. It excludes PDF/Office/OCR engines and model weights.
+
+#### Use the local macOS candidate
+
+The current ZIP is available on this Mac at:
+
+`/Users/jakechiu/Documents/Projects/document_converter/build/private-release/candidate-3/Document-Converter-macos-arm64-local-candidate.zip`
+
+This build artifact is local and is not included in the GitHub repository. To
+start it, double-click the ZIP in Finder to extract it, then double-click
+`Document Converter.app` in the extracted folder. The app starts a local service
+and opens the workbench in your default browser. Select `.md`, `.markdown`, or
+UTF-8 `.txt` files, choose Markdown or HTML, then start conversion. A single
+result downloads as a file; multiple results download as a ZIP. Downloads
+usually appear in the browser's Downloads folder.
+
+Uploads and generated files are held in a temporary directory while that
+conversion request is processed and are removed when the request finishes. The
+browser's downloaded copy remains in its Downloads folder. Closing the browser
+does not stop the app; quit **Document Converter** in Activity Monitor to stop
+the local service.
+
+The candidate is ad-hoc signed and not notarized. macOS may show a first-launch
+security warning. Do not disable Gatekeeper to open it; use your organization's
+approved app review process. This candidate is for Apple Silicon Macs only.
+
+The frozen release integration check recorded 10 tests passing. The full project
+suite recorded 111 tests passing with 83.56% coverage. Neither result verifies
+Finder double-click behavior, installation on another Mac, or Windows support.
+There is no Windows installer, and Windows use has not been tested.
 
 See the [macOS build and local-use guide](docs-release/macos.md) and
 [private distribution requirements](docs/PRIVATE_DISTRIBUTION.md). The candidate

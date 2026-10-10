@@ -38,12 +38,39 @@ PyInstaller 官方說明允許在符合依賴授權的前提下使用例外條�
 
 ## 驗證與操作
 
+### 一般使用者：啟動本機候選包
+
+目前這台 Mac 的候選 ZIP 位於：
+
+`/Users/jakechiu/Documents/Projects/document_converter/build/private-release/candidate-3/Document-Converter-macos-arm64-local-candidate.zip`
+
+此 ZIP 是本機建置產物，不在 GitHub 原始碼倉庫內。於 Finder 雙擊 ZIP
+解壓縮，再雙擊解壓資料夾中的 **Document Converter.app**。App 啟動後會選用
+可用的本機連接埠，並在預設瀏覽器開啟轉換介面。選取 UTF-8 `.md`、
+`.markdown` 或 `.txt`，選擇 Markdown 或 HTML，按「開始轉換」。單一輸出
+下載為檔案，多個輸出下載為 ZIP；下載通常位於瀏覽器的 Downloads 資料夾。
+
+上傳內容與轉換輸出使用每次請求專屬的系統暫存資料夾；請求完成後即清除。
+瀏覽器已下載的輸出檔會保留在 Downloads。關閉瀏覽器不會停止 App；請在
+「活動監視器」搜尋並退出 **Document Converter**，以停止本機服務。
+
+此候選包只有 ad-hoc 簽章，沒有 Developer ID 簽章或 Apple notarization。
+macOS 首次開啟時可能顯示安全性警告。請勿為了開啟它而停用 Gatekeeper；
+依照你所在組織核准的 App 審查流程處理。候選包僅供 Apple Silicon 使用。
+
+驗證紀錄：候選包 frozen release integration 有 10 項測試通過；專案整套測試
+有 111 項通過，覆蓋率 83.56%。這些測試不代表 Finder 雙擊、其他 Mac 安裝或
+Windows 支援已驗證。Windows 尚無安裝包且未測試；README 的 Windows venv
+指令只說明原始碼環境設定。
+
+### 維護者驗證指令
+
 ```sh
 build/private-release/venv/bin/python -I -m unittest discover -s tests -p test_release_packaging.py -v
 "build/private-release/candidate/Document-Converter-macos-arm64-local-candidate/Document Converter.app/Contents/MacOS/Document Converter" --diagnostics
 "build/private-release/candidate/Document-Converter-macos-arm64-local-candidate/Document Converter.app/Contents/MacOS/Document Converter" --no-browser --port 18767
 ```
 
-HTTP smoke 使用新的 loopback port，驗證首頁、Markdown round trip、HTML、UTF-8 TXT、PDF 拒絕、非法 UTF-8 與 Host／Origin 安全邊界。`--diagnostics` 報告 frozen 狀態與 import paths，拒絕已載入的 forbidden engines。正常開啟 `.app` 會選可用 loopback port 並開啟預設瀏覽器。關閉頁面不會停止背景程式；在「活動監視器」退出 Document Converter，或從 CLI 啟動時按 Ctrl-C。測試使用 `--no-browser`；本次未驗證 GUI 開啟。
+HTTP smoke 使用新的 loopback port，驗證首頁、Markdown round trip、HTML、UTF-8 TXT、PDF 拒絕、非法 UTF-8 與 Host／Origin 安全邊界。`--diagnostics` 報告 frozen 狀態與 import paths，拒絕已載入的 forbidden engines。正常開啟 `.app` 會選可用 loopback port 並開啟預設瀏覽器。關閉頁面不會停止背景程式；在「活動監視器」退出 Document Converter，或從 CLI 啟動時按 Ctrl-C。測試使用 `--no-browser`；Finder 雙擊與 GUI 啟動仍未驗證。
 
 候選包固定標記 `distribution_ready: false`，沒有 Developer ID 簽章或 notarization。此流程不 commit、push、發布、修改 GitHub visibility，也不代表第三方或產品的完整法律核准。正式交付仍需確認自有權利／接受者、native inventory、獨立驗收、簽章／notarization 與目標電腦的實際安裝。不得以關閉 Gatekeeper 取代安裝驗收。
