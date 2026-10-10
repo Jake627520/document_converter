@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed
+- **Python 3.10 Support**: `requires-python` is now `>=3.11,<3.15` and the CI matrix tests 3.11 and 3.12. `tests/test_security_baseline.py` imports `tomllib`, which entered the standard library in 3.11, so the suite has never been collectable on 3.10 and the job aborted before any test ran. The README already recommended 3.11 or 3.12.
+
 ## [0.2.0] - 2026-10-08
 
 ### Added

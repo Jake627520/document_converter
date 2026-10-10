@@ -101,7 +101,7 @@ App 審查流程處理。此 App 只提供 Apple Silicon macOS；**Windows 沒�
 #### 開發者：從原始碼執行
 
 以下是開發者流程，**一般使用者不需要執行**。從原始碼安裝需要 Python
-（版本 `3.10` 至 `3.14`）與 pip；啟動瀏覽器介面還要安裝 web 依賴：
+（版本 `3.11` 至 `3.14`）與 pip；啟動瀏覽器介面還要安裝 web 依賴：
 
 ```bash
 python -m venv .venv
