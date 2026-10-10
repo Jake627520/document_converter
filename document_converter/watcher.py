@@ -63,6 +63,7 @@ class DirectoryWatcher:
         clean: bool = False,
         preserve_layout: bool = False,
         parallel: int = 1,
+        strip_bare_numbers: bool = False,
         snapshot_fn: Callable[[Path, Path], dict[Path, tuple[int, int]]] = snapshot_directory,
     ):
         self.source, self.output_dir = validate_watch_paths(source, output_dir)
@@ -72,6 +73,7 @@ class DirectoryWatcher:
         self.clean = clean
         self.preserve_layout = preserve_layout
         self.parallel = parallel
+        self.strip_bare_numbers = strip_bare_numbers
         self.snapshot_fn = snapshot_fn
         self.previous: dict[Path, tuple[int, int]] = {}
         self.processed: dict[Path, tuple[int, int]] = {}
@@ -96,6 +98,7 @@ class DirectoryWatcher:
             preserve_layout=self.preserve_layout,
             parallel=self.parallel,
             source_root=self.source,
+            strip_bare_numbers=self.strip_bare_numbers,
         )
         # Mark every submitted fingerprint, including isolated failures, so an
         # unchanged bad file does not flood the terminal on every poll.

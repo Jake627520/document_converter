@@ -1,16 +1,21 @@
 import re
 
-def clean_markdown(md: str, preserve_layout: bool = False) -> str:
+def clean_markdown(md: str, preserve_layout: bool = False, strip_bare_numbers: bool = False) -> str:
     """
     Clean Markdown output from document conversions.
-    
+
     If preserve_layout is True, retains line breaks, indentations, and page delimiters.
     If preserve_layout is False (default clean mode):
       - Protects fenced code blocks (```...```) and block math ($$...$$) from alteration.
       - Normalizes excess blank lines (max 2 consecutive newlines).
       - Strips trailing whitespaces from lines.
-      - Removes common standalone page numbers / headers / footers noise.
+      - Removes labelled page markers such as "Page 3 of 12", "4 / 20" and "- 5 -".
       - Ensures consistent heading spacing.
+
+    A line holding nothing but digits is kept, because engines emit table cells
+    and other document values on their own line and deleting them loses content.
+    Pass strip_bare_numbers=True to also drop those lines, for documents whose
+    page numbers survive as bare numerals.
     """
     if not md:
         return ""
@@ -40,8 +45,8 @@ def clean_markdown(md: str, preserve_layout: bool = False) -> str:
         # e.g., "Page 1 of 10", "- 1 -", "Page 1", "1 / 10", standalone integer on line
         if re.match(r"^(?:page\s+\d+(?:\s+of\s+\d+|\s*/\s*\d+)?|\d+\s*/\s*\d+|-\s*\d+\s*-)$", trimmed, re.IGNORECASE):
             continue
-        # Standalone numeric page footer (if previous was text and next is text, avoid stripping numbered list "1. ")
-        if re.match(r"^\d{1,4}$", trimmed):
+        # Standalone numeral: content by default, page footer only on request.
+        if strip_bare_numbers and re.match(r"^\d{1,4}$", trimmed):
             continue
         # Repeated horizontal rules noise (e.g. page breaks like "---" followed immediately by "---")
         if re.match(r"^[-*_]{3,}$", trimmed) and lines and re.match(r"^[-*_]{3,}$", lines[-1].strip()):

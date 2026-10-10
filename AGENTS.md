@@ -13,5 +13,5 @@ Run:
 ```bash
 python -m pytest
 document-converter --help
-document-converter --list-engines
+document-converter list-engines
 ```

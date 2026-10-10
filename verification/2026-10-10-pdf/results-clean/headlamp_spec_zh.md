@@ -34,6 +34,8 @@ production spec of the ADB matrix headlamp module.
 
 LED 顆數 LED count
 
+84
+
 matrix ADB
 
 防水等級 Ingress

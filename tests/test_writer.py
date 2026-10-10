@@ -258,5 +258,30 @@ class TestWriter(unittest.TestCase):
             self.assertEqual((root / "out" / "paper.md").read_text(), md)
             self.assertFalse((root / "out" / "paper_assets").exists())
 
+
+class CleanOptionTests(unittest.TestCase):
+    """Ref: openspec/specs/output-formats/spec.md"""
+
+    def write(self, tmp, **options):
+        result = ConversionResult(
+            source=Path("spec.pdf"),
+            engine="stub",
+            markdown="LED count\n\n84\n\nPage 2 of 9\n",
+        )
+        write_result(result=result, output_dir=Path(tmp), formats=["md"], clean=True, **options)
+        return (Path(tmp) / "spec.md").read_text(encoding="utf-8")
+
+    def test_clean_keeps_standalone_numbers_by_default(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            written = self.write(tmp)
+        self.assertIn("84", written.splitlines())
+        self.assertNotIn("Page 2 of 9", written)
+
+    def test_strip_bare_numbers_reaches_the_cleaner(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            written = self.write(tmp, strip_bare_numbers=True)
+        self.assertNotIn("84", written.splitlines())
+        self.assertIn("LED count", written)
+
 if __name__ == "__main__":
     unittest.main()

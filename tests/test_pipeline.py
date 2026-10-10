@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 from document_converter.pipeline import discover_inputs, choose_engine
 from document_converter.detector import PdfProfile
+from document_converter.engines.base import EngineError
 
 class TestPipeline(unittest.TestCase):
     """Ref: openspec/specs/engine-adapter/spec.md & openspec/specs/pdf-detection/spec.md"""
@@ -28,6 +29,25 @@ class TestPipeline(unittest.TestCase):
         profile = PdfProfile(path=Path("sample.pdf"), has_text_layer=True, is_scanned=False)
         engines = choose_engine("auto", Path("sample.pdf"), profile=profile)
         self.assertEqual(engines[0].name, "docling")
+
+    def test_choose_engine_auto_pdf_ends_with_the_model_free_reader(self):
+        """PDF conversion must stay possible without model weights installed."""
+        profile = PdfProfile(path=Path("sample.pdf"), has_text_layer=True, is_scanned=False)
+        for engines in (
+            choose_engine("auto", Path("sample.pdf"), profile=profile),
+            choose_engine("auto", Path("sample.pdf"), profile=None),
+        ):
+            self.assertEqual([e.name for e in engines][-1], "docling-native")
+
+    def test_choose_engine_explicit_model_free_reader_rejects_non_pdf(self):
+        engines = choose_engine("docling-native", Path("sample.pdf"))
+        self.assertEqual([e.name for e in engines], ["docling-native"])
+        with self.assertRaises(EngineError):
+            choose_engine("docling-native", Path("notes.md"))
+
+    def test_choose_engine_auto_image_excludes_the_pdf_only_reader(self):
+        engines = choose_engine("auto", Path("scan.png"))
+        self.assertNotIn("docling-native", [e.name for e in engines])
 
     def test_choose_engine_auto_scanned_pdf(self):
         profile = PdfProfile(path=Path("scanned.pdf"), has_text_layer=False, is_scanned=True)

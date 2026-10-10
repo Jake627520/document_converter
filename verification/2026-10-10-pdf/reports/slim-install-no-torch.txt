@@ -1,0 +1,21 @@
+# Torch-free install check (clean virtualenv, no PyTorch)
+$ pip install "docling-slim[convert-core,format-pdf]" typer rich pypdf && pip install -e . --no-deps
+installed size: 425M
+ModuleNotFoundError: No module named 'torch'
+
+$ document-converter list-engines
+docling        installed    primary/local              pip install docling
+docling-native installed    model-free PDF text reader pip install docling-slim
+marker         not detected optional PDF fallback      pip install marker-pdf
+mineru         not detected optional PDF/OCR fallback  install local MinerU 4.x
+
+$ document-converter convert <samples> --to md --clean   # --engine auto (default)
+extracted as the PDF stores them, without heading levels, Markdown tables or reading-order recovery.
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+┃ Source                                                           ┃ Engine         ┃ Type       ┃ Outputs ┃ Status        ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+│ verification/2026-10-10-pdf/samples/headlamp_spec_zh.pdf         │ docling-native │ text_based │ md      │ OK (warnings) │
+│ verification/2026-10-10-pdf/samples/scanned_inspection_sheet.pdf │ docling-native │ scanned    │ md      │ OK (warnings) │
+│ verification/2026-10-10-pdf/samples/tv_panel_memo_en.pdf         │ docling-native │ text_based │ md      │ OK (warnings) │
+└──────────────────────────────────────────────────────────────────┴────────────────┴────────────┴─────────┴───────────────┘
+exit=0

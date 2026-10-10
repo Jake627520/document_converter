@@ -24,3 +24,9 @@ PDF inspection MUST prefer available local PDF libraries and fall back to the bu
 #### Scenario: Optional PDF library is absent
 - **WHEN** no optional PDF parsing library is installed
 - **THEN** inspection attempts the built-in analyzer without requiring network access
+
+#### Scenario: Built-in analyzer reads a common content-stream encoding
+- **WHEN** a text PDF stores its content stream with FlateDecode, ASCII85Decode, or
+  ASCII85 wrapping Flate, with or without an end-of-line before `endstream`
+- **THEN** the built-in analyzer reports its text layer and classifies it as
+  `text_based`, matching the classification an optional library reports

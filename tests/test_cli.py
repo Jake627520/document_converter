@@ -1,7 +1,10 @@
+import os
 import unittest
-import shutil
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
+
+from pdf_samples import write_text_pdf
 
 try:
     from typer.testing import CliRunner
@@ -29,26 +32,52 @@ class TestCli(unittest.TestCase):
         self.assertIn("marker", result.output)
         self.assertIn("mineru", result.output)
 
-    def test_inspect_fixture(self):
-        result = self.runner.invoke(app, ["inspect", "tests/fixtures/sample_text.pdf"])
+    def test_inspect_text_pdf(self):
+        with tempfile.TemporaryDirectory() as temp:
+            sample = write_text_pdf(Path(temp) / "sample_text.pdf")
+            result = self.runner.invoke(app, ["inspect", str(sample)])
         self.assertEqual(result.exit_code, 0)
         self.assertIn("sample_text.pdf", result.output)
         self.assertIn("text_based", result.output)
 
     def test_inspect_directory_shows_distinguishable_relative_paths(self):
-        fixture = Path(__file__).parent / "fixtures" / "sample_text.pdf"
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "input"
             (root / "department-a").mkdir(parents=True)
             (root / "department-b").mkdir()
-            shutil.copyfile(fixture, root / "department-a" / "statement.pdf")
-            shutil.copyfile(fixture, root / "department-b" / "statement.pdf")
+            write_text_pdf(root / "department-a" / "statement.pdf")
+            write_text_pdf(root / "department-b" / "statement.pdf")
 
-            result = self.runner.invoke(app, ["inspect", str(root)])
+            # Widen the console so the table does not wrap the path column.
+            with patch.dict(os.environ, {"COLUMNS": "200"}):
+                result = self.runner.invoke(app, ["inspect", str(root)])
 
         self.assertEqual(result.exit_code, 0)
         self.assertIn("department-a/statement.pdf", result.output)
         self.assertIn("department-b/statement.pdf", result.output)
+
+    def test_list_engines_reports_the_model_free_pdf_engine(self):
+        result = self.runner.invoke(app, ["list-engines"])
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("docling-native", result.output)
+
+    def test_convert_accepts_the_model_free_pdf_engine(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / "notes.md"
+            source.write_text("# Title\n", encoding="utf-8")
+            result = self.runner.invoke(
+                app, ["convert", str(source), "--engine", "docling-native", "-o", str(Path(temp) / "out")]
+            )
+        self.assertEqual(result.exit_code, 0)
+        self.assertNotIn("engine must be", result.output)
+
+    def test_convert_rejects_an_unknown_engine(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / "notes.md"
+            source.write_text("# Title\n", encoding="utf-8")
+            result = self.runner.invoke(app, ["convert", str(source), "--engine", "nope"])
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("docling-native", result.output)
 
 if __name__ == "__main__":
     unittest.main()

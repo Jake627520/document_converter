@@ -1,12 +1,14 @@
-"""Convert PDFs with Docling's model-free NativePdfPipeline and this project's writer.
+"""Convert PDFs with Docling's model-free pipeline, bypassing the engine registry.
 
-Why this script exists: the shipped ``DoclingEngine`` always builds a default
-``DocumentConverter``, whose standard PDF pipeline needs PyTorch plus layout and
-table weights downloaded from huggingface.co. This harness selects Docling's
-``NativePdfPipeline`` instead, which runs no models at all, and then serializes
-the result through ``document_converter.writer`` so the real writer, renderer and
-cleaner are exercised. Text, reading order per parser output and embedded images
-survive; headings, tables and OCR do not (the model-free pipeline has none).
+This harness found the model-free route before the CLI exposed it. For ordinary
+use prefer the shipped command, which now does the same thing:
+
+    document-converter convert ~/Documents/pdfs --engine docling-native --to md --to html
+
+The script is kept for the one thing the CLI cannot do: with
+``--project-html-output`` it drops Docling's own HTML so ``writer.py`` falls back
+to this project's ``renderer.render_html``, which is how the HTML files in
+``results-project-renderer/`` were produced.
 
 Usage (from the repository root, in a virtualenv that has docling-slim):
 

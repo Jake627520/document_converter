@@ -12,7 +12,7 @@
       "headlamp_spec_zh.json",
       "headlamp_spec_zh.txt"
     ],
-    "seconds": 0.17
+    "seconds": 0.21
   },
   {
     "file": "scanned_inspection_sheet.pdf",
@@ -28,7 +28,7 @@
       "scanned_inspection_sheet.txt"
     ],
     "note": "almost no text recovered; the PDF has no text layer and this pipeline runs no OCR",
-    "seconds": 0.06
+    "seconds": 0.07
   },
   {
     "file": "tv_panel_memo_en.pdf",

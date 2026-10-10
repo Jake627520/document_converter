@@ -1,6 +1,0 @@
-# Experiment A: tests/fixtures/sample_text.pdf regenerated locally, pypdf installed
-TOTAL                                           1031    174    83%
-Required test coverage of 80% reached. Total coverage: 83.12%
-=========================== short test summary info ============================
-FAILED tests/test_detector.py::TestPdfDetector::test_detect_text_based_pdf - ...
-1 failed, 103 passed, 7 skipped, 1 warning in 1.27s

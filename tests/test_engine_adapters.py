@@ -11,6 +11,7 @@ from unittest.mock import Mock, patch
 from document_converter.engines.base import EngineError
 from document_converter.engines.command_engine import MarkerEngine, MinerUEngine
 from document_converter.engines.docling_engine import DoclingEngine
+from document_converter.engines.docling_native_engine import DoclingNativePdfEngine
 
 
 class CommandAdapterTests(unittest.TestCase):
@@ -125,6 +126,65 @@ class DoclingAdapterTests(unittest.TestCase):
         failure = ValueError("invalid document representation")
         document = SimpleNamespace(export_to_markdown=Mock(side_effect=failure))
         with self.assertRaisesRegex(EngineError, "Docling failed for paper.pdf") as caught:
+            self.convert_with_document(document)
+        self.assertIs(caught.exception.__cause__, failure)
+
+
+class DoclingNativePdfAdapterTests(unittest.TestCase):
+    """The model-free PDF adapter must not need PyTorch or downloaded weights."""
+
+    def convert_with_document(self, document, source=Path("paper.pdf")):
+        converter = Mock()
+        converter.convert.return_value = SimpleNamespace(document=document)
+        modules = {
+            "docling": SimpleNamespace(),
+            "docling.datamodel": SimpleNamespace(),
+            "docling.datamodel.base_models": SimpleNamespace(InputFormat=SimpleNamespace(PDF="pdf")),
+            "docling.datamodel.pipeline_options": SimpleNamespace(NativePdfPipelineOptions=Mock()),
+            "docling.document_converter": SimpleNamespace(
+                DocumentConverter=Mock(return_value=converter), PdfFormatOption=Mock()
+            ),
+            "docling.pipeline": SimpleNamespace(),
+            "docling.pipeline.native_pdf_pipeline": SimpleNamespace(NativePdfPipeline=object),
+        }
+        with patch.dict(sys.modules, modules):
+            result = DoclingNativePdfEngine().convert(source, "none")
+        converter.convert.assert_called_once_with(str(source))
+        return result
+
+    def test_only_pdf_input_is_accepted(self):
+        engine = DoclingNativePdfEngine()
+        self.assertTrue(engine.can_handle(Path("paper.PDF")))
+        self.assertFalse(engine.can_handle(Path("scan.png")))
+        self.assertFalse(engine.can_handle(Path("notes.md")))
+        with self.assertRaisesRegex(EngineError, "only converts PDF"):
+            engine.convert(Path("notes.md"), "none")
+
+    def test_missing_native_pipeline_is_reported_as_an_engine_error(self):
+        with patch.dict(sys.modules, {"docling.pipeline.native_pdf_pipeline": None}):
+            with self.assertRaisesRegex(EngineError, "native PDF pipeline is unavailable"):
+                DoclingNativePdfEngine().convert(Path("paper.pdf"), "none")
+
+    def test_conversion_reports_the_engine_and_its_quality_limits(self):
+        document = SimpleNamespace(
+            export_to_markdown=lambda: "規格表\n\n84\n",
+            export_to_dict=lambda: {"name": "paper"},
+        )
+        result = self.convert_with_document(document)
+        self.assertEqual(result.engine, "docling-native")
+        self.assertEqual(result.markdown, "規格表\n\n84\n")
+        self.assertEqual(json.loads(result.json_text), {"name": "paper"})
+        self.assertTrue(any("no layout, table or OCR model" in w for w in result.warnings))
+
+    def test_empty_output_warns_that_no_ocr_ran(self):
+        document = SimpleNamespace(export_to_markdown=lambda: "<!-- image -->", export_to_dict=lambda: {})
+        result = self.convert_with_document(document, Path("scan.pdf"))
+        self.assertTrue(any("runs no OCR" in w for w in result.warnings))
+
+    def test_conversion_failure_retains_cause_and_source(self):
+        failure = ValueError("broken page tree")
+        document = SimpleNamespace(export_to_markdown=Mock(side_effect=failure))
+        with self.assertRaisesRegex(EngineError, "docling-native failed for paper.pdf") as caught:
             self.convert_with_document(document)
         self.assertIs(caught.exception.__cause__, failure)
 

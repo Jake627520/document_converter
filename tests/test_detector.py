@@ -1,44 +1,15 @@
 import tempfile
 import unittest
-import zlib
 from pathlib import Path
-from document_converter.detector import inspect_pdf, PdfProfile
+from document_converter.detector import inspect_pdf, _inspect_builtin, PdfProfile
 from document_converter.pipeline import choose_engine
+from pdf_samples import write_ascii85_text_pdf, write_scanned_pdf, write_text_pdf
 
 def _create_minimal_text_pdf(path: Path, text: str = "Hello World PDF Content Testing Detector"):
-    # Minimal valid single-page PDF with text stream
-    stream_content = f"BT /F1 12 Tf 72 712 Td ({text}) Tj ET\n".encode("latin1")
-    compressed = zlib.compress(stream_content)
-    
-    pdf_bytes = (
-        b"%PDF-1.4\n"
-        b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
-        b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
-        b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n"
-        b"4 0 obj\n<< /Length " + str(len(compressed)).encode() + b" /Filter /FlateDecode >>\nstream\n"
-        + compressed +
-        b"\nendstream\nendobj\n"
-        b"xref\n0 5\n0000000000 65535 f \n"
-        b"trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n99\n%%EOF\n"
-    )
-    path.write_bytes(pdf_bytes)
+    return write_text_pdf(path, text)
 
 def _create_minimal_scanned_pdf(path: Path):
-    # Minimal single-page PDF with an Image XObject and NO text operator
-    image_data = zlib.compress(b"\x00" * 100)
-    pdf_bytes = (
-        b"%PDF-1.4\n"
-        b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
-        b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
-        b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /XObject << /Im1 4 0 R >> >> >>\nendobj\n"
-        b"4 0 obj\n<< /Type /XObject /Subtype /Image /Width 10 /Height 10 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Length "
-        + str(len(image_data)).encode() + b" /Filter /FlateDecode >>\nstream\n"
-        + image_data +
-        b"\nendstream\nendobj\n"
-        b"xref\n0 5\n0000000000 65535 f \n"
-        b"trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n99\n%%EOF\n"
-    )
-    path.write_bytes(pdf_bytes)
+    return write_scanned_pdf(path)
 
 class TestPdfDetector(unittest.TestCase):
     def test_detect_text_based_pdf(self):
@@ -61,6 +32,26 @@ class TestPdfDetector(unittest.TestCase):
             self.assertEqual(profile.classification, "scanned")
             self.assertEqual(profile.total_chars, 0)
 
+    def test_builtin_analyzer_agrees_with_the_optional_library(self):
+        """A text PDF must not read as scanned just because pypdf is absent."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            for name, builder in (("digital", write_text_pdf), ("ascii85", write_ascii85_text_pdf)):
+                pdf_path = builder(Path(tmp_dir) / f"{name}.pdf")
+                with self.subTest(sample=name):
+                    builtin = _inspect_builtin(pdf_path, 10)
+                    self.assertEqual(builtin.details["analyzer"], "builtin_stream")
+                    self.assertTrue(builtin.has_text_layer)
+                    self.assertEqual(builtin.classification, "text_based")
+                    self.assertEqual(builtin.classification, inspect_pdf(pdf_path).classification)
+
+    def test_builtin_analyzer_reports_no_text_for_an_image_only_pdf(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            pdf_path = write_scanned_pdf(Path(tmp_dir) / "scanned.pdf")
+            builtin = _inspect_builtin(pdf_path, 10)
+            self.assertEqual(builtin.total_chars, 0)
+            self.assertTrue(builtin.is_scanned)
+            self.assertEqual(builtin.classification, "scanned")
+
     def test_choose_engine_prioritizes_ocr_for_scanned(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             pdf_path = Path(tmp_dir) / "scanned.pdf"
@@ -73,6 +64,9 @@ class TestPdfDetector(unittest.TestCase):
             self.assertEqual(engine_names[0], "docling")
             self.assertIn("mineru", engine_names)
             self.assertIn("marker", engine_names)
+            # The model-free reader stays last: it needs no weights, so it keeps
+            # conversion working when every model-based engine is unavailable.
+            self.assertEqual(engine_names[-1], "docling-native")
 
 if __name__ == "__main__":
     unittest.main()
