@@ -65,43 +65,59 @@ pip install ".[marker]"
 
 ### Private macOS Application Candidate
 
-The self-contained Apple Silicon candidate uses the same browser workbench and
-accepts only UTF-8 Markdown (`.md`, `.markdown`) and text (`.txt`), with Markdown
-or HTML output. It excludes PDF/Office/OCR engines and model weights.
+這是給一般使用者直接開啟的 macOS 候選 App。它只支援 Apple Silicon
+（M 系列晶片）Mac，將 UTF-8 編碼的 `.md`、`.markdown`、`.txt` 文件轉成
+Markdown 或 HTML。它不支援 PDF、Office 文件、圖片、OCR，也不包含模型。
 
-#### Use the local macOS candidate
+#### 一般使用者：下載並啟動 App
 
-The current ZIP is available on this Mac at:
+目前的 ZIP 與 `.app` 都只存在建置它的這台 Mac，**沒有上傳到 GitHub**。
+檔案位置如下：
 
-`/Users/jakechiu/Documents/Projects/document_converter/build/private-release/candidate-3/Document-Converter-macos-arm64-local-candidate.zip`
+- ZIP：`/Users/jakechiu/Documents/Projects/document_converter/build/private-release/candidate-3/Document-Converter-macos-arm64-local-candidate.zip`
+- 解壓後的 App：`/Users/jakechiu/Documents/Projects/document_converter/build/private-release/candidate-3/Document-Converter-macos-arm64-local-candidate/Document Converter.app`
 
-This build artifact is local and is not included in the GitHub repository. To
-start it, double-click the ZIP in Finder to extract it, then double-click
-`Document Converter.app` in the extracted folder. The app starts a local service
-and opens the workbench in your default browser. Select `.md`, `.markdown`, or
-UTF-8 `.txt` files, choose Markdown or HTML, then start conversion. A single
-result downloads as a file; multiple results download as a ZIP. Downloads
-usually appear in the browser's Downloads folder.
+照下面步驟操作：
 
-Uploads and generated files are held in a temporary directory while that
-conversion request is processed and are removed when the request finishes. The
-browser's downloaded copy remains in its Downloads folder. Closing the browser
-does not stop the app; quit **Document Converter** in Activity Monitor to stop
-the local service.
+1. 在 Finder 按 `Command + Shift + G`，貼上上方 ZIP 路徑所在的資料夾：
+   `/Users/jakechiu/Documents/Projects/document_converter/build/private-release/candidate-3/`，再按 Enter。
+2. 在 Finder 雙擊 `Document-Converter-macos-arm64-local-candidate.zip` 解壓縮。
+3. 打開解壓後的 `Document-Converter-macos-arm64-local-candidate` 資料夾，找到
+   `Document Converter.app`。它的完整路徑如上方所列。
+4. 雙擊 `Document Converter.app`。設計上 App 會啟動本機服務，並用預設瀏覽器開啟操作頁面；Finder 雙擊啟動尚未驗證。
+5. 在網頁選取或拖入最多 **5 個** `.md`、`.markdown` 或 `.txt` 檔案。檔案必須是 UTF-8 編碼；單一檔案及全部選取檔案合計不得超過 **24 MiB**，整個上傳請求上限為 **25 MiB**。
+6. 選擇輸出為 Markdown 或 HTML，按「開始轉換」。一份文件會下載成單一檔案，多份文件會下載成 ZIP。下載位置通常是瀏覽器的「下載項目」（Downloads）資料夾。
+7. 上傳檔案和轉換中的輸出會放在系統暫存資料夾；每次轉換完成後會清除。瀏覽器下載的成品會保留在「下載項目」。關閉瀏覽器不會停止 App；要停止服務，請打開「活動監視器」，搜尋並退出 `Document Converter`。
 
-The candidate is ad-hoc signed and not notarized. macOS may show a first-launch
-security warning. Do not disable Gatekeeper to open it; use your organization's
-approved app review process. This candidate is for Apple Silicon Macs only.
+**一般使用者不需要安裝 Node.js、Docker、VS Code、Python 或 pip。**只需要這份
+App、一台 Apple Silicon Mac，以及可用的瀏覽器。VS Code 是編輯程式碼時可選用的
+工具，不是執行 App 的必要條件。
 
-The frozen release integration check recorded 10 tests passing. The full project
-suite recorded 111 tests passing with 83.56% coverage. Neither result verifies
-Finder double-click behavior, installation on another Mac, or Windows support.
-There is no Windows installer, and Windows use has not been tested.
+此候選 App 只有 ad-hoc 簽章，沒有 Developer ID 簽章或 Apple 公證；macOS
+首次開啟時可能顯示安全性提示。請勿停用 Gatekeeper；如遇提示，請依組織核准的
+App 審查流程處理。此 App 只提供 Apple Silicon macOS；**Windows 沒有安裝包，
+也尚未測試**。Finder 雙擊啟動、其他 Mac 安裝與首次安全提示處理均未驗證。
 
-See the [macOS build and local-use guide](docs-release/macos.md) and
-[private distribution requirements](docs/PRIVATE_DISTRIBUTION.md). The candidate
-is for local testing: it has ad-hoc signing, not Developer ID signing or Apple
-notarization, and its manifest retains `distribution_ready: false`.
+#### 開發者：從原始碼執行
+
+以下是開發者流程，**一般使用者不需要執行**。從原始碼安裝需要 Python
+（版本 `3.10` 至 `3.14`）與 pip；啟動瀏覽器介面還要安裝 web 依賴：
+
+```bash
+python -m venv .venv
+# macOS/Linux
+source .venv/bin/activate
+# Windows PowerShell
+# .\.venv\Scripts\Activate.ps1
+python -m pip install -U pip
+pip install -e ".[web]"
+document-converter web
+```
+
+Windows 上述指令只說明原始碼環境的設定方式，不代表 Windows 已完成測試或有
+安裝包。要重新打包 macOS App，請參閱[macOS 建置與本機使用指南](docs-release/macos.md)。
+另可查看[私人發行要求](docs/PRIVATE_DISTRIBUTION.md)。目前候選包只供本機測試，
+發行狀態仍為 `distribution_ready: false`。
 
 ## 4. Usage
 
