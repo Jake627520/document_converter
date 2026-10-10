@@ -1,0 +1,91 @@
+HISTORICAL DRAFT — NOT FOR DISTRIBUTION
+
+This is a historical drafting copy retained for traceability. The final
+root LICENSE is the authoritative license for the original Software.
+The former copyright-holder placeholder has been resolved as
+Copyright (c) 2026 Jake Chiu in the final root LICENSE.
+Do not package this historical draft or treat it as an alternative license.
+
+Document Converter Personal and Internal Use License (Proprietary)
+Version 1.0 — 2026-10-09
+
+Copyright (c) 2026 Jake Chiu
+All rights reserved except as expressly granted below.
+
+1. Scope and third-party components
+
+This license applies only to the original Document Converter code and
+accompanying documentation that the copyright holder owns or is authorized
+to license (the "Software"). It applies to those materials in source and
+executable form. It does not apply to third-party software, libraries, model
+weights, datasets, assets, or material supplied by users.
+
+Third-party components are governed by their own licenses and notices. Their
+applicable terms prevail for those components, including any rights to copy,
+modify, redistribute, obtain source code, or reverse engineer them. This
+license does not relicense third-party material or restrict rights granted
+by its authors. See THIRD_PARTY_NOTICES.md and the license and notice texts
+included with the particular installation package.
+
+2. Permission for personal and internal use
+
+Subject to this license, the copyright holder grants a non-exclusive,
+no-charge permission to a person or company that lawfully receives the
+Software to install and run it locally for personal use or the company's
+own internal operations. Internal commercial use is permitted.
+
+The recipient may make copies needed for installation, backup, and the
+permitted use. A company may provide such copies to its employees solely
+for that company's internal use, provided this license and the applicable
+copyright and third-party notices remain with the copies. If source code
+has lawfully been provided to the recipient, the recipient may modify it
+solely for the same permitted personal or internal use.
+
+3. Restrictions on the original Software
+
+Except for the internal copies expressly permitted in section 2, and except
+to the extent a restriction is prohibited by applicable law, the recipient
+may not sell, resell, sublicense, or redistribute the Software or modified
+versions of it to any other person or organization. This includes publishing
+or sharing installers, executable files, source code, or a product that
+includes the Software. Additional rights require the copyright holder's
+separate written permission.
+
+These restrictions apply only to the original Software covered by this
+license. They do not limit independent rights in third-party components or
+rights that applicable law does not allow to be waived or restricted.
+
+4. Input documents and output
+
+This license does not claim ownership of input documents or converted
+output and does not impose the Software's redistribution restrictions on
+them. Existing rights and obligations in the underlying documents, content,
+and third-party material continue to apply.
+
+5. Warranty and liability
+
+To the extent permitted by applicable law, the Software is provided "AS IS"
+and "AS AVAILABLE", without express or implied warranties, including
+merchantability, fitness for a particular purpose, and non-infringement.
+No accuracy, uninterrupted operation, support, or update commitment is made.
+
+To the extent permitted by applicable law, the copyright holder is not liable
+for losses or damages arising from use of, or inability to use, the Software.
+These exclusions do not apply to liability, warranties, or statutory rights
+that applicable law does not allow to be excluded or limited, including
+liability for intentional misconduct or gross negligence where such an
+exclusion or limitation is prohibited.
+
+6. Rights retained and mandatory law
+
+Ownership remains with the respective rights holders. No rights are granted
+except those expressly stated here or otherwise provided by applicable law.
+No trademark rights are granted by this license.
+
+Nothing in this license overrides mandatory law or restricts a right that
+cannot lawfully be excluded, waived, or restricted. If any provision is
+unenforceable, the remaining provisions apply to the extent permitted by law.
+
+This is a custom proprietary license. It is not the MIT License or an open
+source license. Any future release under a different license requires an
+express grant for that release; no such future grant is made here.

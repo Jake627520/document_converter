@@ -1,0 +1,9 @@
+- [x] Inspect platform, existing uncommitted changes and import/dependency boundaries.
+- [x] Fixed text-only launcher and shared web security/UI/writer profile.
+- [x] Isolated exact dependency list and PyPI hash lock.
+- [x] Collect original wheel/native notices, provenance and frozen/artifact hashes.
+- [x] Block packaging when project legal documents are missing.
+- [x] Source integration smoke for MD/TXT, HTML, rejected PDF/UTF-8 and security boundaries.
+- [x] Frozen app startup and synthetic conversion smoke (temporary staging using draft legal text; not a distributable release).
+- [ ] Fresh-context acceptance review.
+- [ ] Confirm rights owner and recipients; Developer ID/notarization and target-machine installation before distribution.

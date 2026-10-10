@@ -1,6 +1,6 @@
 # Document Converter Skill
 
-A local-first document conversion CLI and Codex/agent Skill.
+A local-first document conversion CLI, browser workbench, and Codex/agent Skill.
 
 ---
 
@@ -30,6 +30,19 @@ python -m pip install -U pip
 pip install -e .
 ```
 
+### Local Browser Workbench (Optional)
+
+Install the web extra and start the local interface:
+
+```bash
+pip install -e ".[web]"
+document-converter web
+```
+
+Open [http://127.0.0.1:8765](http://127.0.0.1:8765). The server binds only to loopback; use `document-converter web --port 8766` to choose another local port. Drop or select up to five supported documents, choose Markdown or HTML, and download the result (multiple inputs are returned as a ZIP). Each file and the combined selection are limited to 24 MiB; the complete multipart request is capped at 25 MiB. The web feature uses the existing `auto` conversion pipeline and does not install or enable optional Marker/MinerU engines.
+
+Uploads are held under generated temporary names and removed after each request, including conversion failures. The browser upload is handled by the local server. This does not guarantee zero network egress from the selected parser or model; review engine and model behavior before processing sensitive files.
+
 The default local engine is Docling:
 
 ```bash
@@ -46,34 +59,45 @@ pip install ".[marker]"
 # Consult docs/LICENSE_AUDIT.md; install its CLI separately if appropriate.
 ```
 
+### Private macOS Application Candidate
+
+The self-contained Apple Silicon candidate uses the same browser workbench and
+accepts only UTF-8 Markdown (`.md`, `.markdown`) and text (`.txt`), with Markdown
+or HTML output. It excludes PDF/Office/OCR engines and model weights.
+
+See the [macOS build and local-use guide](docs-release/macos.md) and
+[private distribution requirements](docs/PRIVATE_DISTRIBUTION.md). The candidate
+is for local testing: it has ad-hoc signing, not Developer ID signing or Apple
+notarization, and its manifest retains `distribution_ready: false`.
+
 ## 4. Usage
 
 ```bash
-document-converter paper.pdf --to md
-document-converter paper.pdf --to html
-document-converter paper.pdf --to md html --images referenced
-document-converter ./documents --to md html --output ./converted
+document-converter convert paper.pdf --to md
+document-converter convert paper.pdf --to html
+document-converter convert paper.pdf --to md --to html --images referenced
+document-converter convert ./documents --to md --to html --output ./converted
 ```
 
 Inspect engines:
 
 ```bash
-document-converter --list-engines
+document-converter list-engines
 ```
 
 Force an engine:
 
 ```bash
-document-converter paper.pdf --engine docling --to md html
-document-converter paper.pdf --engine marker --to md
-document-converter paper.pdf --engine mineru --to md
+document-converter convert paper.pdf --engine docling --to md --to html
+document-converter convert paper.pdf --engine marker --to md
+document-converter convert paper.pdf --engine mineru --to md
 ```
 
 ## 5. Architecture & Design
 
 The converter uses a normalized conversion result internally. This keeps input parsing separate from rendering and makes it possible to add EPUB/DOCX/PDF parsers or future renderers without changing the CLI.
 
-Docling is the primary backend because its current CLI/API supports a unified document representation and native Markdown/HTML output. Marker and MinerU are optional specialist fallbacks and are strictly isolated behind adapters.
+Docling is the primary backend because its current CLI/API supports a unified document representation and native Markdown/HTML output. Marker and MinerU are optional specialist fallbacks accessed through adapters; their package and model licenses require separate review.
 
 ---
 
@@ -102,3 +126,12 @@ Docling is the primary backend because its current CLI/API supports a unified do
 Third-party package and model review status:
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 - [docs/LICENSE_AUDIT.md](docs/LICENSE_AUDIT.md)
+
+## 9. Project License
+
+Copyright (c) 2026 Jake Chiu. The project's own software uses the
+[proprietary use license](LICENSE): personal and internal organizational use,
+including internal commercial use, is permitted; resale and external
+redistribution of the project's own software are restricted. This is not an MIT
+license. Third-party components retain their respective licenses and statutory
+rights remain unaffected. Read the full license before distributing a copy.

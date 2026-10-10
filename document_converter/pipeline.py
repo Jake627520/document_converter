@@ -7,12 +7,7 @@ from .engines.command_engine import MarkerEngine, MinerUEngine
 from .models import ConversionResult, ImageMode
 from .detector import inspect_pdf, PdfProfile
 from .writer import write_result
-
-SUPPORTED = {
-    ".pdf", ".docx", ".doc", ".pptx", ".ppt", ".xlsx", ".xls",
-    ".html", ".htm", ".epub", ".md", ".markdown", ".txt",
-    ".png", ".jpg", ".jpeg", ".webp", ".csv", ".rtf", ".odt", ".ods", ".odp"
-}
+from .formats import SUPPORTED
 
 DEFAULT_PARALLEL = 1
 MAX_WORKER_LIMIT = 4

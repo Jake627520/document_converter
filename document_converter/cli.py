@@ -148,6 +148,17 @@ def list_engines():
         ) else "not detected"
         console.print(f"{name:8} {found:12} {role:24} {install}")
 
+@app.command("web")
+def web(
+    port: int = typer.Option(8765, "--port", min=1024, max=65535, help="Local browser port (server binds only to 127.0.0.1)"),
+):
+    """Start the local browser workbench at http://127.0.0.1:<port>."""
+    try:
+        import uvicorn
+    except ImportError as exc:
+        raise typer.BadParameter('Install the web extra first: pip install -e ".[web]"') from exc
+    uvicorn.run("document_converter.web_app:app", host="127.0.0.1", port=port, reload=False, access_log=False)
+
 def _importable(name: str) -> bool:
     try:
         __import__(name)

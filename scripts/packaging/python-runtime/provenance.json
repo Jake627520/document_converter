@@ -1,0 +1,9 @@
+{
+  "python_version": "3.12.13",
+  "build": "20260623",
+  "target_triple": "aarch64-apple-darwin",
+  "artifact_url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260623/cpython-3.12.13%2B20260623-aarch64-apple-darwin-pgo%2Blto-full.tar.zst",
+  "artifact_sha256": "ce5a2d552077d869f69dc25d834c2fe4d036f9d78e770fb5d916273db802cabc",
+  "retrieved": "2026-10-09",
+  "note": "PYTHON.json and licenses are copied unchanged from this official artifact. Dependency versions absent from its metadata are not inferred from license identifiers."
+}

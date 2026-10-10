@@ -1,0 +1,73 @@
+"""Dependency-independent security rules for OpenSpec CHG-005."""
+from unittest import TestCase
+
+from document_converter.web_security import (
+    RequestAdmission, RequestBodyCounter, RequestBodyTooLarge,
+    content_length_exceeds_limit, host_is_local, origin_is_same_local,
+    request_exceeds_limit, supported_suffix, valid_file_count, valid_target,
+)
+
+
+class WebSecurityTests(TestCase):
+    def test_local_host_allowlist_supports_loopback_ports(self):
+        for host in ("localhost", "localhost:8765", "127.0.0.1", "127.0.0.1:8765", "[::1]:8765"):
+            with self.subTest(host=host):
+                self.assertTrue(host_is_local(host))
+
+    def test_external_and_malformed_hosts_are_rejected(self):
+        for host in ("evil.example", "localhost.evil.example", "127.0.0.2", "localhost:", "[::1"):
+            with self.subTest(host=host):
+                self.assertFalse(host_is_local(host))
+
+    def test_origin_must_be_same_local_host_and_port(self):
+        self.assertTrue(origin_is_same_local("http://127.0.0.1:8765", "127.0.0.1:8765"))
+        self.assertTrue(origin_is_same_local("http://localhost:8765", "127.0.0.1:8765"))
+        self.assertFalse(origin_is_same_local("https://127.0.0.1:8765", "127.0.0.1:8765"))
+        self.assertFalse(origin_is_same_local("http://localhost:8766", "127.0.0.1:8765"))
+        self.assertFalse(origin_is_same_local("http://attacker.example", "127.0.0.1:8765"))
+
+    def test_suffix_validation_is_case_insensitive_and_allowlisted(self):
+        self.assertEqual(supported_suffix("notes.MD"), ".md")
+        self.assertEqual(supported_suffix("scan.PDF"), ".pdf")
+        self.assertIsNone(supported_suffix("payload.exe"))
+        self.assertIsNone(supported_suffix("no-extension"))
+
+    def test_output_target_and_file_count_are_bounded(self):
+        self.assertTrue(valid_target("md"))
+        self.assertTrue(valid_target("html"))
+        self.assertFalse(valid_target("json"))
+        self.assertTrue(valid_file_count(1))
+        self.assertTrue(valid_file_count(5))
+        self.assertFalse(valid_file_count(6))
+        self.assertFalse(valid_file_count(0))
+
+    def test_request_limit_rejects_only_values_over_the_cap(self):
+        self.assertFalse(request_exceeds_limit(25, 25))
+        self.assertTrue(request_exceeds_limit(26, 25))
+
+    def test_active_request_cap_rejects_overflow_and_releases_capacity(self):
+        admission = RequestAdmission(limit=2)
+        self.assertTrue(admission.try_enter())
+        self.assertTrue(admission.try_enter())
+        self.assertFalse(admission.try_enter())
+        self.assertEqual(admission.active, 2)
+        admission.leave()
+        self.assertTrue(admission.try_enter())
+        admission.leave()
+        admission.leave()
+        self.assertEqual(admission.active, 0)
+
+    def test_content_length_is_rejected_before_body_read(self):
+        self.assertFalse(content_length_exceeds_limit(None, 10))
+        self.assertFalse(content_length_exceeds_limit("10", 10))
+        self.assertTrue(content_length_exceeds_limit("11", 10))
+        self.assertTrue(content_length_exceeds_limit("-1", 10))
+
+    def test_streamed_body_counter_accounts_chunks_without_aggregation(self):
+        counter = RequestBodyCounter(limit=5)
+        counter.account(2)
+        counter.account(3)
+        self.assertEqual(counter.received, 5)
+        with self.assertRaises(RequestBodyTooLarge):
+            counter.account(1)
+        self.assertEqual(counter.received, 5)
