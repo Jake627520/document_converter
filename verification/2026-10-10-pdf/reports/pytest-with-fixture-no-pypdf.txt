@@ -1,0 +1,6 @@
+# Experiment B: fixture regenerated, pypdf import blocked (falls back to built-in PDF analyzer)
+Required test coverage of 80% reached. Total coverage: 84.09%
+=========================== short test summary info ============================
+FAILED tests/test_cli.py::TestCli::test_inspect_directory_shows_distinguishable_relative_paths
+FAILED tests/test_cli.py::TestCli::test_inspect_fixture - AssertionError: 'te...
+2 failed, 102 passed, 7 skipped, 1 warning in 1.10s

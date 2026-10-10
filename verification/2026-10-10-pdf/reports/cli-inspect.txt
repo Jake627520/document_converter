@@ -1,0 +1,18 @@
+$ document-converter inspect verification/2026-10-10-pdf/samples   # with pypdf installed
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━┓
+┃ File                         ┃ Pages ┃ Chars ┃ Layer ┃ Type       ┃ Tool  ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━┩
+│ headlamp_spec_zh.pdf         │ 2     │ 779   │ Yes   │ text_based │ pypdf │
+│ scanned_inspection_sheet.pdf │ 1     │ 0     │ No    │ scanned    │ pypdf │
+│ tv_panel_memo_en.pdf         │ 1     │ 311   │ Yes   │ text_based │ pypdf │
+└──────────────────────────────┴───────┴───────┴───────┴────────────┴───────┘
+
+$ PYTHONPATH=<pypdf blocked> document-converter inspect verification/2026-10-10-pdf/samples   # built-in analyzer, i.e. a default install
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
+┃ File                      ┃ Pages ┃ Chars ┃ Layer ┃ Type    ┃ Tool           ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━┩
+│ headlamp_spec_zh.pdf      │ 2     │ 0     │ No    │ scanned │ builtin_stream │
+│ scanned_inspection_sheet. │ 1     │ 0     │ No    │ scanned │ builtin_stream │
+│ pdf                       │       │       │       │         │                │
+│ tv_panel_memo_en.pdf      │ 1     │ 0     │ No    │ scanned │ builtin_stream │
+└───────────────────────────┴───────┴───────┴───────┴─────────┴────────────────┘

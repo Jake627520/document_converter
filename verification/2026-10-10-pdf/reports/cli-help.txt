@@ -1,0 +1,15 @@
+$ document-converter --help
+                                                                                
+ Usage: document-converter [OPTIONS] COMMAND [ARGS]...                          
+                                                                                
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ───────────────────────────────────────────────────────────────────╮
+│ convert       Convert local documents to Markdown/HTML/JSON/text.            │
+│ inspect       Inspect whether a PDF has text layers or is                    │
+│               scanned/image-based.                                           │
+│ list-engines  Show available engines.                                        │
+│ web           Start the local browser workbench at http://127.0.0.1:<port>.  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+

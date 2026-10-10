@@ -1,0 +1,11 @@
+$ document-converter list-engines
+docling  installed    primary/local            pip install docling
+marker   not detected optional PDF fallback    pip install marker-pdf
+mineru   not detected optional PDF/OCR fallback install local MinerU 4.x
+$ document-converter --list-engines
+Usage: document-converter [OPTIONS] COMMAND [ARGS]...
+Try 'document-converter --help' for help.
+╭─ Error ──────────────────────────────────────────────────────────────────────╮
+│ No such option: --list-engines                                               │
+╰──────────────────────────────────────────────────────────────────────────────╯
+exit=2

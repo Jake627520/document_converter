@@ -1,0 +1,48 @@
+[
+  {
+    "file": "headlamp_spec_zh.pdf",
+    "pages": 2,
+    "detector_classification": "text_based",
+    "detector_chars": 779,
+    "status": "SUCCESS",
+    "markdown_chars": 811,
+    "outputs": [
+      "headlamp_spec_zh.md",
+      "headlamp_spec_zh.html",
+      "headlamp_spec_zh.json",
+      "headlamp_spec_zh.txt"
+    ],
+    "seconds": 0.17
+  },
+  {
+    "file": "scanned_inspection_sheet.pdf",
+    "pages": 1,
+    "detector_classification": "scanned",
+    "detector_chars": 0,
+    "status": "SUCCESS",
+    "markdown_chars": 14,
+    "outputs": [
+      "scanned_inspection_sheet.md",
+      "scanned_inspection_sheet.html",
+      "scanned_inspection_sheet.json",
+      "scanned_inspection_sheet.txt"
+    ],
+    "note": "almost no text recovered; the PDF has no text layer and this pipeline runs no OCR",
+    "seconds": 0.06
+  },
+  {
+    "file": "tv_panel_memo_en.pdf",
+    "pages": 1,
+    "detector_classification": "text_based",
+    "detector_chars": 311,
+    "status": "SUCCESS",
+    "markdown_chars": 317,
+    "outputs": [
+      "tv_panel_memo_en.md",
+      "tv_panel_memo_en.html",
+      "tv_panel_memo_en.json",
+      "tv_panel_memo_en.txt"
+    ],
+    "seconds": 0.04
+  }
+]
