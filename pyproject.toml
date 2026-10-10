@@ -7,7 +7,7 @@ name = "document-converter-skill"
 version = "0.2.0"
 description = "Local-first multi-format document to Markdown/HTML converter"
 readme = "README.md"
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.11,<3.15"
 dependencies = [
   "docling>=2.97,<3",
   "typer>=0.16,<1",
