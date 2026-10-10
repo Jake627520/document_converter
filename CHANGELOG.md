@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Model-Free PDF Engine (`docling-native`)**: PDF conversion through Docling's `NativePdfPipeline`, which runs no layout, table or OCR model, so PDFs convert without PyTorch or downloaded model weights. `auto` places it after the model-based engines, and every conversion records its reduced fidelity as a warning (`document_converter/engines/docling_native_engine.py`).
 - **`--strip-page-numbers`**: Opt-in removal of lines holding only digits during `--clean`.
+- **macOS `pdf` Release Profile**: the packaged local app can accept text-layer PDFs. `scripts/packaging/profiles.py` declares the reviewed profiles, `bootstrap_macos.sh` takes `RELEASE_PROFILE=pdf`, the launcher reads its profile from the frozen bundle, and `requirements-macos-arm64-pdf.lock` pins 60 hash-locked wheels with no PyTorch, no optional engines and no model weights. A scanned PDF is reported as having no text layer instead of returning an empty document. The reviewed `text` profile is unchanged.
 - **Shared Synthetic PDF Builders**: `tests/pdf_samples.py` writes structurally valid PDFs (correct cross-reference offsets, font resource, real content stream) so the suite needs no committed PDF fixture.
 
 ### Fixed

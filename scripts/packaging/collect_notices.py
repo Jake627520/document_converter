@@ -11,9 +11,11 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import profiles
+
 TOOLS = {"altgraph", "macholib", "packaging", "pyinstaller", "pyinstaller-hooks-contrib", "setuptools"}
 LEGAL_SOURCES = {"LICENSE": "LICENSE", "THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md", "LICENSE_AUDIT.md": "docs/LICENSE_AUDIT.md", "PRIVATE_DISTRIBUTION.md": "docs/PRIVATE_DISTRIBUTION.md"}
-FORBIDDEN = {"pymupdf", "fitz", "docling", "marker-pdf", "magic-pdf", "mineru", "torch", "pytest", "pytest-cov", "pip", "pip-audit", "pip-licenses", "httpx"}
 
 
 def digest(path):
@@ -24,16 +26,20 @@ def normalized(name):
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
-def exact_dependencies():
+def exact_dependencies(profile):
     expected = {}
-    for line in (ROOT / "scripts/packaging/requirements-macos-arm64.txt").read_text().splitlines():
-        name, version = line.strip().split("==")
+    for line in (ROOT / "scripts/packaging" / f"{profile.requirements_stem}.txt").read_text().splitlines():
+        entry = line.strip()
+        if not entry or entry.startswith("#"):
+            continue
+        name, version = entry.split("==")
         expected[normalized(name)] = version
     actual = {normalized(dist.metadata["Name"]): dist.version for dist in metadata.distributions()}
     if actual != expected:
         raise RuntimeError(f"Isolated build dependencies differ from fixed list: expected={expected}, actual={actual}")
-    if FORBIDDEN.intersection(actual):
-        raise RuntimeError("Forbidden release dependencies installed")
+    forbidden = profile.forbidden_distributions.intersection(actual)
+    if forbidden:
+        raise RuntimeError(f"Forbidden release dependencies installed: {sorted(forbidden)}")
     return expected
 
 
@@ -70,14 +76,15 @@ def check_runtime_provenance():
     return provenance, python_meta
 
 
-def collect(destination):
+def collect(destination, profile=None):
+    profile = profile or profiles.TEXT
     destination = Path(destination)
     for output, source in LEGAL_SOURCES.items():
         path = ROOT / source
         if not path.is_file() or not path.read_text().strip():
             raise RuntimeError(f"Missing required legal document: {path}")
     provenance, python_meta = check_runtime_provenance()
-    expected = exact_dependencies()
+    expected = exact_dependencies(profile)
     destination.mkdir(parents=True, exist_ok=True)
     for output, source in LEGAL_SOURCES.items():
         shutil.copyfile(ROOT / source, destination / output)
@@ -102,9 +109,10 @@ def collect(destination):
         packages.append({"name": name, "version": expected[name], "role": "build-tool" if name in TOOLS else "runtime", "license_metadata": license_name, "license_classifiers": [c for c in dist.metadata.get_all("Classifier", []) if c.startswith("License ::")], "metadata_sha256": hashlib.sha256(dist.read_text("METADATA").encode()).hexdigest(), "record_sha256": hashlib.sha256((dist.read_text("RECORD") or "").encode()).hexdigest(), "notices": notices})
     native = ROOT / "scripts/packaging/python-runtime"
     shutil.copytree(native, destination / "third-party/python-runtime", dirs_exist_ok=True)
-    for name in ("requirements-macos-arm64.txt", "requirements-macos-arm64.lock"):
+    for suffix in ("txt", "lock"):
+        name = f"{profile.requirements_stem}.{suffix}"
         shutil.copyfile(ROOT / "scripts/packaging" / name, destination / name)
     notices = [{"path": path.relative_to(destination).as_posix(), "sha256": digest(path)} for path in sorted((destination / "third-party/python-runtime").rglob("*")) if path.is_file()]
-    inventory = {"profile": "text-only", "target": "macos-arm64", "python": {"version": platform.python_version(), "provenance": provenance, "metadata_licenses": python_meta["licenses"], "notices": notices}, "packages": packages, "legal_documents": [{"path": name, "sha256": digest(destination / name)} for name in LEGAL_SOURCES], "distribution_ready": False, "remaining_review": "Confirm rights owner and authorized recipients, exact frozen native module inventory, signing/notarization and target-machine installation before distribution."}
+    inventory = {"profile": profile.manifest_profile, "target": "macos-arm64", "python": {"version": platform.python_version(), "provenance": provenance, "metadata_licenses": python_meta["licenses"], "notices": notices}, "packages": packages, "legal_documents": [{"path": name, "sha256": digest(destination / name)} for name in LEGAL_SOURCES], "distribution_ready": False, "remaining_review": "Confirm rights owner and authorized recipients, exact frozen native module inventory, signing/notarization and target-machine installation before distribution."}
     (destination / "THIRD_PARTY_INVENTORY.json").write_text(json.dumps(inventory, ensure_ascii=False, indent=2) + "\n")
     return inventory

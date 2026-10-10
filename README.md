@@ -90,6 +90,13 @@ pip install ".[marker]"
 # Consult docs/LICENSE_AUDIT.md; install its CLI separately if appropriate.
 ```
 
+### Private macOS Application Candidate (Two Profiles)
+
+兩個已審查的發行設定檔：`text` 只收 `.md`/`.markdown`/`.txt`（原本的版本，不含任何引擎與
+模型）；`pdf` 另外收**有文字層的 PDF**，用不需模型的讀取器轉換（沒有 OCR、不重建標題與表格、
+不含 PyTorch、不下載模型，掃描檔會明確告知沒有文字層）。建置與驗收指令見
+[macOS 建置與本機使用指南](docs-release/macos.md)。
+
 ### Private macOS Application Candidate
 
 這是給一般使用者直接開啟的 macOS 候選 App。它只支援 Apple Silicon

@@ -2,12 +2,27 @@ $ python -m pytest -q   # pypdf installed
 document_converter/web_security.py                       89     10    89%   18, 33, 62-63, 69, 79, 91, 100-101, 115
 document_converter/writer.py                            158     10    94%   96-98, 166-167, 195-196, 206-207, 219
 -----------------------------------------------------------------------------------
-TOTAL                                                  1095    135    88%
-Required test coverage of 80% reached. Total coverage: 87.67%
-122 passed, 7 skipped, 1 warning in 3.02s
+TOTAL                                                  1143    131    89%
+Required test coverage of 80% reached. Total coverage: 88.54%
+141 passed, 7 skipped, 1 warning in 4.61s
 
 $ python -m pytest -q   # pypdf import blocked, built-in analyzer
 -----------------------------------------------------------------------------------
-TOTAL                                                  1095    143    87%
-Required test coverage of 80% reached. Total coverage: 86.94%
-122 passed, 7 skipped, 1 warning in 2.94s
+TOTAL                                                  1143    139    88%
+Required test coverage of 80% reached. Total coverage: 87.84%
+141 passed, 7 skipped, 1 warning in 4.69s
+
+# Release runtime checks for both profiles, run against a stand-in build interpreter
+# (the real run uses build/private-release/venv and venv-pdf on the target Mac)
+test_page_has_only_reviewed_inputs (test_release_packaging.TextReleaseRuntimeTests.test_page_has_only_reviewed_inputs) ... ok
+test_pdf_is_rejected (test_release_packaging.TextReleaseRuntimeTests.test_pdf_is_rejected) ... ok
+test_shared_conversion_and_security_behavior (test_release_packaging.TextReleaseRuntimeTests.test_shared_conversion_and_security_behavior) ... ok
+test_page_offers_pdf_and_states_its_limits (test_release_packaging.PdfReleaseRuntimeTests.test_page_offers_pdf_and_states_its_limits) ... ok
+test_scanned_pdf_is_explained_rather_than_returned_empty (test_release_packaging.PdfReleaseRuntimeTests.test_scanned_pdf_is_explained_rather_than_returned_empty) ... ok
+test_shared_conversion_and_security_behavior (test_release_packaging.PdfReleaseRuntimeTests.test_shared_conversion_and_security_behavior) ... ok
+test_text_layer_pdf_converts (test_release_packaging.PdfReleaseRuntimeTests.test_text_layer_pdf_converts) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 4.298s
+
+OK

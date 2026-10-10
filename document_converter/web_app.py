@@ -11,28 +11,71 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, Response
 
 from .models import ConversionResult
-from .formats import TEXT_SUPPORTED
+from .formats import PDF_TEXT_SUPPORTED, TEXT_SUPPORTED
 from .web_security import MAX_ACTIVE_REQUESTS, MAX_FILE_COUNT, RequestAdmission, RequestBodyCounter, RequestBodyTooLarge, content_length_exceeds_limit, host_is_local, origin_is_same_local, supported_suffix, valid_file_count, valid_target
 from .writer import write_result
 
 MAX_REQUEST_BYTES = 25 * 1024 * 1024
 MAX_FILE_BYTES = 24 * 1024 * 1024
 
-_RELEASE_TEXT_ONLY = False
+TEXT_PROFILE = "text-only"
+PDF_PROFILE = "pdf-text"
+RELEASE_FORMATS = {TEXT_PROFILE: TEXT_SUPPORTED, PDF_PROFILE: PDF_TEXT_SUPPORTED}
+
+_RELEASE_PROFILE: str | None = None
 
 
 def configure_text_release():
     """Permanently restrict this process to the reviewed text-only release."""
-    global _RELEASE_TEXT_ONLY
-    _RELEASE_TEXT_ONLY = True
+    _configure_release(TEXT_PROFILE)
+
+
+def configure_pdf_release():
+    """Permanently restrict this process to the reviewed PDF-and-text release.
+
+    PDF conversion uses the model-free reader only, so the process never loads a
+    deep-learning runtime and never downloads model weights.
+    """
+    _configure_release(PDF_PROFILE)
+
+
+def _configure_release(profile: str):
+    global _RELEASE_PROFILE
+    if _RELEASE_PROFILE is not None and _RELEASE_PROFILE != profile:
+        raise RuntimeError(f"This process is already configured as the {_RELEASE_PROFILE} release")
+    _RELEASE_PROFILE = profile
+
+
+def release_profile() -> str | None:
+    return _RELEASE_PROFILE
+
+
+def release_formats() -> frozenset[str] | None:
+    """Input suffixes the configured release accepts, or None outside a release."""
+    if _RELEASE_PROFILE is None:
+        return None
+    return RELEASE_FORMATS[_RELEASE_PROFILE]
+
+
+def _convert_text(path):
+    return ConversionResult(source=path, engine="text_direct", markdown=path.read_text(encoding="utf-8"))
 
 
 def convert_one(path, engine_name, image_mode):
     """Use the same writer while keeping optional engines out of text releases."""
-    if _RELEASE_TEXT_ONLY:
+    if _RELEASE_PROFILE == TEXT_PROFILE:
         if path.suffix.lower() not in TEXT_SUPPORTED:
             raise ValueError("The text release accepts Markdown and UTF-8 text only")
-        return ConversionResult(source=path, engine="text_direct", markdown=path.read_text(encoding="utf-8"))
+        return _convert_text(path)
+    if _RELEASE_PROFILE == PDF_PROFILE:
+        suffix = path.suffix.lower()
+        if suffix not in PDF_TEXT_SUPPORTED:
+            raise ValueError("This release accepts PDF, Markdown and UTF-8 text only")
+        if suffix != ".pdf":
+            return _convert_text(path)
+        # Imported here so the text-only release never reaches engine code.
+        from .engines.docling_native_engine import DoclingNativePdfEngine
+        return DoclingNativePdfEngine().convert(path, "none")
     from .pipeline import convert_one as pipeline_convert_one
     return pipeline_convert_one(path, engine_name, image_mode)
 
@@ -95,7 +138,11 @@ app.add_middleware(LocalRequestBoundary)
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    return HTMLResponse(text_release_page() if _RELEASE_TEXT_ONLY else PAGE)
+    if _RELEASE_PROFILE == TEXT_PROFILE:
+        return HTMLResponse(text_release_page())
+    if _RELEASE_PROFILE == PDF_PROFILE:
+        return HTMLResponse(pdf_release_page())
+    return HTMLResponse(PAGE)
 
 
 @app.post("/convert")
@@ -111,7 +158,8 @@ async def convert_upload(target: str = Form(...), files: list[UploadFile] = File
         for upload in files:
             original_name = upload.filename or "document"
             suffix = supported_suffix(original_name)
-            if suffix is None or (_RELEASE_TEXT_ONLY and suffix not in TEXT_SUPPORTED):
+            allowed = release_formats()
+            if suffix is None or (allowed is not None and suffix not in allowed):
                 raise HTTPException(400, "Unsupported input type")
             content = await upload.read(MAX_FILE_BYTES + 1)
             if len(content) > MAX_FILE_BYTES:
@@ -120,14 +168,21 @@ async def convert_upload(target: str = Form(...), files: list[UploadFile] = File
             safe_input.write_bytes(content)
             try:
                 result: ConversionResult = convert_one(safe_input, "auto", "none")
+                _reject_empty_pdf(result)
                 output_dir = root / f"output-{uuid.uuid4().hex}"
                 write_result(result, output_dir, [target])
                 output_path = output_dir / f"{safe_input.stem}.{target}"
                 if not output_path.is_file():
                     raise RuntimeError("The selected output format was not produced")
                 produced.append((output_path.name, output_path.read_bytes()))
+            except HTTPException:
+                raise
             except Exception as exc:
-                raise HTTPException(422, "Conversion failed. Check the document and installed local engine.") from exc
+                # The server is loopback-only and processes the operator's own
+                # files, so the reason is more useful to them than a bare failure.
+                reason = str(exc).replace(str(root), "").strip()
+                detail = "Conversion failed. Check the document and installed local engine."
+                raise HTTPException(422, f"{detail} ({reason[:300]})" if reason else detail) from exc
             finally:
                 await upload.close()
 
@@ -145,6 +200,42 @@ async def convert_upload(target: str = Form(...), files: list[UploadFile] = File
             media_type = "application/zip"
 
     return Response(body, media_type=media_type, headers={"Content-Disposition": f'attachment; filename="{filename}"', "X-Content-Type-Options": "nosniff"})
+
+
+def _reject_empty_pdf(result: ConversionResult):
+    """Tell the reader a scanned PDF produced nothing instead of sending an empty file."""
+    if _RELEASE_PROFILE != PDF_PROFILE:
+        return
+    from .engines.docling_native_engine import NO_TEXT_WARNING
+
+    if NO_TEXT_WARNING in result.warnings:
+        raise HTTPException(
+            422,
+            "這個 PDF 沒有文字層（例如掃描或拍照的檔案）。此版本不包含 OCR 文字辨識，"
+            "無法從影像中取出文字。",
+        )
+
+
+def pdf_release_page():
+    """Keep the shared interface truthful about this release's inputs and limits."""
+    page = PAGE.replace(
+        'accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm,.epub,.md,.markdown,.txt,.png,.jpg,.jpeg,.webp,.csv,.rtf,.odt,.ods,.odp"',
+        'accept=".pdf,.md,.markdown,.txt"',
+    )
+    page = page.replace(
+        "支援 PDF、Office、圖片、Markdown、文字與其他文件格式。",
+        "支援 PDF（需有文字層）、Markdown 與 UTF-8 文字。",
+    )
+    page = page.replace(
+        "PDF、Word、PowerPoint、Excel、HTML、EPUB、Markdown、文字、圖片、CSV、RTF、OpenDocument。",
+        "PDF（僅限已有文字層者）、Markdown（.md、.markdown）、UTF-8 文字（.txt）。"
+        "PDF 會抽取檔案內既有的文字，不重建標題階層與表格；掃描檔沒有文字層，"
+        "此版本不含 OCR，轉出來會是空的。此版本不提供 Office 與圖片格式。",
+    )
+    return page.replace(
+        "引擎或模型的網路行為取決於其安裝與設定。",
+        "此版本只使用不需模型的本機 PDF 讀取器，不下載任何模型。",
+    )
 
 
 def text_release_page():

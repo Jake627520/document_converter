@@ -19,6 +19,11 @@ QUALITY_WARNING = (
     "stores them, without heading levels, Markdown tables or reading-order recovery."
 )
 
+NO_TEXT_WARNING = (
+    "No text was recovered. The PDF has no text layer and this engine runs no OCR; "
+    "use an engine with OCR support for scanned pages."
+)
+
 _PLACEHOLDER = re.compile(r"<!--.*?-->", re.DOTALL)
 
 
@@ -60,8 +65,5 @@ class DoclingNativePdfEngine(Engine):
 
         result.warnings.append(QUALITY_WARNING)
         if not _has_recovered_text(result.markdown):
-            result.warnings.append(
-                "No text was recovered. The PDF has no text layer and this engine runs no OCR; "
-                "use an engine with OCR support for scanned pages."
-            )
+            result.warnings.append(NO_TEXT_WARNING)
         return result

@@ -1,0 +1,35 @@
+# macOS 'pdf' release profile: Linux PyInstaller trial build
+# The macOS build needs macOS arm64, the pinned python-build-standalone, codesign and ditto.
+# This transcript freezes the same profile definition on Linux to validate the frozen bundle.
+
+$ pyinstaller <profile pdf spec>   # collect_all + copy_metadata from scripts/packaging/profiles.py
+frozen bundle size: 257M
+
+$ ./document-converter-trial --diagnostics
+{
+  "profile": "pdf-text",
+  "inputs": [
+    ".markdown",
+    ".md",
+    ".pdf",
+    ".txt"
+  ],
+  "frozen": true,
+  "python": "3.13.16 (main, Oct  1 2026, 15:40:24) [GCC 13.3.0]",
+  "paths": [
+
+# HTTP checks against the frozen bundle (loopback)
+$ POST /convert target=md   headlamp_spec_zh.pdf   (Chinese spec sheet, text layer)
+http=200  first line: 車燈模組規格報告 Headlamp Module Spec   table value 84 kept: 1
+$ POST /convert target=html tv_panel_memo_en.pdf
+http=200  contains document title: 1
+$ POST /convert target=md   scanned_inspection_sheet.pdf   (no text layer)
+{"detail":"這個 PDF 沒有文字層（例如掃描或拍照的檔案）。此版本不包含 OCR 文字辨識，無法從影像中取出文字。"} http=422
+$ POST /convert target=md   notes.md
+http=200
+$ POST /convert target=md   a.docx   (must stay rejected)
+{"detail":"Unsupported input type"} http=400
+$ POST /convert target=md   two PDFs
+http=200  zip entries: ['document-1.md', 'document-2.md']
+
+# Not verified here: macOS arm64 .app, codesign, ditto ZIP, Finder double-click, cross-Mac install.

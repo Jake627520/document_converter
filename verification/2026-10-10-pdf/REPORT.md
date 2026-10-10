@@ -8,8 +8,8 @@ PDF 可以用正式指令轉成 Markdown / HTML / JSON / 純文字，而且不�
 document-converter convert ~/Documents/我的PDF --engine docling-native --to md --to html
 ```
 
-驗證過程中查出的 3 個問題都已修掉（細節在第 4 節）。你 Mac 上那個候選 App 仍然
-不收 PDF —— 那是發行入口的設計，不在這次修正範圍。
+驗證過程中查出的 3 個問題都已修掉（第 4 節）。Mac App 也新增了可收 PDF 的 `pdf`
+發行設定檔，但 macOS 的 `.app` 還要你在 Mac 上建置與驗收（第 5 節）。
 
 ## 1. 這次實際轉出來的檔案
 
@@ -119,10 +119,43 @@ cross-reference offset、字型資源、真的內容串流），測試在暫存�
 output-formats 新增「清理不得刪掉內容」、pdf-detection 新增「內建分析器要能讀常見編碼」、
 cli-interface 新增引擎名稱與 `--strip-page-numbers`。
 
-## 5. 仍未驗證的部分（請當成未知，不要當成可用）
+## 5. Mac App 的 PDF 支援（新增 `pdf` profile）
 
-- **你 Mac 上的 App 不支援 PDF。** 發行入口寫死只收 `.md`/`.markdown`/`.txt`
-  （`web_app.py:32-33`、`114`），PDF 會被擋掉。這次沒有改發行入口。
+原本的 App 發行入口寫死只收 `.md`/`.markdown`/`.txt`。現在打包流程有兩個已審查的 profile：
+
+| profile | 接受的輸入 | 打包內容 | 約略大小 |
+|---|---|---|---|
+| `text`（原本的） | `.md`、`.markdown`、`.txt` | 不含任何引擎與模型 | 數十 MB |
+| `pdf`（新增） | 再加上**有文字層的 PDF** | 另含不跑模型的 PDF 讀取器 | 數百 MB |
+
+在你的 Mac 上建置 PDF 版：
+
+```sh
+RELEASE_PROFILE=pdf BUILD_PYTHON="$HOME/.local/bin/python3.12" sh scripts/packaging/bootstrap_macos.sh \
+    --output-dir build/private-release/candidate-pdf
+```
+
+重點：`pdf` profile 不含 PyTorch、不含選用引擎、不下載任何模型（60 個 hash 鎖定的 wheel），
+Office 與圖片仍然擋掉，掃描 PDF 會明確回報「沒有文字層」而不是給一個空檔案。原本的 `text`
+profile 的禁止清單與行為完全沒變，而且有測試固定住這件事。
+
+**這台機器無法建 macOS App**（需要 macOS arm64、你釘住的 python-build-standalone、codesign、
+ditto）。我改用等效的 PyInstaller 設定在 Linux 上做了一次凍結建置來驗證打包設定是否完整，
+過程中抓到並修掉一個真問題：`latex2mathml` 的資料檔沒被收進 bundle，導致凍結後 PDF 轉檔失敗。
+修正後凍結版的實測結果（`reports/macos-pdf-profile-linux-trial.txt`）：
+
+- 中文規格書 PDF → Markdown：200，`84` 保留
+- 英文 PDF → HTML：200
+- 掃描 PDF：422 並附中文說明
+- Markdown：200；`.docx`：400（仍被擋）；兩個 PDF：ZIP
+
+## 6. 仍未驗證的部分（請當成未知，不要當成可用）
+
+- **macOS arm64 的 `.app` 本身尚未建置與驗證**：codesign、ditto ZIP、Finder 雙擊、跨 Mac
+  安裝都還沒跑過。請在你的 Mac 上執行上面的建置指令，再跑
+  `build/private-release/venv-pdf/bin/python -I -m unittest discover -s tests -p test_release_packaging.py -v`。
+- lock 檔的 hash 是我用 PyPI metadata 針對 CPython 3.12 / macOS arm64 產生的。若 `uv pip sync`
+  回報 hash 不符，請在 Mac 上重新產生（指令寫在 lock 檔開頭）。
 - **Docling 標準管線（有版面 AI 的那條）沒驗。** 一是你要我跳過 torch，二是這台雲端機
   的網路政策擋掉 huggingface.co（CONNECT 403），模型權重下載不下來。若要驗，需在環境
   設定的 Network access 把 `huggingface.co` 加進 Allowed domains（標題列的 cloud
@@ -133,7 +166,7 @@ cli-interface 新增引擎名稱與 `--strip-page-numbers`。
 - Finder 雙擊啟動、跨 Mac 安裝、Windows 相容性 — 仍未驗證。
 - 本次在 Linux / CPython 3.13 驗證，不是 macOS arm64 / 3.12。
 
-## 6. 重現方式
+## 7. 重現方式
 
 ```bash
 # 1. 重建樣本 PDF（需要 reportlab、pillow）
