@@ -19,7 +19,12 @@ jsonref==1.1.0
 jsonschema-specifications==2025.9.1
 jsonschema==4.26.0
 langcodes==3.5.1
-latex2mathml==3.81.1
+# latex2mathml is held one minor version back: 3.81.0 and 3.81.1 ship no
+# license file in the wheel or the sdist, so there is no notice to collect
+# for a dependency this release redistributes. 3.80.0 ships it under
+# dist-info/licenses/LICENSE and satisfies docling-core's >=3.77.0,<4.0.0.
+# Raise this once upstream restores the file; audit_notices.py checks.
+latex2mathml==3.80.0
 lxml==6.1.3
 macholib==1.16.4
 markdown-it-py==4.2.0

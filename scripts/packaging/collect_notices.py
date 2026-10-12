@@ -15,6 +15,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import profiles
 
 TOOLS = {"altgraph", "macholib", "packaging", "pyinstaller", "pyinstaller-hooks-contrib", "setuptools"}
+
+# A wheel carries its notices under one of two shapes, so both are matched.
+# Some name the file after the convention (`LICENSE`, `COPYING`), including the
+# British spelling `LICENCE` that tqdm uses. Others declare license files in
+# their metadata, which installers record under `<dist-info>/licenses/` (PEP
+# 639); there the names follow the upstream project, not any convention, so
+# only the location identifies them: pypdfium2 ships PDFium's bundled
+# components as `LICENSES/BSD-3-Clause.txt` and `BUILD_LICENSES/freetype.txt`,
+# and numpy ships its vendored notices under their own source paths. Matching
+# on the file name alone dropped every one of those without a word.
+NOTICE_NAME = re.compile(r"(?i)^(licen[cs]e|copying|copyright|notice)(?:[._-].*)?$")
+NOTICE_LOCATION = re.compile(r"(?i)(?:^|/)[^/]+\.dist-info/licenses/.+")
 LEGAL_SOURCES = {"LICENSE": "LICENSE", "THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md", "LICENSE_AUDIT.md": "docs/LICENSE_AUDIT.md", "PRIVATE_DISTRIBUTION.md": "docs/PRIVATE_DISTRIBUTION.md"}
 
 
@@ -24,6 +36,12 @@ def digest(path):
 
 def normalized(name):
     return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def is_notice(item) -> bool:
+    """Is this installed file part of a distribution's license material?"""
+    posix = Path(str(item)).as_posix()
+    return bool(NOTICE_NAME.match(Path(posix).name) or NOTICE_LOCATION.search(posix))
 
 
 def exact_dependencies(profile):
@@ -93,7 +111,7 @@ def collect(destination, profile=None):
         name = normalized(dist.metadata["Name"])
         notices = []
         for item in dist.files or []:
-            if re.match(r"(?i)^(license|copying|notice)(?:[._-].*)?$", Path(item).name):
+            if is_notice(item):
                 source = Path(dist.locate_file(item))
                 if not source.is_file():
                     raise RuntimeError(f"Missing installed notice: {source}")

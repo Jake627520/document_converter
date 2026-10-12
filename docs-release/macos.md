@@ -71,7 +71,8 @@ build/private-release/venv/bin/python -I scripts/packaging/build_macos.py --outp
 
 - 自有授權與發行政策文件；第三方權利由原始條款控制。
 - `THIRD_PARTY_INVENTORY.json`：exact installed distribution name/version、runtime/build-tool role、metadata/RECORD SHA-256、授權原文路徑與 SHA-256。
-- `third-party/<package>/`：wheel 所附原始 LICENSE/COPYING/NOTICE，保留巢狀路徑，含 build tool notices。
+- `third-party/<package>/`：wheel 所附原始 LICENSE/COPYING/NOTICE，保留巢狀路徑，含 build tool notices。依檔名（含 `LICENCE` 英式拼法）與 PEP 639 標準位置 `<dist-info>/licenses/` 兩種方式辨識；後者的檔名由上游決定而非慣例，例如 pypdfium2 以 `LICENSES/BSD-3-Clause.txt`、`BUILD_LICENSES/freetype.txt` 攜帶 PDFium 內含元件的授權。任一 wheel 完全未附授權即中止建置。
+- 升級任何 pinned 版本後，先執行 `python3 scripts/packaging/audit_notices.py --profile pdf`（或 `--profile text`）。它不需安裝即可依 lock 的 hash 取得對應 wheel 並套用建置本身的判定規則，可在非 macOS 機器上先行確認，避免在 Mac 上才發現上游移除授權檔。
 - `third-party/python-runtime/`：同版本官方完整 artifact 的原始 `PYTHON.json`、native notices、CPython installed LICENSE、取得來源與 artifact hash。
 - `requirements-macos-arm64.txt` 與 hash lock；實際 frozen module／binary source inventory。
 

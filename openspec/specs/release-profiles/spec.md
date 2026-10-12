@@ -54,3 +54,14 @@ A frozen application MUST select its reviewed profile without a command-line arg
 #### Scenario: Diagnostics are requested
 - **WHEN** the candidate is run with the diagnostics flag
 - **THEN** it reports the active profile, the accepted input suffixes and that no forbidden module is loaded
+
+### Requirement: Collect every notice a pinned wheel ships
+A candidate build MUST copy each pinned distribution's own license material out of the installed wheel, recognising it both by file name and by the standardised `<dist-info>/licenses/` location, whose file names follow the upstream project rather than any convention. A build MUST fail rather than produce a candidate for a distribution that ships no license material at all.
+
+#### Scenario: Wheel ships its notices under the standard location
+- **WHEN** a pinned wheel declares license files that the installer records under `<dist-info>/licenses/`, named after the components they cover
+- **THEN** the build collects every one of them into the candidate's third-party notices and records each path with its SHA-256
+
+#### Scenario: Wheel ships no license material
+- **WHEN** a pinned wheel carries no license file in any recognised form
+- **THEN** the build fails and names that distribution, and the profile pins a release that does ship its notice
