@@ -205,13 +205,23 @@ fallbacks whose code and model licenses are reviewed separately.
   temporary assets and model caches. It does not remove files already tracked;
   check `git status` before every commit.
 
-## 7. Licenses
+## 7. Support
+
+This is a personal project, published so that it can be read and used. It
+comes as it is, with no commitment to support, to answer questions, to fix a
+problem or to keep it working. Issues and pull requests may go unanswered.
+Before you process anything that matters, check the output: the limits each
+engine has are described above and recorded as warnings on every conversion.
+
+## 8. Licenses
 
 **This project.** Copyright (c) 2026 Jake Chiu, under a
 [proprietary use license](LICENSE): personal use and a company's internal use,
 including internal commercial use, are permitted; resale and redistribution of
-the project's own software are not. It is not an open-source license. The
-`LICENSE` file is authoritative; this paragraph only summarizes it.
+the project's own software are not. It is not an open-source license, and this
+repository being public does not make it one: reading the source here grants no
+right the `LICENSE` does not give. The `LICENSE` file is authoritative; this
+paragraph only summarizes it.
 
 **Third-party components** keep their own licenses, and nothing here restricts
 the rights their authors grant. See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
