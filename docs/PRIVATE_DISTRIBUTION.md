@@ -1,6 +1,6 @@
 # Private source and local installer distribution
 
-Updated: 2026-10-09.
+Updated: 2026-10-13.
 
 The source repository is intended to remain private. The copyright holder may provide local installation packages to intended recipients under the accompanying custom proprietary `LICENSE`. Recipients may use the original Software personally or for their company's own internal operations, including internal commercial use. Except for permitted internal employee copies, recipients may not resell or redistribute the original Software or modified versions. Third-party components retain their own licenses and rights.
 
@@ -10,9 +10,14 @@ The final root `LICENSE` is the authoritative license for the original Software 
 
 The repository-only file `docs/LICENSE.proprietary.draft.txt` is retained as a historical drafting copy and is not included in installation packages. Its earlier copyright-holder placeholder has been resolved in the final root `LICENSE`; it must not be distributed or substituted for that final file. Each package must carry the complete final root `LICENSE` alongside its applicable third-party material and pass the artifact review described below.
 
-## First release scope
+## Release scope
 
-The first installer is limited to the local interface and Markdown/plain-text conversion. PDF, Office, OCR and model-backed conversion are outside this release scope. The build must exclude Docling, PyMuPDF/MuPDF, Marker, MinerU, their model weights and other PDF/OCR engines; inspecting the actual artifact is required to confirm this. A dependency already installed in a developer's global Python environment is not an approved bundle component.
+Two reviewed profiles exist; each installer states which one it is in its inventory and its `--diagnostics` output.
+
+- **`text`** (the first installer): the local interface and Markdown/plain-text conversion. PDF, Office, OCR and model-backed conversion are outside its scope. The build must exclude Docling, PyMuPDF/MuPDF, Marker, MinerU, their model weights and other PDF/OCR engines.
+- **`pdf`**: the `text` profile plus PDFs that already carry a text layer, read by Docling's model-free `NativePdfPipeline` with `pypdfium2`. Office, OCR and model-backed conversion stay outside its scope. The build must exclude Docling's model-based pipeline, every model weight, any deep-learning runtime, PyMuPDF/MuPDF, Marker and MinerU.
+
+Inspecting the actual artifact is required to confirm either scope. A dependency already installed in a developer's global Python environment is not an approved bundle component.
 
 Other engines may be considered later after their exact packages, dependencies, model artifacts and intended use have been reviewed. A user who installs an engine separately must comply with that engine's terms; the original Software's personal/internal-use permission does not grant rights in it.
 
@@ -32,7 +37,8 @@ The inventory is generated for each build. These source documents do not substit
 
 - Inspect the final inventory and files against the release scope. Resolve missing license texts, unidentified components and applicable source/notice obligations before release.
 - Present the original Software's terms before installation or first use and keep them accessible afterward. Record the package version and checksum with the provided terms; do not claim this alone establishes enforceable assent in every jurisdiction.
-- Provide accurate instructions for the included formats and local operation. Do not advertise excluded PDF/Office/OCR features or an engine/model's commercial clearance.
+- Provide accurate instructions for the included formats and local operation. Do not advertise features the package's profile excludes - PDF for the `text` profile; Office, OCR and scanned-PDF conversion for both - or an engine/model's commercial clearance.
+- A `pdf` profile package must carry the FreeType and Independent JPEG Group acknowledgements in its distribution documentation; `THIRD_PARTY_NOTICES.md` in `legal/` does so. Do not use those projects' names, or the Unicode/ICU copyright holders' names, in advertising or promotion without their permission.
 - Keep internal copies with the original copyright, license and third-party material. Apply the recipient restrictions only to the original Software, preserving independent third-party rights.
 
 ## Review boundary
