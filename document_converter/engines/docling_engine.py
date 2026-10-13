@@ -1,7 +1,28 @@
 import json
+import re
 from pathlib import Path
 from .base import Engine, EngineError
 from ..models import ConversionResult, ImageMode
+
+# Docling's Markdown serializer HTML-escapes the document's own text, so a
+# document reading "Inbound & Outbound" is exported as "Inbound &amp; Outbound".
+# Markdown is not HTML and the plain-text output certainly is not, and the
+# document model itself holds the unescaped text - the JSON export proves it -
+# so the entities are undone here, at the one place both Docling adapters
+# serialize through. The HTML export is left exactly as Docling produced it:
+# there the entities belong, and re-escaping an already escaped document would
+# be the same mistake in the other direction.
+#
+# This is the precise inverse of html.escape, applied in one pass, so it undoes
+# exactly one level: a document whose own text is "&amp;" is exported by Docling
+# as "&amp;amp;" and still reads "&amp;" afterwards.
+_ENTITIES = {"&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#x27;": "'", "&#39;": "'"}
+_ENTITY = re.compile("|".join(map(re.escape, _ENTITIES)))
+
+
+def unescape_markdown(md: str) -> str:
+    """Undo one level of the HTML escaping Docling's Markdown serializer adds."""
+    return _ENTITY.sub(lambda match: _ENTITIES[match.group(0)], md or "")
 
 class DoclingEngine(Engine):
     name = "docling"
@@ -40,7 +61,7 @@ def export_document(doc, image_mode: ImageMode):
         md = doc.export_to_markdown()
         html = doc.export_to_html() if hasattr(doc, "export_to_html") else None
         assets = {}
-    return md, html, assets
+    return unescape_markdown(md), html, assets
 
 def build_result(doc, path: Path, engine_name: str, image_mode: ImageMode) -> ConversionResult:
     """Turn a Docling document into this project's normalized conversion result."""
