@@ -3,6 +3,7 @@ import re
 from pathlib import Path
 from .base import Engine, EngineError
 from ..models import ConversionResult, ImageMode
+from ..writer import markdown_to_text
 
 # Docling's Markdown serializer HTML-escapes the document's own text, so a
 # document reading "Inbound & Outbound" is exported as "Inbound &amp; Outbound".
@@ -73,22 +74,6 @@ def build_result(doc, path: Path, engine_name: str, image_mode: ImageMode) -> Co
         markdown=md,
         html=html,
         json_text=json_text,
-        text=_markdown_to_text(md),
+        text=markdown_to_text(md),
         assets=assets,
     )
-
-def _markdown_to_text(md: str) -> str:
-    lines = []
-    for line in md.splitlines():
-        s = line.strip()
-        if not s:
-            lines.append("")
-            continue
-        if s.startswith("```"):
-            continue
-        while s.startswith("#"):
-            s = s[1:].lstrip()
-        if s.startswith(("- ", "* ", "+ ")):
-            s = s[2:]
-        lines.append(s)
-    return "\n".join(lines).strip() + "\n"

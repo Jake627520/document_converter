@@ -90,7 +90,7 @@ def main(argv: list[str] | None = None):
     if loaded:
         raise RuntimeError(f"Unexpected release modules: {loaded}")
     if args.diagnostics:
-        print(json.dumps({"profile": web_app.release_profile(), "inputs": sorted(web_app.release_formats()), "frozen": bool(getattr(sys, "frozen", False)), "python": sys.version, "paths": sys.path, "forbidden_loaded": loaded}, indent=2))
+        print(json.dumps({"profile": web_app.release_profile(), "inputs": sorted(web_app.release_formats()), "outputs": sorted(web_app.release_targets()), "frozen": bool(getattr(sys, "frozen", False)), "python": sys.version, "paths": sys.path, "forbidden_loaded": loaded}, indent=2))
         return
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("127.0.0.1", args.port))

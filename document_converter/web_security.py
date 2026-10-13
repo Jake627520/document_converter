@@ -6,7 +6,7 @@ from threading import Lock
 from .formats import SUPPORTED
 
 ALLOWED_HOSTS = {"localhost", "127.0.0.1", "::1"}
-ALLOWED_TARGETS = {"md", "html"}
+ALLOWED_TARGETS = {"md", "html", "json", "txt"}
 MAX_FILE_COUNT = 5
 MAX_ACTIVE_REQUESTS = 2
 

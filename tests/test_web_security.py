@@ -33,9 +33,12 @@ class WebSecurityTests(TestCase):
         self.assertIsNone(supported_suffix("no-extension"))
 
     def test_output_target_and_file_count_are_bounded(self):
-        self.assertTrue(valid_target("md"))
-        self.assertTrue(valid_target("html"))
-        self.assertFalse(valid_target("json"))
+        for target in ("md", "html", "json", "txt"):
+            with self.subTest(target=target):
+                self.assertTrue(valid_target(target))
+        for target in ("docx", "pdf", "", "MD", "../md"):
+            with self.subTest(target=target):
+                self.assertFalse(valid_target(target))
         self.assertTrue(valid_file_count(1))
         self.assertTrue(valid_file_count(5))
         self.assertFalse(valid_file_count(6))

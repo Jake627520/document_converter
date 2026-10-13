@@ -1,5 +1,6 @@
 """OpenSpec CHG-005: local web workbench behavior and security boundaries."""
 import io
+import json
 import zipfile
 from pathlib import Path
 from unittest import TestCase, mock
@@ -61,8 +62,9 @@ class WebAppTests(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_rejects_invalid_target(self):
+        # JSON became a real output; a format nothing produces is still refused.
         response = self.client.post(
-            "/convert", data={"target": "json"},
+            "/convert", data={"target": "docx"},
             files={"files": ("notes.md", b"hello", "text/markdown")},
         )
         self.assertEqual(response.status_code, 400)
@@ -243,3 +245,72 @@ class DownloadNamingTests(TestCase):
         response = self.convert([(".md", b"# Hello")])
         self.assertEqual(response.status_code, 200)
         self.assertIn('filename="document.md"', response.headers["content-disposition"])
+
+
+
+@unittest.skipIf(TestClient is None, "install the optional web extra to run web tests")
+class OutputFormatTests(TestCase):
+    """The page offers every output a release can actually produce, and no other.
+
+    The README listed Markdown, HTML, Docling JSON and plain text, while the page
+    offered only the first two.
+    """
+
+    def tearDown(self):
+        web_app._RELEASE_PROFILE = None
+
+    @staticmethod
+    def offered(page):
+        return [value for value in ("md", "html", "txt", "json") if f'value="{value}"' in page]
+
+    def client(self, configure=None):
+        web_app._RELEASE_PROFILE = None
+        if configure:
+            configure()
+        return TestClient(web_app.app, headers={"host": "127.0.0.1"})
+
+    def test_each_release_offers_what_it_can_produce(self):
+        self.assertEqual(self.offered(self.client().get("/").text), ["md", "html", "txt", "json"])
+        pdf_page = self.client(web_app.configure_pdf_release).get("/").text
+        self.assertEqual(self.offered(pdf_page), ["md", "html", "txt", "json"])
+        self.assertIn("僅 PDF 可輸出", pdf_page)
+        # The text release runs no engine, so it has no Docling JSON to give.
+        self.assertEqual(self.offered(self.client(web_app.configure_text_release).get("/").text), ["md", "html", "txt"])
+
+    def test_text_release_refuses_a_json_request_outright(self):
+        client = self.client(web_app.configure_text_release)
+        response = client.post("/convert", data={"target": "json"}, files={"files": ("a.md", b"# A", "text/markdown")})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("不提供這種輸出格式", response.json()["detail"])
+
+    def test_plain_text_is_served_as_text_and_keeps_a_text_file_intact(self):
+        client = self.client(web_app.configure_text_release)
+        body = "#1 priority\n- 5 units\n".encode()
+        response = client.post("/convert", data={"target": "txt"}, files={"files": ("notes.txt", body, "text/plain")})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["content-type"], "text/plain; charset=utf-8")
+        self.assertEqual(response.content, body)
+
+    def test_markdown_becomes_plain_text(self):
+        client = self.client(web_app.configure_text_release)
+        response = client.post("/convert", data={"target": "txt"}, files={"files": ("a.md", b"## Spec\n\n- 84\n", "text/markdown")})
+        self.assertEqual(response.content.decode(), "Spec\n\n84\n")
+
+    def test_json_for_a_file_no_engine_parsed_says_why(self):
+        client = self.client(web_app.configure_pdf_release)
+        response = client.post("/convert", data={"target": "json"}, files={"files": ("a.md", b"# A", "text/markdown")})
+        self.assertEqual(response.status_code, 422)
+        detail = response.json()["detail"]
+        self.assertIn("Docling JSON", detail)
+        self.assertIn("沒有經過引擎解析", detail)
+
+    def test_json_for_a_pdf_is_the_docling_document(self):
+        client = self.client(web_app.configure_pdf_release)
+        with tempfile.TemporaryDirectory() as temp:
+            sample = write_text_pdf(Path(temp) / "spec.pdf", "Headlamp module 84 lumens & bright")
+            response = client.post("/convert", data={"target": "json"}, files={"files": ("spec.pdf", sample.read_bytes(), "application/pdf")})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["content-type"], "application/json; charset=utf-8")
+        document = json.loads(response.content)
+        self.assertEqual(document["schema_name"], "DoclingDocument")
+        self.assertIn("84 lumens & bright", response.content.decode())

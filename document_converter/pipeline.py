@@ -7,7 +7,7 @@ from .engines.docling_native_engine import DoclingNativePdfEngine
 from .engines.command_engine import MarkerEngine, MinerUEngine
 from .models import ConversionResult, ImageMode
 from .detector import inspect_pdf, PdfProfile
-from .writer import write_result
+from .writer import write_result, plain_text_of
 from .formats import SUPPORTED
 
 DEFAULT_PARALLEL = 1
@@ -65,7 +65,7 @@ def convert_one(path: Path, engine_name: str, image_mode: ImageMode) -> Conversi
                 source=path,
                 engine="text_direct",
                 markdown=content,
-                text=content,
+                text=plain_text_of(content, path.suffix),
             )
         except Exception:
             pass

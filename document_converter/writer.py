@@ -140,6 +140,34 @@ def _rewrite_html_images(html: str, asset_paths: dict[str, str]) -> str:
     return "".join(chunks)
 
 
+def markdown_to_text(md: str) -> str:
+    """Render Markdown as plain text: drop fences, heading marks and list bullets."""
+    lines = []
+    for line in md.splitlines():
+        s = line.strip()
+        if not s:
+            lines.append("")
+            continue
+        if s.startswith("```"):
+            continue
+        while s.startswith("#"):
+            s = s[1:].lstrip()
+        if s.startswith(("- ", "* ", "+ ")):
+            s = s[2:]
+        lines.append(s)
+    return "\n".join(lines).strip() + "\n"
+
+
+def plain_text_of(content: str, suffix: str) -> str:
+    """The plain-text rendering of a document read directly from disk.
+
+    A .txt file already is plain text, so it is returned untouched: stripping
+    heading marks and bullets from it would damage genuine lines such as
+    "#1 priority" or "- 5 units". Markdown is rendered.
+    """
+    return content if suffix.lower() == ".txt" else markdown_to_text(content)
+
+
 def write_result(
     result: ConversionResult,
     output_dir: Path,
@@ -191,6 +219,11 @@ def write_result(
             if fmt == "html" and md is not None:
                 mapped_images = {path: path for path in asset_paths.values()}
                 value = render_html(md, title=stem, image_paths=mapped_images)
+            elif fmt == "txt" and md is not None:
+                # Plain text is a rendering of the Markdown, so it is available
+                # from any engine that produced Markdown - including a release
+                # that reads a text file directly and runs no engine at all.
+                value = markdown_to_text(md)
             else:
                 result.warnings.append(f"{fmt} is unavailable from engine {result.engine}")
                 continue
