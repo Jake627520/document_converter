@@ -8,7 +8,6 @@ already contains and runs no models, so it works from a plain
 structure - there is no heading hierarchy, no Markdown table reconstruction, no
 reading-order recovery and no OCR, so a scanned PDF yields no text.
 """
-import re
 from pathlib import Path
 from .base import Engine, EngineError
 from .docling_engine import build_result
@@ -23,14 +22,6 @@ NO_TEXT_WARNING = (
     "No text was recovered. The PDF has no text layer and this engine runs no OCR; "
     "use an engine with OCR support for scanned pages."
 )
-
-_PLACEHOLDER = re.compile(r"<!--.*?-->", re.DOTALL)
-
-
-def _has_recovered_text(markdown: str | None) -> bool:
-    """A page of image placeholders is not recovered text."""
-    return bool(_PLACEHOLDER.sub("", markdown or "").strip())
-
 
 class DoclingNativePdfEngine(Engine):
     name = "docling-native"
@@ -64,6 +55,6 @@ class DoclingNativePdfEngine(Engine):
             raise EngineError(f"docling-native failed for {path}: {e}") from e
 
         result.warnings.append(QUALITY_WARNING)
-        if not _has_recovered_text(result.markdown):
+        if not result.has_recovered_text():
             result.warnings.append(NO_TEXT_WARNING)
         return result

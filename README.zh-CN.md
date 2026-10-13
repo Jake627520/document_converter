@@ -10,9 +10,36 @@
 
 ## 1. 能转换什么
 
-**输入格式。** 从源代码运行并安装 Docling 时，支持 PDF、DOCX、PPTX、XLSX、HTML、
-EPUB、图片、Markdown 和文本文件 —— 实际支持范围请参阅所安装 Docling 版本的支持列表。
-macOS 应用接受的格式较少，取决于其配置（profile），见第 2 节。
+**输入格式。** 一个安装能接受什么，取决于它装了哪些引擎。
+
+| 输入 | 从源代码运行（已装 Docling） | macOS 应用 `text` 版 | macOS 应用 `pdf` 版 |
+|---|---|---|---|
+| Markdown `.md` `.markdown` | ✅ | ✅ | ✅ |
+| UTF-8 文本 `.txt` | ✅ | ✅ | ✅ |
+| **有文字层的** PDF | ✅ | ❌ | ✅ |
+| **扫描或拍照的** PDF | ⚠️ 需另外安装带 OCR 的引擎 | ❌ | ❌ |
+| Office `.docx` `.pptx` `.xlsx` 及旧格式 | ✅ | ❌ | ❌ |
+| `.html` `.htm` `.epub` `.csv` `.rtf` OpenDocument | ✅ | ❌ | ❌ |
+| 图片 `.png` `.jpg` `.jpeg` `.webp` | ⚠️ 需 Docling 的模型流程（PyTorch） | ❌ | ❌ |
+
+不支持的文件会在转换开始前就被拒绝，而且提示会告诉你**哪些格式可以**。
+例如在 `pdf` 版应用上传 Word 文件，你会看到：
+
+> 這個版本不支援「.docx」檔案。可以轉換的格式：.markdown、.md、.pdf、.txt。
+
+**文本文件必须是 UTF-8 编码。** Big5、GBK 或 UTF-16 的文件会被明确拒绝，
+并提示你先另存为 UTF-8 —— 它不会把文件转成乱码：
+
+> 「規格.txt」不是 UTF-8 編碼的文字檔（常見的是 Big5、GBK 或 UTF-16）。請先用文字編輯器另存為 UTF-8 再轉換。
+
+**数量与大小限制。** 一次最多 5 个文件，单个文件和全部合计各不超过 24 MiB，
+整个请求上限 25 MiB。
+
+**绝不会给你空文件。** 如果转换提取不到任何文字 —— 没有文字层的扫描件、
+整页都是图片、或文件本身是空的 —— 系统会明确说明原因，
+而不是让你下载一个 0 字节的文件。
+
+> 界面文字目前为繁体中文，上面引用的提示即为实际显示内容。
 
 **输出格式。**
 
@@ -159,7 +186,71 @@ pip install ".[marker]"   # check the package and model license terms first
 每个引擎都生成同一种标准化的转换结果，再由 writer 转换为你需要的输出格式。
 解析与输出相互分离，因此新增输入或输出格式时无需修改 CLI。
 引擎都通过 `document_converter/engines/` 中的适配器（adapter）接入；输出序列化集中在 `writer.py`。
-Docling 是主引擎；Marker 和 MinerU 是可选的备用引擎，它们的代码与模型许可分别审查。
+
+### 用到哪些技术
+
+本项目自己编写的是：操作界面、引擎选择逻辑、扫描件检测、Markdown 清理器、
+HTML 渲染器，以及打包流程。**实际的文档解析由下列组件完成**：
+
+| 用途 | 组件 | 许可 | 是否打包进 macOS 应用 |
+|---|---|---|---|
+| PDF 读取（不跑模型） | **Docling** `docling-slim`、`docling-core`、`docling-parse` | MIT | ✅ `pdf` 版 |
+| Docling 底层的 PDF 解析 | **pypdfium2** 与 Google 的 **PDFium** | BSD-3-Clause / Apache-2.0 | ✅ `pdf` 版 |
+| 浏览器界面 | **FastAPI**、**Starlette**、**Uvicorn** | MIT / BSD | ✅ 两版 |
+| 命令行界面 | **Typer**、**Rich** | MIT | ✅ 两版 |
+| 扫描件检测 | **pypdf**，没有时改用内置的流分析器 | BSD-3-Clause | ✅ 两版 |
+| 打包成应用 | **PyInstaller** | GPL-2.0-or-later，**附 Bootloader 例外条款** | ✅ 仅启动器 |
+| 含版面与表格模型的 PDF 流程 | Docling 的模型流程，需 **PyTorch** 并下载模型权重 | 代码 MIT，模型条款另计 | ❌ |
+| 其他 PDF／OCR 引擎 | **Marker**、**MinerU** | 代码 Apache-2.0；模型与附加条款另计 | ❌ |
+
+**OCR：本项目没有使用任何 OCR。** 两个 macOS 版本都不含任何 OCR 引擎或厂商，
+扫描件会被明确报告为「没有文字层」，而不是硬猜内容。
+只有你自己安装 Marker 或 MinerU 时才会有 OCR，并受其自身条款约束 ——
+核查记录见 [`docs/LICENSE_AUDIT.md`](docs/LICENSE_AUDIT.md)。
+
+### Fork 自己运行：SOP
+
+这个仓库公开是为了让人阅读与运行。它**不是开源**（见第 8 节）：
+fork 来阅读、研究、运行都没问题，但不得重新发布或销售本项目自有的软件。
+
+```bash
+# 1. 在 GitHub 上 fork，然后 clone 你的 fork
+git clone https://github.com/<你的账号>/documnet_converter.git
+cd documnet_converter
+
+# 2. Python 3.11 到 3.14
+python -m venv .venv && source .venv/bin/activate
+python -m pip install -U pip
+
+# 3. 只要 Markdown 与文本：不含引擎，安装量最小
+pip install -e ".[web]"
+
+# 4. 加上 PDF 但不要 PyTorch：约 0.4 GB，不下载任何模型
+pip install "docling-slim[convert-core,format-pdf]"
+
+#    或改成含版面与表格模型的 PDF：数 GB，会下载模型权重
+#    pip install docling
+
+# 5. 确认实际装到什么，再启动浏览器界面
+document-converter list-engines
+document-converter web
+```
+
+`list-engines` 会打印出**这个安装实际拥有的引擎**，所以第 5 步告诉你的是真实情况，
+而不是文档上的理想情况。
+
+要运行本项目对自己做的那套检查：
+
+```bash
+pip install -e ".[dev,web]"
+python -m pytest                       # 186 个测试
+document-converter --help
+document-converter list-engines
+python3 scripts/packaging/audit_notices.py --profile pdf   # 需要网络
+```
+
+打包 macOS 应用需要 Apple Silicon Mac，流程见
+[`docs-release/macos.md`](docs-release/macos.md)。
 
 ## 5. 你的文档
 

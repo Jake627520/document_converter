@@ -17,6 +17,21 @@ The security workflow MUST invoke secret, vulnerability, and package-license che
 - **WHEN** the security workflow executes
 - **THEN** its configured scanners run and their results are available for review
 
+### Requirement: Refuse an input in the interface's language and say what works
+A refused upload or request MUST be explained in the language of the interface that received it, MUST name what would be accepted instead where that is knowable, and MUST NOT expose a framework's own validation structure or an interpreter error as the explanation.
+
+#### Scenario: An unsupported file is uploaded
+- **WHEN** a file this release does not accept is uploaded
+- **THEN** it is refused before conversion starts and the message names the suffixes this release does accept
+
+#### Scenario: A text file is not UTF-8
+- **WHEN** a text file in another encoding, such as Big5, GBK or UTF-16, is uploaded
+- **THEN** the message names the likely encodings and asks for the file to be saved as UTF-8, rather than reporting a decoding error
+
+#### Scenario: A request arrives malformed
+- **WHEN** a request reaches the converter with no file, or otherwise fails validation
+- **THEN** it is answered with a sentence the reader can act on, not with the framework's validation output
+
 ### Requirement: Describe local processing and license status accurately
 Project documentation MUST distinguish the local-first design from unverified network behavior, and MUST identify version-specific package, transitive dependency, model, and deployment license review as pending until verified.
 

@@ -314,3 +314,132 @@ class OutputFormatTests(TestCase):
         document = json.loads(response.content)
         self.assertEqual(document["schema_name"], "DoclingDocument")
         self.assertIn("84 lumens & bright", response.content.decode())
+
+
+
+@unittest.skipIf(TestClient is None, "install the optional web extra to run web tests")
+class RejectionMessageTests(TestCase):
+    """A refusal has to say what happened and what would work instead.
+
+    Half of these answered in English on a Traditional Chinese page, and none
+    named the formats the release accepts.
+    """
+
+    def tearDown(self):
+        web_app._RELEASE_PROFILE = None
+
+    def client(self, configure=None):
+        web_app._RELEASE_PROFILE = None
+        if configure:
+            configure()
+        return TestClient(web_app.app, headers={"host": "127.0.0.1"})
+
+    def post(self, client, name, body, target="md", kind="application/octet-stream"):
+        return client.post("/convert", data={"target": target}, files={"files": (name, body, kind)})
+
+    def test_unsupported_input_names_what_the_release_accepts(self):
+        for configure, accepted, refused in (
+            (web_app.configure_text_release, ".markdown、.md、.txt", ".pdf"),
+            (web_app.configure_pdf_release, ".markdown、.md、.pdf、.txt", ".docx"),
+        ):
+            client = self.client(configure)
+            with self.subTest(accepted=accepted):
+                response = self.post(client, f"report{refused}", b"stub")
+                self.assertEqual(response.status_code, 400)
+                detail = response.json()["detail"]
+                self.assertIn(refused, detail)
+                self.assertIn(accepted, detail)
+
+    def test_a_file_without_a_suffix_is_named_as_such(self):
+        detail = self.post(self.client(web_app.configure_pdf_release), "noext", b"hello").json()["detail"]
+        self.assertIn("沒有副檔名", detail)
+        self.assertNotIn("「」", detail)
+
+    def test_size_and_count_limits_state_the_limit(self):
+        client = self.client(web_app.configure_text_release)
+        oversize = self.post(client, "big.md", b"x" * (web_app.MAX_FILE_BYTES + 1), kind="text/markdown")
+        self.assertEqual(oversize.status_code, 413)
+        self.assertIn("24 MiB", oversize.json()["detail"])
+        many = client.post("/convert", data={"target": "md"}, files=[
+            ("files", (f"f{index}.md", b"# A", "text/markdown")) for index in range(web_app.MAX_FILE_COUNT + 1)
+        ])
+        self.assertEqual(many.status_code, 400)
+        self.assertIn(f"1 到 {web_app.MAX_FILE_COUNT}", many.json()["detail"])
+
+    def test_a_request_with_no_file_is_answered_in_plain_language(self):
+        response = self.client(web_app.configure_text_release).post("/convert", data={"target": "md"})
+        self.assertEqual(response.status_code, 400)
+        detail = response.json()["detail"]
+        self.assertIn("請先選擇", detail)
+        # Not FastAPI's own validation structure, which tells the reader nothing.
+        self.assertNotIn("loc", detail)
+        self.assertNotIn("Field required", detail)
+
+    def test_an_invalid_output_lists_only_what_this_release_offers(self):
+        text = self.post(self.client(web_app.configure_text_release), "a.md", b"# A", target="docx").json()["detail"]
+        self.assertIn("Markdown", text)
+        self.assertNotIn("Docling JSON", text)
+        pdf = self.post(self.client(web_app.configure_pdf_release), "a.md", b"# A", target="docx").json()["detail"]
+        self.assertIn("Docling JSON", pdf)
+
+    def test_a_text_file_that_is_not_utf8_says_so_and_how_to_fix_it(self):
+        response = self.post(self.client(web_app.configure_text_release), "規格.txt",
+                             "車燈規格 84".encode("big5"), kind="text/plain")
+        self.assertEqual(response.status_code, 422)
+        detail = response.json()["detail"]
+        self.assertIn("UTF-8", detail)
+        self.assertIn("Big5", detail)
+        self.assertIn("規格.txt", detail)
+
+
+@unittest.skipIf(TestClient is None, "install the optional web extra to run web tests")
+class EmptyResultTests(TestCase):
+    """A conversion that recovered nothing must say so, not send an empty file.
+
+    The guard this replaces ran only in the pdf release and recognised only one
+    engine's warning, so a full install returned 200 with a lone image
+    placeholder - the empty download it exists to prevent.
+    """
+
+    def tearDown(self):
+        web_app._RELEASE_PROFILE = None
+
+    def convert(self, configure, name, body, kind="application/pdf"):
+        web_app._RELEASE_PROFILE = None
+        if configure:
+            configure()
+        client = TestClient(web_app.app, headers={"host": "127.0.0.1"})
+        return client.post("/convert", data={"target": "md"}, files={"files": (name, body, kind)})
+
+    def test_a_pdf_with_no_text_layer_is_refused_in_every_release(self):
+        with tempfile.TemporaryDirectory() as temp:
+            scan = write_scanned_pdf(Path(temp) / "scan.pdf").read_bytes()
+        for configure in (web_app.configure_pdf_release, None):
+            with self.subTest(release=configure and configure.__name__ or "full install"):
+                response = self.convert(configure, "scan.pdf", scan)
+                self.assertEqual(response.status_code, 422)
+                self.assertIn("沒有抽出任何文字", response.json()["detail"])
+
+    def test_an_empty_text_file_is_refused_rather_than_downloaded_empty(self):
+        response = self.convert(web_app.configure_text_release, "empty.md", b"   \n\n  ", "text/markdown")
+        self.assertEqual(response.status_code, 422)
+        detail = response.json()["detail"]
+        self.assertIn("沒有抽出任何文字", detail)
+        # A Markdown-and-text release has no scan or picture to blame.
+        self.assertNotIn("掃描", detail)
+        self.assertNotIn("OCR", detail)
+
+    def test_the_reason_names_ocr_only_where_a_scan_could_arrive(self):
+        with tempfile.TemporaryDirectory() as temp:
+            scan = write_scanned_pdf(Path(temp) / "scan.pdf").read_bytes()
+        release = self.convert(web_app.configure_pdf_release, "scan.pdf", scan).json()["detail"]
+        self.assertIn("此版本不包含 OCR", release)
+        full = self.convert(None, "scan.pdf", scan).json()["detail"]
+        self.assertIn("OCR", full)
+        self.assertIn("引擎", full)
+
+    def test_a_caption_beside_an_unreadable_image_still_converts(self):
+        # Some text with a picture is a real document, not an empty result.
+        result = ConversionResult(source=Path("fig.pdf"), engine="mock", markdown="圖 1：配光曲線\n\n<!-- image -->\n")
+        self.assertTrue(result.has_recovered_text())
+        self.assertFalse(ConversionResult(source=Path("x.pdf"), engine="mock", markdown="<!-- image -->\n").has_recovered_text())

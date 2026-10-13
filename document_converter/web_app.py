@@ -8,11 +8,12 @@ import zipfile
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import HTMLResponse, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from .models import ConversionResult
-from .formats import PDF_TEXT_SUPPORTED, TEXT_SUPPORTED
-from .web_security import MAX_ACTIVE_REQUESTS, MAX_FILE_COUNT, RequestAdmission, RequestBodyCounter, RequestBodyTooLarge, content_disposition, content_length_exceeds_limit, host_is_local, origin_is_same_local, safe_output_stem, supported_suffix, valid_file_count, valid_target
+from .formats import PDF_TEXT_SUPPORTED, SUPPORTED, TEXT_SUPPORTED
+from .web_security import ALLOWED_TARGETS, MAX_ACTIVE_REQUESTS, MAX_FILE_COUNT, RequestAdmission, RequestBodyCounter, RequestBodyTooLarge, content_disposition, content_length_exceeds_limit, host_is_local, origin_is_same_local, safe_output_stem, supported_suffix, valid_file_count, valid_target
 from .writer import plain_text_of, write_result
 
 MAX_REQUEST_BYTES = 25 * 1024 * 1024
@@ -116,23 +117,23 @@ class LocalRequestBoundary:
             return
         headers = dict(scope.get("headers", []))
         if not host_is_local(headers.get(b"host")):
-            await self._error(send, 400, b"Invalid local Host header")
+            await self._error(send, 400, "請用 http://127.0.0.1 或 http://localhost 開啟；本服務只接受本機連線。".encode())
             return
         if scope.get("method") == "POST":
             fetch_site = headers.get(b"sec-fetch-site", b"").decode("latin-1").lower()
             if fetch_site == "cross-site":
-                await self._error(send, 403, b"Cross-site requests are not allowed")
+                await self._error(send, 403, "不接受跨站請求。".encode())
                 return
             origin = headers.get(b"origin")
             if origin and not origin_is_same_local(origin, headers.get(b"host")):
-                await self._error(send, 403, b"Cross-origin requests are not allowed")
+                await self._error(send, 403, "不接受跨來源請求。".encode())
                 return
         if not self.admission.try_enter():
-            await self._error(send, 429, b"Local converter is busy; retry shortly")
+            await self._error(send, 429, "本機轉換器忙碌中，請稍後再試。".encode())
             return
         try:
             if content_length_exceeds_limit(headers.get(b"content-length"), MAX_REQUEST_BYTES):
-                await self._error(send, 413, b"Request exceeds the 25 MiB limit")
+                await self._error(send, 413, f"整個上傳請求不得超過 {MAX_REQUEST_BYTES // (1024 * 1024)} MiB。請減少檔案數量或分批轉換。".encode())
                 return
             counter = RequestBodyCounter(MAX_REQUEST_BYTES)
 
@@ -145,7 +146,7 @@ class LocalRequestBoundary:
             try:
                 await self.app(scope, limited_receive, send)
             except RequestBodyTooLarge:
-                await self._error(send, 413, b"Request exceeds the 25 MiB limit")
+                await self._error(send, 413, f"整個上傳請求不得超過 {MAX_REQUEST_BYTES // (1024 * 1024)} MiB。請減少檔案數量或分批轉換。".encode())
         finally:
             self.admission.leave()
 
@@ -156,6 +157,17 @@ class LocalRequestBoundary:
 
 
 app = FastAPI(title="Document Converter", docs_url=None, redoc_url=None)
+
+
+@app.exception_handler(RequestValidationError)
+async def _explain_invalid_request(request, exc: RequestValidationError):
+    """Answer a malformed request in the page's language, not with its own schema."""
+    missing_file = any(tuple(error.get("loc", ()))[-1:] == ("files",) for error in exc.errors())
+    detail = (
+        f"請先選擇 1 到 {MAX_FILE_COUNT} 個檔案。" if missing_file
+        else "請求格式不正確。請重新整理頁面後再試一次。"
+    )
+    return JSONResponse(status_code=400, content={"detail": detail})
 app.add_middleware(LocalRequestBoundary)
 
 
@@ -170,13 +182,14 @@ async def index():
 
 @app.post("/convert")
 async def convert_upload(target: str = Form(...), files: list[UploadFile] = File(...)):
+    permitted = release_targets() or ALLOWED_TARGETS
+    offered = "、".join(OUTPUT_NAMES[item] for item in sorted(permitted))
     if not valid_target(target):
-        raise HTTPException(400, "Choose one of the Markdown, HTML, plain text or JSON outputs.")
-    permitted = release_targets()
-    if permitted is not None and target not in permitted:
-        raise HTTPException(400, "這個版本不提供這種輸出格式。")
+        raise HTTPException(400, f"請選擇一種輸出格式：{offered}。")
+    if target not in permitted:
+        raise HTTPException(400, f"此版本不提供這種輸出格式。可用的輸出：{offered}。")
     if not valid_file_count(len(files)):
-        raise HTTPException(400, f"Choose between 1 and {MAX_FILE_COUNT} files.")
+        raise HTTPException(400, f"一次請選擇 1 到 {MAX_FILE_COUNT} 個檔案。")
 
     with tempfile.TemporaryDirectory(prefix="document-converter-") as temp_root:
         root = Path(temp_root)
@@ -186,15 +199,15 @@ async def convert_upload(target: str = Form(...), files: list[UploadFile] = File
             suffix = supported_suffix(original_name)
             allowed = release_formats()
             if suffix is None or (allowed is not None and suffix not in allowed):
-                raise HTTPException(400, "Unsupported input type")
+                raise HTTPException(400, _unsupported_input(suffix or Path(original_name).suffix.lower()))
             content = await upload.read(MAX_FILE_BYTES + 1)
             if len(content) > MAX_FILE_BYTES:
-                raise HTTPException(413, "A file exceeds the 24 MiB limit")
+                raise HTTPException(413, f"單一檔案不得超過 {MAX_FILE_BYTES // (1024 * 1024)} MiB。請縮小檔案或分批轉換。")
             safe_input = root / f"input-{uuid.uuid4().hex}{suffix}"
             safe_input.write_bytes(content)
             try:
                 result: ConversionResult = convert_one(safe_input, "auto", "none")
-                _reject_empty_pdf(result)
+                _reject_text_free_result(result)
                 output_dir = root / f"output-{uuid.uuid4().hex}"
                 write_result(result, output_dir, [target])
                 output_path = output_dir / f"{safe_input.stem}.{target}"
@@ -203,11 +216,17 @@ async def convert_upload(target: str = Form(...), files: list[UploadFile] = File
                 produced.append((safe_output_stem(original_name), output_path.read_bytes()))
             except HTTPException:
                 raise
+            except UnicodeDecodeError as exc:
+                raise HTTPException(
+                    422,
+                    f"「{original_name}」不是 UTF-8 編碼的文字檔（常見的是 Big5、GBK 或 UTF-16）。"
+                    "請先用文字編輯器另存為 UTF-8 再轉換。",
+                ) from exc
             except Exception as exc:
                 # The server is loopback-only and processes the operator's own
                 # files, so the reason is more useful to them than a bare failure.
                 reason = str(exc).replace(str(root), "").strip()
-                detail = "Conversion failed. Check the document and installed local engine."
+                detail = "轉換失敗。請確認檔案內容與本機已安裝的引擎。"
                 raise HTTPException(422, f"{detail} ({reason[:300]})" if reason else detail) from exc
             finally:
                 await upload.close()
@@ -244,6 +263,43 @@ def _archive_names(stems: list[str], target: str) -> list[str]:
     return names
 
 
+OUTPUT_NAMES = {"md": "Markdown", "html": "HTML", "txt": "純文字", "json": "Docling JSON"}
+
+
+def _accepted_inputs() -> str:
+    """The accepted suffixes, so a rejection can say what would work."""
+    allowed = release_formats()
+    return "、".join(sorted(allowed if allowed is not None else SUPPORTED))
+
+
+def _unsupported_input(suffix: str) -> str:
+    """Rejecting a file is only useful if it also says what this release takes."""
+    named = f"不支援「{suffix}」檔案" if suffix else "不支援沒有副檔名的檔案"
+    return f"這個版本{named}。可以轉換的格式：{_accepted_inputs()}。"
+
+
+def _no_text_recovered(result: ConversionResult) -> str:
+    """Never hand over an empty file; say what happened instead.
+
+    A scan with no text layer, a page that is a single picture and an empty
+    input all reach here. What the reader can do about it differs, so the
+    reason names only causes this release could actually have: one that accepts
+    Markdown and text alone has no scan or picture to blame.
+    """
+    allowed = release_formats()
+    if allowed is not None and not allowed - TEXT_SUPPORTED:
+        return "這個檔案沒有抽出任何文字。檔案可能是空的，或只有空白。"
+    remedy = (
+        "此版本不包含 OCR 文字辨識，無法從影像中取出文字。"
+        if _RELEASE_PROFILE is not None
+        else f"掃描檔需要具備 OCR 的引擎才能取出文字（這次使用的引擎：{result.engine}）。"
+    )
+    return (
+        "這個檔案沒有抽出任何文字。可能是掃描或拍照的檔案（只有影像、沒有文字層）、"
+        f"整頁都是圖片，或檔案本身是空的。{remedy}"
+    )
+
+
 def _unavailable_target(target: str, result: ConversionResult) -> str:
     """Say why this document yielded no such output, rather than only that it did not."""
     if target == "json":
@@ -254,18 +310,16 @@ def _unavailable_target(target: str, result: ConversionResult) -> str:
     return f"這個檔案無法輸出 {target} 格式（引擎：{result.engine}）。"
 
 
-def _reject_empty_pdf(result: ConversionResult):
-    """Tell the reader a scanned PDF produced nothing instead of sending an empty file."""
-    if _RELEASE_PROFILE != PDF_PROFILE:
-        return
-    from .engines.docling_native_engine import NO_TEXT_WARNING
+def _reject_text_free_result(result: ConversionResult):
+    """Refuse a conversion that recovered nothing, whatever ran it.
 
-    if NO_TEXT_WARNING in result.warnings:
-        raise HTTPException(
-            422,
-            "這個 PDF 沒有文字層（例如掃描或拍照的檔案）。此版本不包含 OCR 文字辨識，"
-            "無法從影像中取出文字。",
-        )
+    The earlier form of this check only applied to the pdf release and only
+    recognised one engine's warning, so a full install returned 200 and a file
+    holding a single image placeholder - the empty download this exists to
+    prevent.
+    """
+    if not result.has_recovered_text():
+        raise HTTPException(422, _no_text_recovered(result))
 
 
 def pdf_release_page():

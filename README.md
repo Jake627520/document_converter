@@ -11,10 +11,31 @@ machine; nothing is uploaded to a remote service.
 
 ## 1. What it converts
 
-**Inputs.** From source, with Docling installed: PDF, DOCX, PPTX, XLSX, HTML,
-EPUB, images, Markdown and text — see Docling's support matrix for the installed
-version. The macOS app accepts fewer formats, depending on its profile
-(section 2).
+**Inputs.** What a given install accepts depends on which engines it has.
+
+| Input | From source, Docling installed | macOS app, `text` profile | macOS app, `pdf` profile |
+|---|---|---|---|
+| Markdown `.md` `.markdown` | ✅ | ✅ | ✅ |
+| UTF-8 text `.txt` | ✅ | ✅ | ✅ |
+| PDF **with a text layer** | ✅ | ❌ | ✅ |
+| PDF that is a **scan or photo** | ⚠️ needs an OCR engine installed separately | ❌ | ❌ |
+| Office `.docx` `.pptx` `.xlsx` and older | ✅ | ❌ | ❌ |
+| `.html` `.htm` `.epub` `.csv` `.rtf` OpenDocument | ✅ | ❌ | ❌ |
+| Images `.png` `.jpg` `.jpeg` `.webp` | ⚠️ needs Docling's model pipeline (PyTorch) | ❌ | ❌ |
+
+A file the install does not accept is refused before any conversion starts, and
+the message names the formats that would work — for example, from the `pdf`
+app: 這個版本不支援「.docx」檔案。可以轉換的格式：.markdown、.md、.pdf、.txt。
+
+**A text file must be UTF-8.** A Big5, GBK or UTF-16 file is refused with a
+message saying so and asking you to re-save it as UTF-8; it is not converted
+into mojibake.
+
+**Limits.** Up to 5 files per conversion, each up to 24 MiB, 25 MiB per request.
+
+**Nothing is ever returned empty.** If a conversion recovers no text — a scan
+with no text layer, a page that is one picture, an empty file — the answer says
+that and why, rather than downloading a 0-byte file.
 
 **Outputs.**
 
@@ -178,8 +199,75 @@ Every engine produces one normalized conversion result, and the writer turns it
 into the requested outputs. Parsing stays separate from rendering, so an input
 format or an output can be added without touching the CLI. Engines sit behind
 adapters in `document_converter/engines/`; output serialization lives in
-`writer.py`. Docling is the primary engine; Marker and MinerU are optional
-fallbacks whose code and model licenses are reviewed separately.
+`writer.py`.
+
+### What it is built on
+
+This project writes the interfaces, the engine selection, the scanned-PDF
+detection, the Markdown cleaner, the renderer and the packaging. The conversion
+itself is done by these:
+
+| Part | Component | License | Bundled in the macOS app? |
+|---|---|---|---|
+| PDF reading, no model | **Docling** `docling-slim`, `docling-core`, `docling-parse` | MIT | ✅ `pdf` profile |
+| PDF parsing underneath it | **pypdfium2** and Google's **PDFium** | BSD-3-Clause / Apache-2.0 | ✅ `pdf` profile |
+| Browser interface | **FastAPI**, **Starlette**, **Uvicorn** | MIT / BSD | ✅ both |
+| Command line | **Typer**, **Rich** | MIT | ✅ both |
+| Scanned-PDF detection | **pypdf**, or a built-in stream reader when it is absent | BSD-3-Clause | ✅ both |
+| Packaging into an app | **PyInstaller** | GPL-2.0-or-later **with its Bootloader exception** | ✅ bootloader only |
+| PDF with layout and table models | Docling's model pipeline, needing **PyTorch** and downloaded weights | MIT code, model terms separate | ❌ |
+| Alternative PDF/OCR engines | **Marker**, **MinerU** | Apache-2.0 code; separate model and additional terms | ❌ |
+
+**OCR: this project ships none.** No OCR engine or vendor is included in either
+macOS profile, and a scan is reported as having no text layer rather than
+guessed at. OCR exists only if you install Marker or MinerU yourself, under
+their own terms — see [`docs/LICENSE_AUDIT.md`](docs/LICENSE_AUDIT.md), which
+records what was checked and when.
+
+### Fork it and run your own
+
+The repository is public so that it can be read and run. It is not open source
+(section 8): forking to read, study or run it is fine, and republishing or
+selling the project's own software is not.
+
+```bash
+# 1. Fork on GitHub, then clone your fork
+git clone https://github.com/<your-account>/documnet_converter.git
+cd documnet_converter
+
+# 2. Python 3.11 to 3.14
+python -m venv .venv && source .venv/bin/activate
+python -m pip install -U pip
+
+# 3. Markdown and text only, no engine, smallest install
+pip install -e ".[web]"
+
+# 4. Add PDF without PyTorch - about 0.4 GB, downloads no model
+pip install "docling-slim[convert-core,format-pdf]"
+
+#    or add PDF with layout and table models - multi-gigabyte, downloads weights
+#    pip install docling
+
+# 5. Check what it found, then start the browser interface
+document-converter list-engines
+document-converter web
+```
+
+`list-engines` prints which engines this install actually has, so step 5 tells
+you what you really got rather than what the documentation hopes for.
+
+To run the tests and the checks this project runs on itself:
+
+```bash
+pip install -e ".[dev,web]"
+python -m pytest                       # 186 tests
+document-converter --help
+document-converter list-engines
+python3 scripts/packaging/audit_notices.py --profile pdf   # needs network
+```
+
+Building the macOS app needs an Apple Silicon Mac; see
+[`docs-release/macos.md`](docs-release/macos.md).
 
 ## 5. Your documents
 
