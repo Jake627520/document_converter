@@ -19,6 +19,17 @@ from .writer import plain_text_of, write_result
 MAX_REQUEST_BYTES = 25 * 1024 * 1024
 MAX_FILE_BYTES = 24 * 1024 * 1024
 
+
+def size_limit(limit: int) -> str:
+    """State a byte limit in both units a reader may be comparing against.
+
+    The limits are set in mebibytes (1 MiB = 1,048,576 bytes), but Finder on
+    macOS reports sizes in decimal megabytes (1 MB = 1,000,000 bytes). Naming
+    only one leaves the reader comparing two different numbers: 24 MiB is
+    about 25 MB, and a file Finder shows as 25.1 MB is still accepted.
+    """
+    return f"{limit // (1024 * 1024)} MiB（約 {round(limit / 1_000_000)} MB）"
+
 TEXT_PROFILE = "text-only"
 PDF_PROFILE = "pdf-text"
 RELEASE_FORMATS = {TEXT_PROFILE: TEXT_SUPPORTED, PDF_PROFILE: PDF_TEXT_SUPPORTED}
@@ -133,7 +144,7 @@ class LocalRequestBoundary:
             return
         try:
             if content_length_exceeds_limit(headers.get(b"content-length"), MAX_REQUEST_BYTES):
-                await self._error(send, 413, f"整個上傳請求不得超過 {MAX_REQUEST_BYTES // (1024 * 1024)} MiB。請減少檔案數量或分批轉換。".encode())
+                await self._error(send, 413, f"整個上傳請求不得超過 {size_limit(MAX_REQUEST_BYTES)}。請減少檔案數量或分批轉換。".encode())
                 return
             counter = RequestBodyCounter(MAX_REQUEST_BYTES)
 
@@ -146,7 +157,7 @@ class LocalRequestBoundary:
             try:
                 await self.app(scope, limited_receive, send)
             except RequestBodyTooLarge:
-                await self._error(send, 413, f"整個上傳請求不得超過 {MAX_REQUEST_BYTES // (1024 * 1024)} MiB。請減少檔案數量或分批轉換。".encode())
+                await self._error(send, 413, f"整個上傳請求不得超過 {size_limit(MAX_REQUEST_BYTES)}。請減少檔案數量或分批轉換。".encode())
         finally:
             self.admission.leave()
 
@@ -202,7 +213,7 @@ async def convert_upload(target: str = Form(...), files: list[UploadFile] = File
                 raise HTTPException(400, _unsupported_input(suffix or Path(original_name).suffix.lower()))
             content = await upload.read(MAX_FILE_BYTES + 1)
             if len(content) > MAX_FILE_BYTES:
-                raise HTTPException(413, f"單一檔案不得超過 {MAX_FILE_BYTES // (1024 * 1024)} MiB。請縮小檔案或分批轉換。")
+                raise HTTPException(413, f"單一檔案不得超過 {size_limit(MAX_FILE_BYTES)}。請縮小檔案或分批轉換。")
             safe_input = root / f"input-{uuid.uuid4().hex}{suffix}"
             safe_input.write_bytes(content)
             try:
@@ -363,13 +374,13 @@ PAGE = '''<!doctype html>
 </style></head><body>
 <header class="topbar"><div class="brand"><span class="mark" aria-hidden="true">↗</span><span>文件轉換工作台</span></div><span class="badge">僅限本機使用</span></header>
 <main class="wrap"><section class="hero"><div class="eyebrow">PRIVATE DOCUMENT WORKSPACE</div><h1>讓文件轉換，<br>回到簡單。</h1><p>在這台電腦上將文件轉成 Markdown 或 HTML。選擇檔案、挑選格式，完成後立即下載。</p></section>
-<form id="form" class="workspace" enctype="multipart/form-data"><section class="section"><div class="head"><h2>選擇文件</h2><span class="hint">最多 5 個檔案 · 單檔 24 MiB · 請控制總量</span></div><div id="drop" class="drop"><div class="upload" aria-hidden="true">↑</div><strong>將文件拖放到這裡</strong><p>或從電腦中選取檔案</p><label class="choose" for="files">選擇檔案</label><input class="vh" id="files" type="file" multiple accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm,.epub,.md,.markdown,.txt,.png,.jpg,.jpeg,.webp,.csv,.rtf,.odt,.ods,.odp" aria-describedby="file-hint"><span id="file-hint" class="vh">支援 PDF、Office、圖片、Markdown、文字與其他文件格式。</span></div><ul id="list" class="files" aria-label="已選擇的文件"></ul></section>
+<form id="form" class="workspace" enctype="multipart/form-data"><section class="section"><div class="head"><h2>選擇文件</h2><span class="hint">最多 5 個檔案 · 單檔 24 MiB（約 25 MB）</span></div><div id="drop" class="drop"><div class="upload" aria-hidden="true">↑</div><strong>將文件拖放到這裡</strong><p>或從電腦中選取檔案</p><label class="choose" for="files">選擇檔案</label><input class="vh" id="files" type="file" multiple accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm,.epub,.md,.markdown,.txt,.png,.jpg,.jpeg,.webp,.csv,.rtf,.odt,.ods,.odp" aria-describedby="file-hint"><span id="file-hint" class="vh">支援 PDF、Office、圖片、Markdown、文字與其他文件格式。</span></div><ul id="list" class="files" aria-label="已選擇的文件"></ul></section>
 <section class="section"><div class="head"><h2>輸出格式</h2><span class="hint">選擇一種格式</span></div><div class="options"><label class="format"><input type="radio" name="target" value="md" checked><span><span class="ext">Markdown</span><span class="desc">.md · 適合筆記與知識庫</span></span></label><label class="format"><input type="radio" name="target" value="html"><span><span class="ext">HTML</span><span class="desc">.html · 可用瀏覽器直接開啟</span></span></label><label class="format"><input type="radio" name="target" value="txt"><span><span class="ext">純文字</span><span class="desc">.txt · 只有文字，不含格式</span></span></label><label class="format"><input type="radio" name="target" value="json"><span><span class="ext">Docling JSON</span><span class="desc">.json · 文件結構，需引擎解析</span></span></label></div></section><div class="actions"><button id="submit" class="submit" type="submit">開始轉換 →</button><span class="privacy">文件由本機服務處理，轉換後會立即清除暫存檔。<br>引擎或模型的網路行為取決於其安裝與設定。</span></div><p id="status" class="status" role="status" aria-live="polite"></p></form>
 <p class="footer"><strong>支援格式</strong>　PDF、Word、PowerPoint、Excel、HTML、EPUB、Markdown、文字、圖片、CSV、RTF、OpenDocument。</p></main>
 <script>
 const input=document.querySelector('#files'),list=document.querySelector('#list'),drop=document.querySelector('#drop'),form=document.querySelector('#form'),status=document.querySelector('#status'),button=document.querySelector('#submit');let selected=[];
-function size(n){return n<1048576?(n/1024).toFixed(0)+' KB':(n/1048576).toFixed(1)+' MB'}
+function size(n){return n<1e6?(n/1e3).toFixed(0)+' KB':(n/1e6).toFixed(1)+' MB'}
 function draw(){list.replaceChildren();selected.forEach((file,i)=>{const li=document.createElement('li');li.className='row';const icon=document.createElement('span');icon.className='file-icon';icon.textContent=(file.name.split('.').pop()||'FILE').slice(0,4).toUpperCase();icon.setAttribute('aria-hidden','true');const info=document.createElement('span');info.style.minWidth='0';const name=document.createElement('span');name.className='file-name';name.textContent=file.name;const meta=document.createElement('span');meta.className='file-size';meta.textContent=size(file.size);info.append(name,meta);const remove=document.createElement('button');remove.type='button';remove.className='remove';remove.textContent='移除';remove.setAttribute('aria-label','移除 '+file.name);remove.onclick=()=>{selected.splice(i,1);draw()};li.append(icon,info,remove);list.append(li)})}
 function add(files){selected=selected.concat(Array.from(files)).slice(0,5);draw()}input.addEventListener('change',e=>{add(e.target.files);input.value=''});['dragenter','dragover'].forEach(name=>drop.addEventListener(name,e=>{e.preventDefault();drop.classList.add('drag')}));['dragleave','drop'].forEach(name=>drop.addEventListener(name,e=>{e.preventDefault();drop.classList.remove('drag')}));drop.addEventListener('drop',e=>add(e.dataTransfer.files));
-form.addEventListener('submit',async e=>{e.preventDefault();status.className='status';if(!selected.length){status.textContent='請先選擇至少一個文件。';status.classList.add('show','error');return}if(selected.some(f=>f.size>24*1048576)){status.textContent='單一檔案超過 24 MiB，請移除或縮小檔案。';status.classList.add('show','error');return}if(selected.reduce((n,f)=>n+f.size,0)>24*1048576){status.textContent='檔案總量超過 24 MiB，請減少檔案或分批轉換。';status.classList.add('show','error');return}button.disabled=true;button.textContent='正在本機轉換…';status.textContent='文件正在這台電腦上處理。';status.classList.add('show');try{const data=new FormData();selected.forEach(file=>data.append('files',file));data.append('target',form.querySelector('[name=target]:checked').value);const response=await fetch('/convert',{method:'POST',body:data});if(!response.ok){let detail='轉換失敗。請確認文件格式及本機引擎。';try{detail=(await response.json()).detail||detail}catch{}throw new Error(detail)}const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;const disposition=response.headers.get('content-disposition')||'';const encoded=disposition.match(/UTF-8''([^;]+)/i);const plain=disposition.match(/filename="([^"]+)"/);a.download=encoded?decodeURIComponent(encoded[1]):(plain?plain[1]:'converted-document');a.click();URL.revokeObjectURL(url);status.textContent='轉換完成，下載已開始。';status.classList.add('show')}catch(error){status.textContent=error.message;status.classList.add('show','error')}finally{button.disabled=false;button.textContent='開始轉換 →'}});
+form.addEventListener('submit',async e=>{e.preventDefault();status.className='status';if(!selected.length){status.textContent='請先選擇至少一個文件。';status.classList.add('show','error');return}if(selected.some(f=>f.size>24*1048576)){status.textContent='單一檔案超過 24 MiB（約 25 MB），請移除或縮小檔案。';status.classList.add('show','error');return}if(selected.reduce((n,f)=>n+f.size,0)>24*1048576){status.textContent='檔案總量超過 24 MiB（約 25 MB），請減少檔案或分批轉換。';status.classList.add('show','error');return}button.disabled=true;button.textContent='正在本機轉換…';status.textContent='文件正在這台電腦上處理。';status.classList.add('show');try{const data=new FormData();selected.forEach(file=>data.append('files',file));data.append('target',form.querySelector('[name=target]:checked').value);const response=await fetch('/convert',{method:'POST',body:data});if(!response.ok){let detail='轉換失敗。請確認文件格式及本機引擎。';try{detail=(await response.json()).detail||detail}catch{}throw new Error(detail)}const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;const disposition=response.headers.get('content-disposition')||'';const encoded=disposition.match(/UTF-8''([^;]+)/i);const plain=disposition.match(/filename="([^"]+)"/);a.download=encoded?decodeURIComponent(encoded[1]):(plain?plain[1]:'converted-document');a.click();URL.revokeObjectURL(url);status.textContent='轉換完成，下載已開始。';status.classList.add('show')}catch(error){status.textContent=error.message;status.classList.add('show','error')}finally{button.disabled=false;button.textContent='開始轉換 →'}});
 </script></body></html>'''

@@ -359,7 +359,7 @@ class RejectionMessageTests(TestCase):
         client = self.client(web_app.configure_text_release)
         oversize = self.post(client, "big.md", b"x" * (web_app.MAX_FILE_BYTES + 1), kind="text/markdown")
         self.assertEqual(oversize.status_code, 413)
-        self.assertIn("24 MiB", oversize.json()["detail"])
+        self.assertIn("24 MiB（約 25 MB）", oversize.json()["detail"])
         many = client.post("/convert", data={"target": "md"}, files=[
             ("files", (f"f{index}.md", b"# A", "text/markdown")) for index in range(web_app.MAX_FILE_COUNT + 1)
         ])
@@ -443,3 +443,34 @@ class EmptyResultTests(TestCase):
         result = ConversionResult(source=Path("fig.pdf"), engine="mock", markdown="圖 1：配光曲線\n\n<!-- image -->\n")
         self.assertTrue(result.has_recovered_text())
         self.assertFalse(ConversionResult(source=Path("x.pdf"), engine="mock", markdown="<!-- image -->\n").has_recovered_text())
+
+
+
+class SizeLimitWordingTests(TestCase):
+    """A limit is stated in both units, and the page agrees with the server.
+
+    The limits are set in mebibytes, while Finder reports decimal megabytes; a
+    page that said only "24 MiB" left most readers unsure what it meant, and
+    its size display divided by 1,048,576 while labelling the result "MB", so a
+    file Finder lists as 25.2 MB appeared as 24.0 MB.
+    """
+
+    @unittest.skipIf(web_app is None, "install the optional web extra to run web tests")
+    def test_both_units_are_derived_from_the_same_byte_limit(self):
+        self.assertEqual(web_app.size_limit(24 * 1024 * 1024), "24 MiB（約 25 MB）")
+        self.assertEqual(web_app.size_limit(25 * 1024 * 1024), "25 MiB（約 26 MB）")
+
+    @unittest.skipIf(web_app is None, "install the optional web extra to run web tests")
+    def test_the_page_states_the_limit_the_server_enforces(self):
+        stated = web_app.size_limit(web_app.MAX_FILE_BYTES)
+        page = web_app.PAGE
+        # The hint and both client-side refusals name the same limit.
+        self.assertGreaterEqual(page.count(stated), 3, stated)
+        # And the client checks the same number of bytes the server does.
+        self.assertIn(f"{web_app.MAX_FILE_BYTES // 1048576}*1048576", page)
+
+    @unittest.skipIf(web_app is None, "install the optional web extra to run web tests")
+    def test_the_page_shows_sizes_the_way_finder_does(self):
+        # Decimal, so the page and Finder show one number for one file.
+        self.assertIn("(n/1e6).toFixed(1)+' MB'", web_app.PAGE)
+        self.assertNotIn("(n/1048576).toFixed(1)+' MB'", web_app.PAGE)

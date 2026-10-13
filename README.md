@@ -31,7 +31,9 @@ app: 這個版本不支援「.docx」檔案。可以轉換的格式：.markdown�
 message saying so and asking you to re-save it as UTF-8; it is not converted
 into mojibake.
 
-**Limits.** Up to 5 files per conversion, each up to 24 MiB, 25 MiB per request.
+**Limits.** Up to 5 files per conversion, each up to 24 MiB (about 25 MB as Finder
+counts it), 25 MiB (about 26 MB) per request. A MiB is 1,048,576 bytes; the MB
+Finder shows is 1,000,000, so a file Finder lists as 25.1 MB is still accepted.
 
 **Nothing is ever returned empty.** If a conversion recovers no text — a scan
 with no text layer, a page that is one picture, an empty file — the answer says
@@ -82,7 +84,7 @@ Do not disable Gatekeeper to get around this.
 1. Double-click `Document Converter.app`. It starts a local service and opens
    your default browser at `http://127.0.0.1:<port>`.
 2. Drop in or select up to **5** files. Each file, and the selection as a whole,
-   may be up to **24 MiB**.
+   may be up to **24 MiB (about 25 MB)**.
 3. Choose an output format and select **Convert**. One file downloads on its
    own; several download as a ZIP. Each download is named after the document it
    came from, Chinese file names included.
@@ -135,7 +137,7 @@ document-converter web             # http://127.0.0.1:8765 ; --port 8766 for ano
 ```
 
 The server binds to loopback only. The same limits as the app apply: up to five
-files, 24 MiB each and in total, 25 MiB per request. It uses the CLI's `auto`
+files, 24 MiB (about 25 MB) each and in total, 25 MiB (about 26 MB) per request. It uses the CLI's `auto`
 engine selection, so it uses whichever engines are installed — Marker and
 MinerU included — but it never installs one.
 
