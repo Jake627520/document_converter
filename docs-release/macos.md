@@ -117,4 +117,9 @@ build/private-release/venv/bin/python -I -m unittest discover -s tests -p test_r
 
 HTTP smoke 使用新的 loopback port，驗證首頁、Markdown round trip、HTML、UTF-8 TXT、PDF 拒絕、非法 UTF-8 與 Host／Origin 安全邊界。`--diagnostics` 報告 frozen 狀態與 import paths，拒絕已載入的 forbidden engines。正常開啟 `.app` 會選可用 loopback port 並開啟預設瀏覽器。關閉頁面不會停止背景程式；在「活動監視器」退出 Document Converter，或從 CLI 啟動時按 Ctrl-C。測試使用 `--no-browser`；Finder 雙擊與 GUI 啟動仍未驗證。
 
+乾淨機器的安裝驗收不需要第二台 Mac：`docs-release/macos-vm-verification.md` 是用免費的 macOS 虛擬機
+（Apple 授權允許同一台 Apple Silicon Mac 同時執行 2 台）走完「同事收到 App」全程的 SOP，
+含刻意貼上隔離標籤以觸發 Gatekeeper、以及在沒有 Python 的客體系統確認 `.app` 自我完整。
+它驗收「漏帶東西」與 Gatekeeper 流程，不驗收不同晶片世代與不同 macOS 大版本的差異。
+
 候選包固定標記 `distribution_ready: false`，沒有 Developer ID 簽章或 notarization。此流程不 commit、push、發布、修改 GitHub visibility，也不代表第三方或產品的完整法律核准。正式交付仍需確認自有權利／接受者、native inventory、獨立驗收、簽章／notarization 與目標電腦的實際安裝。不得以關閉 Gatekeeper 取代安裝驗收。
