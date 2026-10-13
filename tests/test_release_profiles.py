@@ -176,5 +176,70 @@ class LauncherProfileTests(unittest.TestCase):
         self.assertNotIn("docling", self.launcher.FORBIDDEN_MODULES["pdf"])
 
 
+class NoticeCollectionTests(unittest.TestCase):
+    """Ref: openspec/specs/release-profiles/spec.md"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.collect_notices = load("collect_notices")
+
+    def test_notice_is_recognized_by_name_or_by_standard_location(self):
+        """Every shape a real pinned wheel uses to ship its notices.
+
+        Matching the file name alone silently dropped 21 notice files from the
+        pdf profile, pypdfium2's 18 PDFium component notices among them.
+        """
+        recognized = [
+            # Named by convention, at the root of the distribution.
+            "LICENSE",
+            "LICENSE.txt",
+            "LICENSE-MIT",
+            "COPYING",
+            "NOTICE.md",
+            # Declared in metadata and recorded under dist-info/licenses (PEP
+            # 639), where the name is the upstream project's, not a convention.
+            "tqdm-4.70.1.dist-info/licenses/LICENCE",
+            "pypdfium2-5.14.0.dist-info/licenses/LICENSES/BSD-3-Clause.txt",
+            "pypdfium2-5.14.0.dist-info/licenses/data/darwin_arm64/BUILD_LICENSES/freetype.txt",
+            "numpy-2.5.3.dist-info/licenses/numpy/_core/src/multiarray/dragon4_LICENSE.txt",
+            "pygments-2.21.0.dist-info/licenses/AUTHORS",
+            "lxml-6.1.3.dist-info/licenses/LICENSES.txt",
+        ]
+        for item in recognized:
+            with self.subTest(notice=item):
+                self.assertTrue(self.collect_notices.is_notice(item))
+
+    def test_ordinary_installed_files_are_not_collected_as_notices(self):
+        for item in (
+            "document_converter/web_app.py",
+            "docling/licenses.py",
+            # A package directory of its own named licenses is not the
+            # standardised location, which only dist-info carries.
+            "somepkg/licenses/custom.txt",
+            "pypdfium2-5.14.0.dist-info/RECORD",
+            "pypdfium2-5.14.0.dist-info/METADATA",
+        ):
+            with self.subTest(path=item):
+                self.assertFalse(self.collect_notices.is_notice(item))
+
+    def test_pdf_profile_avoids_latex2mathml_releases_that_ship_no_notice(self):
+        """3.81.0 and 3.81.1 ship no license file in the wheel or the sdist.
+
+        The build refuses a dependency it cannot collect a notice for, so those
+        releases cannot be pinned. Re-check with
+        `python3 scripts/packaging/audit_notices.py --profile pdf` before
+        raising the pin.
+        """
+        without_notice = {"3.81.0", "3.81.1"}
+        pins = {}
+        for line in (PACKAGING / f"{profiles.PDF.requirements_stem}.txt").read_text().splitlines():
+            entry = line.strip()
+            if entry and not entry.startswith("#"):
+                name, version = entry.split("==")
+                pins[name] = version
+        self.assertIn("latex2mathml", pins)
+        self.assertNotIn(pins["latex2mathml"], without_notice)
+
+
 if __name__ == "__main__":
     unittest.main()
