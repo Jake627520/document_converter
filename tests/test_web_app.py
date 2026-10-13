@@ -1,9 +1,12 @@
 """OpenSpec CHG-005: local web workbench behavior and security boundaries."""
+import io
+import zipfile
 from pathlib import Path
 from unittest import TestCase, mock
 import unittest
 import tempfile
 
+from document_converter.models import ConversionResult
 from pdf_samples import write_scanned_pdf, write_text_pdf
 
 try:
@@ -80,8 +83,14 @@ class WebAppTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content, b"# Hello")
-        self.assertEqual(response.headers["content-disposition"], 'attachment; filename="converted-document.md"')
-        self.assertNotIn("private", response.headers["content-disposition"])
+        # The download is named after the upload, which is why only its last
+        # segment is used and the suffix dropped: the traversal is gone, and so
+        # is any chance of ending the quoted header value.
+        disposition = response.headers["content-disposition"]
+        self.assertEqual(disposition, "attachment; filename=\"private name.md\"; filename*=UTF-8''private%20name.md")
+        for dangerous in ("..", "/", "\\", "\r", "\n"):
+            self.assertNotIn(dangerous, disposition)
+        # The file on disk is still a generated name, never the uploaded one.
         self.assertNotIn("private", seen["name"])
         self.assertTrue(seen["exists_during_conversion"])
         self.assertFalse(seen["path"].exists())
@@ -182,3 +191,55 @@ class ReleaseProfileTests(TestCase):
         self.assertEqual(response.status_code, 422)
         self.assertIn("沒有文字層", response.json()["detail"])
         self.assertIn("OCR", response.json()["detail"])
+
+
+@unittest.skipIf(TestClient is None, "install the optional web extra to run web tests")
+class DownloadNamingTests(TestCase):
+    """A converted file keeps the name of the document it came from.
+
+    The uploaded name is still never trusted as a path - the file on disk keeps
+    a generated name - but discarding it entirely left a batch of spec sheets as
+    document-1.md to document-5.md, with no way to tell which was which.
+    Hostile name shapes are covered in tests/test_web_security.py, since a
+    multipart encoder will not carry a quote or a newline in a filename.
+    """
+
+    def setUp(self):
+        self.client = TestClient(web_app.app, headers={"host": "127.0.0.1"})
+
+    def convert(self, uploads):
+        files = [("files", (name, body, "text/markdown")) for name, body in uploads]
+        with mock.patch.object(web_app, "convert_one") as convert:
+            convert.side_effect = lambda path, engine, mode: ConversionResult(
+                source=Path(path), engine="mock", markdown="# Hello"
+            )
+            return self.client.post("/convert", data={"target": "md"}, files=files)
+
+    def test_single_download_is_named_after_the_document(self):
+        response = self.convert([("車燈規格表_v3.md", b"# Hello")])
+        self.assertEqual(response.status_code, 200)
+        disposition = response.headers["content-disposition"]
+        self.assertIn("filename*=UTF-8''%E8%BB%8A%E7%87%88%E8%A6%8F%E6%A0%BC%E8%A1%A8_v3.md", disposition)
+        # A client that reads only `filename` gets the fallback rather than the
+        # fragment that dropping the Chinese characters would leave.
+        self.assertIn('filename="converted-document.md"', disposition)
+
+    def test_ascii_name_is_carried_in_both_forms(self):
+        disposition = self.convert([("resume-1.md", b"# Hello")]).headers["content-disposition"]
+        self.assertEqual(disposition, "attachment; filename=\"resume-1.md\"; filename*=UTF-8''resume-1.md")
+
+    def test_archive_entries_keep_their_names_and_do_not_collide(self):
+        response = self.convert([
+            ("headlamp.md", b"# A"),
+            ("headlamp.md", b"# B"),
+            ("面板備忘.md", b"# C"),
+        ])
+        self.assertEqual(response.status_code, 200)
+        with zipfile.ZipFile(io.BytesIO(response.content)) as bundle:
+            self.assertEqual(bundle.namelist(), ["headlamp.md", "headlamp-2.md", "面板備忘.md"])
+        self.assertIn('filename="converted-documents.zip"', response.headers["content-disposition"])
+
+    def test_a_name_that_is_only_a_suffix_still_gets_a_download_name(self):
+        response = self.convert([(".md", b"# Hello")])
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('filename="document.md"', response.headers["content-disposition"])

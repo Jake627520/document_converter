@@ -1,5 +1,6 @@
 """Small standard-library validation helpers shared by the local web app."""
-from urllib.parse import urlsplit
+import re
+from urllib.parse import quote, urlsplit
 from threading import Lock
 
 from .formats import SUPPORTED
@@ -115,6 +116,42 @@ def supported_suffix(filename: str) -> str | None:
         return None
     normalized = "." + suffix.lower()
     return normalized if normalized in SUPPORTED else None
+
+
+DOWNLOAD_STEM_LIMIT = 120
+_SEPARATORS = re.compile(r"[/\\]")
+# Anything that could end the quoted value of a header, split a header line, or
+# be read as a path component. Non-ASCII is deliberately kept: a Chinese
+# document name is the point, and the header carries it percent-encoded.
+_UNSAFE_STEM = re.compile(r"[\x00-\x1f\x7f\"\'`;:*?<>|%]+")
+
+
+def safe_output_stem(filename: str, fallback: str = "document") -> str:
+    """Derive a download name from an upload name without trusting it.
+
+    The uploaded name is controlled by whoever made the file, so only its last
+    path segment is considered and its final suffix dropped, without ever
+    treating the name as a path. A name that sanitizes away to nothing falls
+    back, so every download still gets a usable name.
+    """
+    segment = _SEPARATORS.split(filename or "")[-1]
+    stem = segment.rpartition(".")[0] if "." in segment else segment
+    stem = _UNSAFE_STEM.sub("-", stem).strip(". -")
+    return stem[:DOWNLOAD_STEM_LIMIT].strip(". -") or fallback
+
+
+def content_disposition(stem: str, target: str, fallback: str = "converted-document") -> str:
+    """An attachment header that carries a non-ASCII name correctly (RFC 6266).
+
+    ``filename`` is read by a client that understands nothing else, so it holds
+    the name only when that name is ASCII throughout. A name with any character
+    outside ASCII uses the fallback there instead, because dropping those
+    characters leaves a fragment rather than a name - "車燈規格表_v3" would read
+    "_v3". ``filename*`` always carries the real name, percent-encoded as UTF-8.
+    """
+    ascii_stem = stem if stem.isascii() else fallback
+    encoded = quote(f"{stem}.{target}", safe="")
+    return f'attachment; filename="{ascii_stem}.{target}"; filename*=UTF-8\'\'{encoded}'
 
 
 def valid_target(target: str) -> bool:

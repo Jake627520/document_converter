@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, Response
 
 from .models import ConversionResult
 from .formats import PDF_TEXT_SUPPORTED, TEXT_SUPPORTED
-from .web_security import MAX_ACTIVE_REQUESTS, MAX_FILE_COUNT, RequestAdmission, RequestBodyCounter, RequestBodyTooLarge, content_length_exceeds_limit, host_is_local, origin_is_same_local, supported_suffix, valid_file_count, valid_target
+from .web_security import MAX_ACTIVE_REQUESTS, MAX_FILE_COUNT, RequestAdmission, RequestBodyCounter, RequestBodyTooLarge, content_disposition, content_length_exceeds_limit, host_is_local, origin_is_same_local, safe_output_stem, supported_suffix, valid_file_count, valid_target
 from .writer import write_result
 
 MAX_REQUEST_BYTES = 25 * 1024 * 1024
@@ -174,7 +174,7 @@ async def convert_upload(target: str = Form(...), files: list[UploadFile] = File
                 output_path = output_dir / f"{safe_input.stem}.{target}"
                 if not output_path.is_file():
                     raise RuntimeError("The selected output format was not produced")
-                produced.append((output_path.name, output_path.read_bytes()))
+                produced.append((safe_output_stem(original_name), output_path.read_bytes()))
             except HTTPException:
                 raise
             except Exception as exc:
@@ -187,19 +187,35 @@ async def convert_upload(target: str = Form(...), files: list[UploadFile] = File
                 await upload.close()
 
         if len(produced) == 1:
-            body = produced[0][1]
-            filename = f"converted-document.{target}"
+            stem, body = produced[0]
+            disposition = content_disposition(stem, target)
             media_type = "text/markdown; charset=utf-8" if target == "md" else "text/html; charset=utf-8"
         else:
             archive = io.BytesIO()
             with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as bundle:
-                for index, (_, data) in enumerate(produced, start=1):
-                    bundle.writestr(f"document-{index}.{target}", data)
+                names = _archive_names([stem for stem, _ in produced], target)
+                for name, (_, data) in zip(names, produced):
+                    bundle.writestr(name, data)
             body = archive.getvalue()
-            filename = "converted-documents.zip"
+            disposition = content_disposition("converted-documents", "zip")
             media_type = "application/zip"
 
-    return Response(body, media_type=media_type, headers={"Content-Disposition": f'attachment; filename="{filename}"', "X-Content-Type-Options": "nosniff"})
+    return Response(body, media_type=media_type, headers={"Content-Disposition": disposition, "X-Content-Type-Options": "nosniff"})
+
+
+def _archive_names(stems: list[str], target: str) -> list[str]:
+    """Distinct entry names, so two uploads sharing a name do not overwrite each other."""
+    taken: set[str] = set()
+    names = []
+    for stem in stems:
+        candidate = f"{stem}.{target}"
+        index = 1
+        while candidate in taken:
+            index += 1
+            candidate = f"{stem}-{index}.{target}"
+        taken.add(candidate)
+        names.append(candidate)
+    return names
 
 
 def _reject_empty_pdf(result: ConversionResult):
@@ -261,5 +277,5 @@ const input=document.querySelector('#files'),list=document.querySelector('#list'
 function size(n){return n<1048576?(n/1024).toFixed(0)+' KB':(n/1048576).toFixed(1)+' MB'}
 function draw(){list.replaceChildren();selected.forEach((file,i)=>{const li=document.createElement('li');li.className='row';const icon=document.createElement('span');icon.className='file-icon';icon.textContent=(file.name.split('.').pop()||'FILE').slice(0,4).toUpperCase();icon.setAttribute('aria-hidden','true');const info=document.createElement('span');info.style.minWidth='0';const name=document.createElement('span');name.className='file-name';name.textContent=file.name;const meta=document.createElement('span');meta.className='file-size';meta.textContent=size(file.size);info.append(name,meta);const remove=document.createElement('button');remove.type='button';remove.className='remove';remove.textContent='移除';remove.setAttribute('aria-label','移除 '+file.name);remove.onclick=()=>{selected.splice(i,1);draw()};li.append(icon,info,remove);list.append(li)})}
 function add(files){selected=selected.concat(Array.from(files)).slice(0,5);draw()}input.addEventListener('change',e=>{add(e.target.files);input.value=''});['dragenter','dragover'].forEach(name=>drop.addEventListener(name,e=>{e.preventDefault();drop.classList.add('drag')}));['dragleave','drop'].forEach(name=>drop.addEventListener(name,e=>{e.preventDefault();drop.classList.remove('drag')}));drop.addEventListener('drop',e=>add(e.dataTransfer.files));
-form.addEventListener('submit',async e=>{e.preventDefault();status.className='status';if(!selected.length){status.textContent='請先選擇至少一個文件。';status.classList.add('show','error');return}if(selected.some(f=>f.size>24*1048576)){status.textContent='單一檔案超過 24 MiB，請移除或縮小檔案。';status.classList.add('show','error');return}if(selected.reduce((n,f)=>n+f.size,0)>24*1048576){status.textContent='檔案總量超過 24 MiB，請減少檔案或分批轉換。';status.classList.add('show','error');return}button.disabled=true;button.textContent='正在本機轉換…';status.textContent='文件正在這台電腦上處理。';status.classList.add('show');try{const data=new FormData();selected.forEach(file=>data.append('files',file));data.append('target',form.querySelector('[name=target]:checked').value);const response=await fetch('/convert',{method:'POST',body:data});if(!response.ok){let detail='轉換失敗。請確認文件格式及本機引擎。';try{detail=(await response.json()).detail||detail}catch{}throw new Error(detail)}const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;const disposition=response.headers.get('content-disposition')||'';const match=disposition.match(/filename="([^"]+)"/);a.download=match?match[1]:'converted-document';a.click();URL.revokeObjectURL(url);status.textContent='轉換完成，下載已開始。';status.classList.add('show')}catch(error){status.textContent=error.message;status.classList.add('show','error')}finally{button.disabled=false;button.textContent='開始轉換 →'}});
+form.addEventListener('submit',async e=>{e.preventDefault();status.className='status';if(!selected.length){status.textContent='請先選擇至少一個文件。';status.classList.add('show','error');return}if(selected.some(f=>f.size>24*1048576)){status.textContent='單一檔案超過 24 MiB，請移除或縮小檔案。';status.classList.add('show','error');return}if(selected.reduce((n,f)=>n+f.size,0)>24*1048576){status.textContent='檔案總量超過 24 MiB，請減少檔案或分批轉換。';status.classList.add('show','error');return}button.disabled=true;button.textContent='正在本機轉換…';status.textContent='文件正在這台電腦上處理。';status.classList.add('show');try{const data=new FormData();selected.forEach(file=>data.append('files',file));data.append('target',form.querySelector('[name=target]:checked').value);const response=await fetch('/convert',{method:'POST',body:data});if(!response.ok){let detail='轉換失敗。請確認文件格式及本機引擎。';try{detail=(await response.json()).detail||detail}catch{}throw new Error(detail)}const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;const disposition=response.headers.get('content-disposition')||'';const encoded=disposition.match(/UTF-8''([^;]+)/i);const plain=disposition.match(/filename="([^"]+)"/);a.download=encoded?decodeURIComponent(encoded[1]):(plain?plain[1]:'converted-document');a.click();URL.revokeObjectURL(url);status.textContent='轉換完成，下載已開始。';status.classList.add('show')}catch(error){status.textContent=error.message;status.classList.add('show','error')}finally{button.disabled=false;button.textContent='開始轉換 →'}});
 </script></body></html>'''
