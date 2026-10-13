@@ -84,9 +84,11 @@ PyInstaller 官方說明允許在符合依賴授權的前提下使用例外條�
 
 ### 一般使用者：啟動本機候選包
 
-目前這台 Mac 的候選 ZIP 位於：
+候選 ZIP 位於建置它的那台 Mac 的專案資料夾內，以 `text` 版為例：
 
-`/Users/jakechiu/Documents/Projects/document_converter/build/private-release/candidate-3/Document-Converter-macos-arm64-local-candidate.zip`
+`build/private-release/candidate-text/Document-Converter-macos-arm64-local-candidate.zip`
+
+`pdf` 版則是 `build/private-release/candidate-pdf/Document-Converter-macos-arm64-pdf-local-candidate.zip`。
 
 此 ZIP 是本機建置產物，不在 GitHub 原始碼倉庫內。於 Finder 雙擊 ZIP
 解壓縮，再雙擊解壓資料夾中的 **Document Converter.app**。App 啟動後會選用
