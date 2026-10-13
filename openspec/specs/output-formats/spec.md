@@ -33,6 +33,21 @@ Plain text output MUST carry the document's text without Markdown syntax and wit
 - **WHEN** an engine's Markdown export carries HTML entities for characters the document holds literally, as Docling's does for `&`, `<` and `>`
 - **THEN** the Markdown and plain text outputs carry the literal characters, exactly one level of escaping is undone, and the engine's own HTML output keeps its entities
 
+### Requirement: Never return an empty conversion as a success
+A conversion that recovered no text MUST be reported with its reason rather than returned as an empty document, in every release and whatever engine ran. A page of image placeholders is not recovered text.
+
+#### Scenario: A PDF has no text layer
+- **WHEN** a scan, a photographed page or a page that is a single picture is converted
+- **THEN** the request is refused with the reason, and the reason names OCR only where that release could run it
+
+#### Scenario: The input itself is empty
+- **WHEN** a file holding nothing, or only whitespace, is converted
+- **THEN** the request is refused with that reason, and a release accepting only Markdown and text does not blame a scan or a picture it cannot receive
+
+#### Scenario: A caption accompanies an unreadable picture
+- **WHEN** a document holds some text beside a picture no engine could read
+- **THEN** the text converts and the picture is left as a placeholder, because the result is not empty
+
 ### Requirement: Clean Markdown without discarding content
 Cleaning MUST remove labelled page markers and MUST preserve a line that holds only
 digits, because engines emit table cells and other document values on their own

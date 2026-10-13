@@ -8,15 +8,27 @@ import zipfile
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import HTMLResponse, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from .models import ConversionResult
-from .formats import PDF_TEXT_SUPPORTED, TEXT_SUPPORTED
-from .web_security import MAX_ACTIVE_REQUESTS, MAX_FILE_COUNT, RequestAdmission, RequestBodyCounter, RequestBodyTooLarge, content_disposition, content_length_exceeds_limit, host_is_local, origin_is_same_local, safe_output_stem, supported_suffix, valid_file_count, valid_target
+from .formats import PDF_TEXT_SUPPORTED, SUPPORTED, TEXT_SUPPORTED
+from .web_security import ALLOWED_TARGETS, MAX_ACTIVE_REQUESTS, MAX_FILE_COUNT, RequestAdmission, RequestBodyCounter, RequestBodyTooLarge, content_disposition, content_length_exceeds_limit, host_is_local, origin_is_same_local, safe_output_stem, supported_suffix, valid_file_count, valid_target
 from .writer import plain_text_of, write_result
 
 MAX_REQUEST_BYTES = 25 * 1024 * 1024
 MAX_FILE_BYTES = 24 * 1024 * 1024
+
+
+def size_limit(limit: int) -> str:
+    """State a byte limit in both units a reader may be comparing against.
+
+    The limits are set in mebibytes (1 MiB = 1,048,576 bytes), but Finder on
+    macOS reports sizes in decimal megabytes (1 MB = 1,000,000 bytes). Naming
+    only one leaves the reader comparing two different numbers: 24 MiB is
+    about 25 MB, and a file Finder shows as 25.1 MB is still accepted.
+    """
+    return f"{limit // (1024 * 1024)} MiB（約 {round(limit / 1_000_000)} MB）"
 
 TEXT_PROFILE = "text-only"
 PDF_PROFILE = "pdf-text"
@@ -116,23 +128,23 @@ class LocalRequestBoundary:
             return
         headers = dict(scope.get("headers", []))
         if not host_is_local(headers.get(b"host")):
-            await self._error(send, 400, b"Invalid local Host header")
+            await self._error(send, 400, "請用 http://127.0.0.1 或 http://localhost 開啟；本服務只接受本機連線。".encode())
             return
         if scope.get("method") == "POST":
             fetch_site = headers.get(b"sec-fetch-site", b"").decode("latin-1").lower()
             if fetch_site == "cross-site":
-                await self._error(send, 403, b"Cross-site requests are not allowed")
+                await self._error(send, 403, "不接受跨站請求。".encode())
                 return
             origin = headers.get(b"origin")
             if origin and not origin_is_same_local(origin, headers.get(b"host")):
-                await self._error(send, 403, b"Cross-origin requests are not allowed")
+                await self._error(send, 403, "不接受跨來源請求。".encode())
                 return
         if not self.admission.try_enter():
-            await self._error(send, 429, b"Local converter is busy; retry shortly")
+            await self._error(send, 429, "本機轉換器忙碌中，請稍後再試。".encode())
             return
         try:
             if content_length_exceeds_limit(headers.get(b"content-length"), MAX_REQUEST_BYTES):
-                await self._error(send, 413, b"Request exceeds the 25 MiB limit")
+                await self._error(send, 413, f"整個上傳請求不得超過 {size_limit(MAX_REQUEST_BYTES)}。請減少檔案數量或分批轉換。".encode())
                 return
             counter = RequestBodyCounter(MAX_REQUEST_BYTES)
 
@@ -145,7 +157,7 @@ class LocalRequestBoundary:
             try:
                 await self.app(scope, limited_receive, send)
             except RequestBodyTooLarge:
-                await self._error(send, 413, b"Request exceeds the 25 MiB limit")
+                await self._error(send, 413, f"整個上傳請求不得超過 {size_limit(MAX_REQUEST_BYTES)}。請減少檔案數量或分批轉換。".encode())
         finally:
             self.admission.leave()
 
@@ -156,6 +168,17 @@ class LocalRequestBoundary:
 
 
 app = FastAPI(title="Document Converter", docs_url=None, redoc_url=None)
+
+
+@app.exception_handler(RequestValidationError)
+async def _explain_invalid_request(request, exc: RequestValidationError):
+    """Answer a malformed request in the page's language, not with its own schema."""
+    missing_file = any(tuple(error.get("loc", ()))[-1:] == ("files",) for error in exc.errors())
+    detail = (
+        f"請先選擇 1 到 {MAX_FILE_COUNT} 個檔案。" if missing_file
+        else "請求格式不正確。請重新整理頁面後再試一次。"
+    )
+    return JSONResponse(status_code=400, content={"detail": detail})
 app.add_middleware(LocalRequestBoundary)
 
 
@@ -170,13 +193,14 @@ async def index():
 
 @app.post("/convert")
 async def convert_upload(target: str = Form(...), files: list[UploadFile] = File(...)):
+    permitted = release_targets() or ALLOWED_TARGETS
+    offered = "、".join(OUTPUT_NAMES[item] for item in sorted(permitted))
     if not valid_target(target):
-        raise HTTPException(400, "Choose one of the Markdown, HTML, plain text or JSON outputs.")
-    permitted = release_targets()
-    if permitted is not None and target not in permitted:
-        raise HTTPException(400, "這個版本不提供這種輸出格式。")
+        raise HTTPException(400, f"請選擇一種輸出格式：{offered}。")
+    if target not in permitted:
+        raise HTTPException(400, f"此版本不提供這種輸出格式。可用的輸出：{offered}。")
     if not valid_file_count(len(files)):
-        raise HTTPException(400, f"Choose between 1 and {MAX_FILE_COUNT} files.")
+        raise HTTPException(400, f"一次請選擇 1 到 {MAX_FILE_COUNT} 個檔案。")
 
     with tempfile.TemporaryDirectory(prefix="document-converter-") as temp_root:
         root = Path(temp_root)
@@ -186,15 +210,15 @@ async def convert_upload(target: str = Form(...), files: list[UploadFile] = File
             suffix = supported_suffix(original_name)
             allowed = release_formats()
             if suffix is None or (allowed is not None and suffix not in allowed):
-                raise HTTPException(400, "Unsupported input type")
+                raise HTTPException(400, _unsupported_input(suffix or Path(original_name).suffix.lower()))
             content = await upload.read(MAX_FILE_BYTES + 1)
             if len(content) > MAX_FILE_BYTES:
-                raise HTTPException(413, "A file exceeds the 24 MiB limit")
+                raise HTTPException(413, f"單一檔案不得超過 {size_limit(MAX_FILE_BYTES)}。請縮小檔案或分批轉換。")
             safe_input = root / f"input-{uuid.uuid4().hex}{suffix}"
             safe_input.write_bytes(content)
             try:
                 result: ConversionResult = convert_one(safe_input, "auto", "none")
-                _reject_empty_pdf(result)
+                _reject_text_free_result(result)
                 output_dir = root / f"output-{uuid.uuid4().hex}"
                 write_result(result, output_dir, [target])
                 output_path = output_dir / f"{safe_input.stem}.{target}"
@@ -203,11 +227,17 @@ async def convert_upload(target: str = Form(...), files: list[UploadFile] = File
                 produced.append((safe_output_stem(original_name), output_path.read_bytes()))
             except HTTPException:
                 raise
+            except UnicodeDecodeError as exc:
+                raise HTTPException(
+                    422,
+                    f"「{original_name}」不是 UTF-8 編碼的文字檔（常見的是 Big5、GBK 或 UTF-16）。"
+                    "請先用文字編輯器另存為 UTF-8 再轉換。",
+                ) from exc
             except Exception as exc:
                 # The server is loopback-only and processes the operator's own
                 # files, so the reason is more useful to them than a bare failure.
                 reason = str(exc).replace(str(root), "").strip()
-                detail = "Conversion failed. Check the document and installed local engine."
+                detail = "轉換失敗。請確認檔案內容與本機已安裝的引擎。"
                 raise HTTPException(422, f"{detail} ({reason[:300]})" if reason else detail) from exc
             finally:
                 await upload.close()
@@ -244,6 +274,43 @@ def _archive_names(stems: list[str], target: str) -> list[str]:
     return names
 
 
+OUTPUT_NAMES = {"md": "Markdown", "html": "HTML", "txt": "純文字", "json": "Docling JSON"}
+
+
+def _accepted_inputs() -> str:
+    """The accepted suffixes, so a rejection can say what would work."""
+    allowed = release_formats()
+    return "、".join(sorted(allowed if allowed is not None else SUPPORTED))
+
+
+def _unsupported_input(suffix: str) -> str:
+    """Rejecting a file is only useful if it also says what this release takes."""
+    named = f"不支援「{suffix}」檔案" if suffix else "不支援沒有副檔名的檔案"
+    return f"這個版本{named}。可以轉換的格式：{_accepted_inputs()}。"
+
+
+def _no_text_recovered(result: ConversionResult) -> str:
+    """Never hand over an empty file; say what happened instead.
+
+    A scan with no text layer, a page that is a single picture and an empty
+    input all reach here. What the reader can do about it differs, so the
+    reason names only causes this release could actually have: one that accepts
+    Markdown and text alone has no scan or picture to blame.
+    """
+    allowed = release_formats()
+    if allowed is not None and not allowed - TEXT_SUPPORTED:
+        return "這個檔案沒有抽出任何文字。檔案可能是空的，或只有空白。"
+    remedy = (
+        "此版本不包含 OCR 文字辨識，無法從影像中取出文字。"
+        if _RELEASE_PROFILE is not None
+        else f"掃描檔需要具備 OCR 的引擎才能取出文字（這次使用的引擎：{result.engine}）。"
+    )
+    return (
+        "這個檔案沒有抽出任何文字。可能是掃描或拍照的檔案（只有影像、沒有文字層）、"
+        f"整頁都是圖片，或檔案本身是空的。{remedy}"
+    )
+
+
 def _unavailable_target(target: str, result: ConversionResult) -> str:
     """Say why this document yielded no such output, rather than only that it did not."""
     if target == "json":
@@ -254,18 +321,16 @@ def _unavailable_target(target: str, result: ConversionResult) -> str:
     return f"這個檔案無法輸出 {target} 格式（引擎：{result.engine}）。"
 
 
-def _reject_empty_pdf(result: ConversionResult):
-    """Tell the reader a scanned PDF produced nothing instead of sending an empty file."""
-    if _RELEASE_PROFILE != PDF_PROFILE:
-        return
-    from .engines.docling_native_engine import NO_TEXT_WARNING
+def _reject_text_free_result(result: ConversionResult):
+    """Refuse a conversion that recovered nothing, whatever ran it.
 
-    if NO_TEXT_WARNING in result.warnings:
-        raise HTTPException(
-            422,
-            "這個 PDF 沒有文字層（例如掃描或拍照的檔案）。此版本不包含 OCR 文字辨識，"
-            "無法從影像中取出文字。",
-        )
+    The earlier form of this check only applied to the pdf release and only
+    recognised one engine's warning, so a full install returned 200 and a file
+    holding a single image placeholder - the empty download this exists to
+    prevent.
+    """
+    if not result.has_recovered_text():
+        raise HTTPException(422, _no_text_recovered(result))
 
 
 def pdf_release_page():
@@ -309,13 +374,13 @@ PAGE = '''<!doctype html>
 </style></head><body>
 <header class="topbar"><div class="brand"><span class="mark" aria-hidden="true">↗</span><span>文件轉換工作台</span></div><span class="badge">僅限本機使用</span></header>
 <main class="wrap"><section class="hero"><div class="eyebrow">PRIVATE DOCUMENT WORKSPACE</div><h1>讓文件轉換，<br>回到簡單。</h1><p>在這台電腦上將文件轉成 Markdown 或 HTML。選擇檔案、挑選格式，完成後立即下載。</p></section>
-<form id="form" class="workspace" enctype="multipart/form-data"><section class="section"><div class="head"><h2>選擇文件</h2><span class="hint">最多 5 個檔案 · 單檔 24 MiB · 請控制總量</span></div><div id="drop" class="drop"><div class="upload" aria-hidden="true">↑</div><strong>將文件拖放到這裡</strong><p>或從電腦中選取檔案</p><label class="choose" for="files">選擇檔案</label><input class="vh" id="files" type="file" multiple accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm,.epub,.md,.markdown,.txt,.png,.jpg,.jpeg,.webp,.csv,.rtf,.odt,.ods,.odp" aria-describedby="file-hint"><span id="file-hint" class="vh">支援 PDF、Office、圖片、Markdown、文字與其他文件格式。</span></div><ul id="list" class="files" aria-label="已選擇的文件"></ul></section>
+<form id="form" class="workspace" enctype="multipart/form-data"><section class="section"><div class="head"><h2>選擇文件</h2><span class="hint">最多 5 個檔案 · 單檔 24 MiB（約 25 MB）</span></div><div id="drop" class="drop"><div class="upload" aria-hidden="true">↑</div><strong>將文件拖放到這裡</strong><p>或從電腦中選取檔案</p><label class="choose" for="files">選擇檔案</label><input class="vh" id="files" type="file" multiple accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm,.epub,.md,.markdown,.txt,.png,.jpg,.jpeg,.webp,.csv,.rtf,.odt,.ods,.odp" aria-describedby="file-hint"><span id="file-hint" class="vh">支援 PDF、Office、圖片、Markdown、文字與其他文件格式。</span></div><ul id="list" class="files" aria-label="已選擇的文件"></ul></section>
 <section class="section"><div class="head"><h2>輸出格式</h2><span class="hint">選擇一種格式</span></div><div class="options"><label class="format"><input type="radio" name="target" value="md" checked><span><span class="ext">Markdown</span><span class="desc">.md · 適合筆記與知識庫</span></span></label><label class="format"><input type="radio" name="target" value="html"><span><span class="ext">HTML</span><span class="desc">.html · 可用瀏覽器直接開啟</span></span></label><label class="format"><input type="radio" name="target" value="txt"><span><span class="ext">純文字</span><span class="desc">.txt · 只有文字，不含格式</span></span></label><label class="format"><input type="radio" name="target" value="json"><span><span class="ext">Docling JSON</span><span class="desc">.json · 文件結構，需引擎解析</span></span></label></div></section><div class="actions"><button id="submit" class="submit" type="submit">開始轉換 →</button><span class="privacy">文件由本機服務處理，轉換後會立即清除暫存檔。<br>引擎或模型的網路行為取決於其安裝與設定。</span></div><p id="status" class="status" role="status" aria-live="polite"></p></form>
 <p class="footer"><strong>支援格式</strong>　PDF、Word、PowerPoint、Excel、HTML、EPUB、Markdown、文字、圖片、CSV、RTF、OpenDocument。</p></main>
 <script>
 const input=document.querySelector('#files'),list=document.querySelector('#list'),drop=document.querySelector('#drop'),form=document.querySelector('#form'),status=document.querySelector('#status'),button=document.querySelector('#submit');let selected=[];
-function size(n){return n<1048576?(n/1024).toFixed(0)+' KB':(n/1048576).toFixed(1)+' MB'}
+function size(n){return n<1e6?(n/1e3).toFixed(0)+' KB':(n/1e6).toFixed(1)+' MB'}
 function draw(){list.replaceChildren();selected.forEach((file,i)=>{const li=document.createElement('li');li.className='row';const icon=document.createElement('span');icon.className='file-icon';icon.textContent=(file.name.split('.').pop()||'FILE').slice(0,4).toUpperCase();icon.setAttribute('aria-hidden','true');const info=document.createElement('span');info.style.minWidth='0';const name=document.createElement('span');name.className='file-name';name.textContent=file.name;const meta=document.createElement('span');meta.className='file-size';meta.textContent=size(file.size);info.append(name,meta);const remove=document.createElement('button');remove.type='button';remove.className='remove';remove.textContent='移除';remove.setAttribute('aria-label','移除 '+file.name);remove.onclick=()=>{selected.splice(i,1);draw()};li.append(icon,info,remove);list.append(li)})}
 function add(files){selected=selected.concat(Array.from(files)).slice(0,5);draw()}input.addEventListener('change',e=>{add(e.target.files);input.value=''});['dragenter','dragover'].forEach(name=>drop.addEventListener(name,e=>{e.preventDefault();drop.classList.add('drag')}));['dragleave','drop'].forEach(name=>drop.addEventListener(name,e=>{e.preventDefault();drop.classList.remove('drag')}));drop.addEventListener('drop',e=>add(e.dataTransfer.files));
-form.addEventListener('submit',async e=>{e.preventDefault();status.className='status';if(!selected.length){status.textContent='請先選擇至少一個文件。';status.classList.add('show','error');return}if(selected.some(f=>f.size>24*1048576)){status.textContent='單一檔案超過 24 MiB，請移除或縮小檔案。';status.classList.add('show','error');return}if(selected.reduce((n,f)=>n+f.size,0)>24*1048576){status.textContent='檔案總量超過 24 MiB，請減少檔案或分批轉換。';status.classList.add('show','error');return}button.disabled=true;button.textContent='正在本機轉換…';status.textContent='文件正在這台電腦上處理。';status.classList.add('show');try{const data=new FormData();selected.forEach(file=>data.append('files',file));data.append('target',form.querySelector('[name=target]:checked').value);const response=await fetch('/convert',{method:'POST',body:data});if(!response.ok){let detail='轉換失敗。請確認文件格式及本機引擎。';try{detail=(await response.json()).detail||detail}catch{}throw new Error(detail)}const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;const disposition=response.headers.get('content-disposition')||'';const encoded=disposition.match(/UTF-8''([^;]+)/i);const plain=disposition.match(/filename="([^"]+)"/);a.download=encoded?decodeURIComponent(encoded[1]):(plain?plain[1]:'converted-document');a.click();URL.revokeObjectURL(url);status.textContent='轉換完成，下載已開始。';status.classList.add('show')}catch(error){status.textContent=error.message;status.classList.add('show','error')}finally{button.disabled=false;button.textContent='開始轉換 →'}});
+form.addEventListener('submit',async e=>{e.preventDefault();status.className='status';if(!selected.length){status.textContent='請先選擇至少一個文件。';status.classList.add('show','error');return}if(selected.some(f=>f.size>24*1048576)){status.textContent='單一檔案超過 24 MiB（約 25 MB），請移除或縮小檔案。';status.classList.add('show','error');return}if(selected.reduce((n,f)=>n+f.size,0)>24*1048576){status.textContent='檔案總量超過 24 MiB（約 25 MB），請減少檔案或分批轉換。';status.classList.add('show','error');return}button.disabled=true;button.textContent='正在本機轉換…';status.textContent='文件正在這台電腦上處理。';status.classList.add('show');try{const data=new FormData();selected.forEach(file=>data.append('files',file));data.append('target',form.querySelector('[name=target]:checked').value);const response=await fetch('/convert',{method:'POST',body:data});if(!response.ok){let detail='轉換失敗。請確認文件格式及本機引擎。';try{detail=(await response.json()).detail||detail}catch{}throw new Error(detail)}const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;const disposition=response.headers.get('content-disposition')||'';const encoded=disposition.match(/UTF-8''([^;]+)/i);const plain=disposition.match(/filename="([^"]+)"/);a.download=encoded?decodeURIComponent(encoded[1]):(plain?plain[1]:'converted-document');a.click();URL.revokeObjectURL(url);status.textContent='轉換完成，下載已開始。';status.classList.add('show')}catch(error){status.textContent=error.message;status.classList.add('show','error')}finally{button.disabled=false;button.textContent='開始轉換 →'}});
 </script></body></html>'''

@@ -1,14 +1,14 @@
-# Private source and local installer distribution
+# Local installer distribution
 
 Updated: 2026-10-13.
 
-The source repository is intended to remain private. The copyright holder may provide local installation packages to intended recipients under the accompanying custom proprietary `LICENSE`. Recipients may use the original Software personally or for their company's own internal operations, including internal commercial use. Except for permitted internal employee copies, recipients may not resell or redistribute the original Software or modified versions. Third-party components retain their own licenses and rights.
+The source repository is public; the installation packages are not published with it. The copyright holder builds them and provides them to intended recipients under the accompanying custom proprietary `LICENSE`. A public repository changes neither that license nor the obligations below: it grants no right to resell or redistribute the original Software, and every third-party term still applies to a package that bundles that component. Recipients may use the original Software personally or for their company's own internal operations, including internal commercial use. Except for permitted internal employee copies, recipients may not resell or redistribute the original Software or modified versions. Third-party components retain their own licenses and rights.
 
 ## Final license and historical draft
 
-The final root `LICENSE` is the authoritative license for the original Software and carries `Copyright (c) 2026 Jake Chiu`. This follows the user's instruction to use the marking style of previous projects and the verified personal-project example `japanese-kana-learning/LICENSE:3`. The choice of marking does not establish the complete chain of copyright ownership or authority to license every contribution.
+The final root `LICENSE` is the authoritative license for the original Software and carries `Copyright (c) 2026 Jake Chiu`. It follows the marking style of the copyright holder's earlier personal projects. The choice of marking does not establish the complete chain of copyright ownership or authority to license every contribution.
 
-The repository-only file `docs/LICENSE.proprietary.draft.txt` is retained as a historical drafting copy and is not included in installation packages. Its earlier copyright-holder placeholder has been resolved in the final root `LICENSE`; it must not be distributed or substituted for that final file. Each package must carry the complete final root `LICENSE` alongside its applicable third-party material and pass the artifact review described below.
+An earlier drafting copy of the license, which still carried a copyright-holder placeholder, was removed from the working tree when the repository was made public; it remains in git history and must never be distributed or substituted for the final file. Each package must carry the complete final root `LICENSE` alongside its applicable third-party material and pass the artifact review described below.
 
 ## Release scope
 
@@ -45,4 +45,4 @@ The inventory is generated for each build. These source documents do not substit
 
 The custom license is a reviewable expression of the authorized personal/internal-use terms. It does not promise zero legal risk or lawyer approval. Its disclaimer is limited by applicable law, and mandatory rights remain effective. Applicable contract formation, consumer rules, intellectual-property ownership and license compatibility may depend on the recipient, jurisdiction and exact distribution.
 
-MIT release is deferred. Making the repository public or releasing under MIT would require a separate decision, confirmation of rights in the original material, and review of the then-current artifacts. A future change must state which release it covers; these documents make no advance promise to relicense current copies.
+The repository was made public on 2026-10-13 under the unchanged proprietary `LICENSE`. That decision covers visibility only. Releasing under MIT or another open-source license remains a separate decision, requiring confirmation of rights in the original material and review of the then-current artifacts; a future change must state which release it covers. These documents make no advance promise to relicense current copies, and a reader who finds the source publicly readable acquires no right the `LICENSE` does not grant.
