@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from document_converter.models import ConversionResult
-from document_converter.writer import write_result
+from document_converter.writer import markdown_to_text, plain_text_of, write_result
 
 class TestWriter(unittest.TestCase):
     def test_write_markdown(self):
@@ -285,3 +285,31 @@ class CleanOptionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PlainTextOutputTests(unittest.TestCase):
+    """Plain text is available from every engine that produced Markdown."""
+
+    def test_txt_is_rendered_from_markdown_when_the_engine_gives_none(self):
+        # A release that reads a text file directly runs no engine and sets no
+        # plain text of its own; the .txt output must still be produced.
+        result = ConversionResult(source=Path("spec.md"), engine="text_direct", markdown="## Spec\n\n- 84 lumens\n")
+        with tempfile.TemporaryDirectory() as temp:
+            write_result(result, Path(temp), ["txt"])
+            self.assertEqual((Path(temp) / "spec.txt").read_text(encoding="utf-8"), "Spec\n\n84 lumens\n")
+        self.assertFalse([w for w in result.warnings if "txt is unavailable" in w])
+
+    def test_engine_plain_text_is_preferred_over_rendering(self):
+        result = ConversionResult(source=Path("a.md"), engine="mock", markdown="# A\n", text="engine text\n")
+        with tempfile.TemporaryDirectory() as temp:
+            write_result(result, Path(temp), ["txt"])
+            self.assertEqual((Path(temp) / "a.txt").read_text(encoding="utf-8"), "engine text\n")
+
+    def test_a_text_file_is_already_plain_text_and_is_left_untouched(self):
+        content = "#1 priority\n- 5 units on hand\n"
+        self.assertEqual(plain_text_of(content, ".txt"), content)
+        self.assertEqual(plain_text_of(content, ".TXT"), content)
+
+    def test_markdown_is_rendered_to_plain_text(self):
+        self.assertEqual(plain_text_of("## Spec\n\n- 84 lumens\n", ".md"), "Spec\n\n84 lumens\n")
+        self.assertEqual(plain_text_of("# T\n", ".markdown"), markdown_to_text("# T\n"))

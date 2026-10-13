@@ -1,6 +1,6 @@
 # License and third-party review status
 
-Updated: 2026-10-09.
+Updated: 2026-10-13.
 
 The intended repository posture is private. Visibility is an access setting, not a license or a compliance finding. This document records evidence and release requirements; it does not establish that every combination or jurisdiction has been legally cleared.
 
@@ -10,7 +10,9 @@ The original Software uses the custom proprietary `LICENSE`. It permits personal
 
 The copyright marking `Copyright (c) 2026 Jake Chiu` follows the user's instruction to use previous projects' marking style and the verified personal-project source `/Users/jakechiu/Documents/Projects/japanese-kana-learning/LICENSE:3`. It is the marking selected for this release, not a finding that all project rights belong to that individual. Contribution, employment/commission and third-party rights chains remain unverified; the license grants only rights the copyright holder owns or is authorized to license. The root `LICENSE` is authoritative; `docs/LICENSE.proprietary.draft.txt` is a historical copy excluded from distribution.
 
-The first installer is scoped to the local interface and Markdown/plain-text conversion. Docling, PyMuPDF/MuPDF, Marker, MinerU, OCR/PDF engines, and model weights are excluded from this release scope. This is a build requirement, not proof of artifact contents. Only the generated inventory and inspection of the built files can establish the actual contents of a specific package.
+The first installer, now the `text` profile, is scoped to the local interface and Markdown/plain-text conversion. Docling, PyMuPDF/MuPDF, Marker, MinerU, OCR/PDF engines, and model weights are excluded from it. This is a build requirement, not proof of artifact contents. Only the generated inventory and inspection of the built files can establish the actual contents of a specific package.
+
+A second reviewed profile, `pdf`, was added after this audit was first written and supersedes its "Docling excluded" statement for that profile only. It adds Docling's model-free `NativePdfPipeline` (`docling-slim`, `docling-core`, `docling-parse`) and `pypdfium2` with the PDFium build it ships. It still excludes Docling's model-based pipeline and every model weight, OCR, any deep-learning runtime, PyMuPDF/MuPDF, Marker and MinerU, and its packaging enforces that with forbidden-module and forbidden-distribution checks. The `text` profile's scope is unchanged.
 
 ## Dated evidence for separately installed engines
 
@@ -24,6 +26,26 @@ The following upstream sources were consulted on 2026-10-09. A verified statemen
 | MinerU / Magic-PDF | The pre-change repository declared `magic-pdf>=0.9,<2`, while `document_converter/engines/command_engine.py` described a MinerU 4.x command and `cli.py` recommended MinerU 4.x | Package/API mismatch is recorded; no license conclusion is drawn from a different version. Resolve the actual package, executable, version, dependencies, and model artifacts before enabling or distributing this profile |
 
 The local `python3` metadata inspection on 2026-10-09 found PyMuPDF 1.28.0 in `/opt/homebrew/lib/python3.14/site-packages`. It did not find Docling, Marker, Magic-PDF, MinerU, or Surya in that interpreter. This is a developer-environment observation, not the installer inventory. The PDF detector contains `import fitz` in `document_converter/detector.py`; a package need not appear in the project's declared dependencies to be used when available in the runtime environment.
+
+## `pdf` profile evidence (2026-10-12 and 2026-10-13)
+
+- **Inventory.** The profile pins 60 distributions (`scripts/packaging/requirements-macos-arm64-pdf.txt` and its hash lock). Their recorded license metadata, read from an environment installed from that pinned set on 2026-10-13, is permissive for every runtime distribution except the two listed next: MIT, BSD, Apache-2.0, ISC, PSF, MIT-CMU and similar. No GPL- or AGPL-licensed runtime code is bundled.
+- **Weak copyleft and exceptions.** `certifi` (MPL-2.0) and `tqdm` (MPL-2.0 and MIT) are bundled unmodified. PyInstaller is GPL-2.0-or-later with its Bootloader exception, whose shipped text permits distributing the embedded bootloader without restriction from those files; `pyinstaller-hooks-contrib` is a build-time dependency.
+- **Docling.** `docling-slim` 2.137.0, `docling-core` 2.101.1 and `docling-parse` 7.22.2 record MIT; the [PyPI page for docling 2.138.0](https://pypi.org/project/docling/) also records MIT. The bundled pipeline loads no model.
+- **PDFium components.** The pinned macOS arm64 `pypdfium2` 5.14.0 wheel ships 18 license files under its `dist-info/licenses/`. Read on 2026-10-13, two require a statement in the distribution documentation for executable-only distribution: the FreeType Project License ("based in part of the work of the FreeType Team") and the IJG License ("based in part on the work of the Independent JPEG Group"). `THIRD_PARTY_NOTICES.md` carries both. libpng and zlib request but do not require acknowledgement. FreeType, IJG, libjpeg-turbo and the Unicode/ICU terms forbid use of their names in advertising without permission.
+- **Notice collection.** Until 2026-10-12 the collector matched notice files by name only and dropped every file shipped under `<dist-info>/licenses/` with an upstream name, 21 of them for this profile, including the 18 PDFium files above. It now also matches that standardised location. `latex2mathml` 3.81.0 and 3.81.1 ship no license file at all, so the profile pins 3.80.0, which does. `scripts/packaging/audit_notices.py` checks every pinned wheel against the build's own rule without installing it.
+- **Built artifact.** A `pdf` candidate built on an Apple Silicon Mac on 2026-10-12 carried 124 notice files across 60 packages, and its frozen application reported no forbidden module loaded (`verification/2026-10-12-macos-pdf-candidate/REPORT.md`).
+
+## Optional engines, re-checked 2026-10-13
+
+These remain outside both profiles. The PyPI metadata and license texts were read again on 2026-10-13:
+
+| Component | Evidence | Consequence |
+|---|---|---|
+| PyMuPDF 1.28.2 | [PyPI](https://pypi.org/project/pymupdf/) records "Dual Licensed - GNU AFFERO GPL 3.0 or Artifex Commercial License" | Unchanged: not to be bundled under the original Software's terms without a commercial agreement or an AGPL-compliant release |
+| MinerU 4.0.12 | [PyPI](https://pypi.org/project/mineru/) records `LicenseRef-MinerU-Open-Source-License`; the [upstream LICENSE](https://github.com/opendatalab/MinerU/blob/master/LICENSE.md) is Apache-2.0 with additional terms: commercial use is permitted without a separate licence unless monthly active users exceed 100 million or monthly revenue exceeds USD 20 million, an online service offered to third parties must indicate prominently that it uses MinerU, and the licence terminates automatically on breach | Supersedes the earlier unresolved row. The older `magic-pdf` 1.3.12 package records AGPL-3.0. MinerU's model artifacts were not reviewed |
+| Marker 2.0.0 / Surya 0.22.1 | [PyPI](https://pypi.org/project/marker-pdf/) records Apache-2.0 for both packages' code | Unchanged: the model weights carry the separate terms described above |
+| Docling model-based pipeline | Model weights are published on Hugging Face; huggingface.co was unreachable from the review environment, so no model card was read | Not reviewed. Irrelevant to both profiles, which bundle no model |
 
 ## Review rules for every artifact
 
@@ -48,6 +70,8 @@ The United States research consulted on 2026-10-09 records [17 USC section 106](
 
 ## Unverified decisions
 
-The exact first installer inventory, all transitive license texts and notices, models and optional-engine deployment compatibility remain pending until the relevant build or profile is reviewed. This document gives no conclusion that changing process boundaries avoids copyleft or that proprietary and AGPL material can be combined under these terms. It gives no jurisdiction-specific enforceability opinion or assertion of lawyer approval.
+The exact first installer inventory, all transitive license texts and notices, models and optional-engine deployment compatibility remain pending until the relevant build or profile is reviewed.
+
+Parts of the original Software were written with an AI coding assistant, as the repository's commit history records. Under the United States Copyright Office's January 2025 report on copyrightability, protection extends to human creative contribution - selection, arrangement and modification - but not to material whose expression an AI system determined, and prompting alone is not authorship. The share of protectable human authorship in the AI-assisted portions has not been assessed, in Taiwan or elsewhere. This bears on how far the proprietary license can be enforced over those portions, not on the third-party terms above. This document gives no conclusion that changing process boundaries avoids copyleft or that proprietary and AGPL material can be combined under these terms. It gives no jurisdiction-specific enforceability opinion or assertion of lawyer approval.
 
 See `PRIVATE_DISTRIBUTION.md` for the release controls and `THIRD_PARTY_NOTICES.md` for notice handling. These files and `LICENSE` accompany the installer in `legal/`; source locations are `docs/PRIVATE_DISTRIBUTION.md`, `THIRD_PARTY_NOTICES.md`, and the root `LICENSE`.

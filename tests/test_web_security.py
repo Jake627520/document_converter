@@ -2,9 +2,9 @@
 from unittest import TestCase
 
 from document_converter.web_security import (
-    RequestAdmission, RequestBodyCounter, RequestBodyTooLarge,
-    content_length_exceeds_limit, host_is_local, origin_is_same_local,
-    request_exceeds_limit, supported_suffix, valid_file_count, valid_target,
+    DOWNLOAD_STEM_LIMIT, RequestAdmission, RequestBodyCounter, RequestBodyTooLarge,
+    content_disposition, content_length_exceeds_limit, host_is_local, origin_is_same_local,
+    request_exceeds_limit, safe_output_stem, supported_suffix, valid_file_count, valid_target,
 )
 
 
@@ -33,9 +33,12 @@ class WebSecurityTests(TestCase):
         self.assertIsNone(supported_suffix("no-extension"))
 
     def test_output_target_and_file_count_are_bounded(self):
-        self.assertTrue(valid_target("md"))
-        self.assertTrue(valid_target("html"))
-        self.assertFalse(valid_target("json"))
+        for target in ("md", "html", "json", "txt"):
+            with self.subTest(target=target):
+                self.assertTrue(valid_target(target))
+        for target in ("docx", "pdf", "", "MD", "../md"):
+            with self.subTest(target=target):
+                self.assertFalse(valid_target(target))
         self.assertTrue(valid_file_count(1))
         self.assertTrue(valid_file_count(5))
         self.assertFalse(valid_file_count(6))
@@ -71,3 +74,51 @@ class WebSecurityTests(TestCase):
         with self.assertRaises(RequestBodyTooLarge):
             counter.account(1)
         self.assertEqual(counter.received, 5)
+
+
+class DownloadNameTests(TestCase):
+    """Deriving a download name from an upload name that is not to be trusted."""
+
+    def test_only_the_last_segment_without_its_suffix_is_kept(self):
+        for uploaded, expected in (
+            ("resume-1.pdf", "resume-1"),
+            ("../../private name.md", "private name"),
+            ("C:\\Users\\x\\spec.md", "spec"),
+            ("車燈規格表_v3.pdf", "車燈規格表_v3"),
+            ("spec.tar.gz", "spec.tar"),
+            ("noext", "noext"),
+        ):
+            with self.subTest(uploaded=uploaded):
+                self.assertEqual(safe_output_stem(uploaded), expected)
+
+    def test_a_name_with_nothing_usable_left_falls_back(self):
+        for uploaded in ("", ".md", "/.md", "...md", '".md', "   ", "../", "-.md"):
+            with self.subTest(uploaded=uploaded):
+                self.assertEqual(safe_output_stem(uploaded), "document")
+
+    def test_characters_that_could_change_a_header_or_a_path_are_replaced(self):
+        stem = safe_output_stem('a"; filename="evil\r\nSet-Cookie: x=1.md')
+        for dangerous in ('"', ";", "\r", "\n", ":", "/", "\\"):
+            self.assertNotIn(dangerous, stem)
+
+    def test_a_very_long_name_is_capped(self):
+        stem = safe_output_stem("x" * 500 + ".md")
+        self.assertEqual(stem, "x" * DOWNLOAD_STEM_LIMIT)
+
+    def test_header_structure_cannot_be_subverted_by_the_name(self):
+        stem = safe_output_stem('a"; attachment; filename="evil\r\nSet-Cookie: x=1.md')
+        header = content_disposition(stem, "md")
+        quoted = header.split('filename="', 1)[1].split('"', 1)[0]
+        # The value ends where the quote says it does, and carries no second
+        # parameter and no header break of its own.
+        self.assertEqual(quoted, f"{stem}.md")
+        self.assertNotIn(";", quoted)
+        self.assertEqual(header.count("attachment; filename="), 1)
+        for dangerous in ("\r", "\n"):
+            self.assertNotIn(dangerous, header)
+
+    def test_non_ascii_name_travels_encoded_with_an_ascii_fallback(self):
+        header = content_disposition("車燈規格表", "md")
+        self.assertIn("filename*=UTF-8''%E8%BB%8A%E7%87%88%E8%A6%8F%E6%A0%BC%E8%A1%A8.md", header)
+        self.assertIn('filename="converted-document.md"', header)
+        self.assertTrue(header.split('filename="', 1)[1].split('"', 1)[0].isascii())

@@ -12,8 +12,8 @@ from fastapi.responses import HTMLResponse, Response
 
 from .models import ConversionResult
 from .formats import PDF_TEXT_SUPPORTED, TEXT_SUPPORTED
-from .web_security import MAX_ACTIVE_REQUESTS, MAX_FILE_COUNT, RequestAdmission, RequestBodyCounter, RequestBodyTooLarge, content_length_exceeds_limit, host_is_local, origin_is_same_local, supported_suffix, valid_file_count, valid_target
-from .writer import write_result
+from .web_security import MAX_ACTIVE_REQUESTS, MAX_FILE_COUNT, RequestAdmission, RequestBodyCounter, RequestBodyTooLarge, content_disposition, content_length_exceeds_limit, host_is_local, origin_is_same_local, safe_output_stem, supported_suffix, valid_file_count, valid_target
+from .writer import plain_text_of, write_result
 
 MAX_REQUEST_BYTES = 25 * 1024 * 1024
 MAX_FILE_BYTES = 24 * 1024 * 1024
@@ -21,6 +21,21 @@ MAX_FILE_BYTES = 24 * 1024 * 1024
 TEXT_PROFILE = "text-only"
 PDF_PROFILE = "pdf-text"
 RELEASE_FORMATS = {TEXT_PROFILE: TEXT_SUPPORTED, PDF_PROFILE: PDF_TEXT_SUPPORTED}
+# Docling JSON is the engine's own parse of a document, so a release that runs
+# no engine cannot offer it at all, and in the pdf release only a PDF produces
+# one: Markdown and text files are read directly. Markdown, HTML and plain text
+# are available from every release, since the writer renders the last two from
+# the Markdown.
+RELEASE_TARGETS = {
+    TEXT_PROFILE: frozenset({"md", "html", "txt"}),
+    PDF_PROFILE: frozenset({"md", "html", "txt", "json"}),
+}
+MEDIA_TYPES = {
+    "md": "text/markdown; charset=utf-8",
+    "html": "text/html; charset=utf-8",
+    "json": "application/json; charset=utf-8",
+    "txt": "text/plain; charset=utf-8",
+}
 
 _RELEASE_PROFILE: str | None = None
 
@@ -50,6 +65,13 @@ def release_profile() -> str | None:
     return _RELEASE_PROFILE
 
 
+def release_targets() -> frozenset[str] | None:
+    """Output formats this release can produce, or None outside a release."""
+    if _RELEASE_PROFILE is None:
+        return None
+    return RELEASE_TARGETS[_RELEASE_PROFILE]
+
+
 def release_formats() -> frozenset[str] | None:
     """Input suffixes the configured release accepts, or None outside a release."""
     if _RELEASE_PROFILE is None:
@@ -58,7 +80,8 @@ def release_formats() -> frozenset[str] | None:
 
 
 def _convert_text(path):
-    return ConversionResult(source=path, engine="text_direct", markdown=path.read_text(encoding="utf-8"))
+    content = path.read_text(encoding="utf-8")
+    return ConversionResult(source=path, engine="text_direct", markdown=content, text=plain_text_of(content, path.suffix))
 
 
 def convert_one(path, engine_name, image_mode):
@@ -148,7 +171,10 @@ async def index():
 @app.post("/convert")
 async def convert_upload(target: str = Form(...), files: list[UploadFile] = File(...)):
     if not valid_target(target):
-        raise HTTPException(400, "Choose Markdown or HTML output.")
+        raise HTTPException(400, "Choose one of the Markdown, HTML, plain text or JSON outputs.")
+    permitted = release_targets()
+    if permitted is not None and target not in permitted:
+        raise HTTPException(400, "這個版本不提供這種輸出格式。")
     if not valid_file_count(len(files)):
         raise HTTPException(400, f"Choose between 1 and {MAX_FILE_COUNT} files.")
 
@@ -173,8 +199,8 @@ async def convert_upload(target: str = Form(...), files: list[UploadFile] = File
                 write_result(result, output_dir, [target])
                 output_path = output_dir / f"{safe_input.stem}.{target}"
                 if not output_path.is_file():
-                    raise RuntimeError("The selected output format was not produced")
-                produced.append((output_path.name, output_path.read_bytes()))
+                    raise HTTPException(422, _unavailable_target(target, result))
+                produced.append((safe_output_stem(original_name), output_path.read_bytes()))
             except HTTPException:
                 raise
             except Exception as exc:
@@ -187,19 +213,45 @@ async def convert_upload(target: str = Form(...), files: list[UploadFile] = File
                 await upload.close()
 
         if len(produced) == 1:
-            body = produced[0][1]
-            filename = f"converted-document.{target}"
-            media_type = "text/markdown; charset=utf-8" if target == "md" else "text/html; charset=utf-8"
+            stem, body = produced[0]
+            disposition = content_disposition(stem, target)
+            media_type = MEDIA_TYPES[target]
         else:
             archive = io.BytesIO()
             with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as bundle:
-                for index, (_, data) in enumerate(produced, start=1):
-                    bundle.writestr(f"document-{index}.{target}", data)
+                names = _archive_names([stem for stem, _ in produced], target)
+                for name, (_, data) in zip(names, produced):
+                    bundle.writestr(name, data)
             body = archive.getvalue()
-            filename = "converted-documents.zip"
+            disposition = content_disposition("converted-documents", "zip")
             media_type = "application/zip"
 
-    return Response(body, media_type=media_type, headers={"Content-Disposition": f'attachment; filename="{filename}"', "X-Content-Type-Options": "nosniff"})
+    return Response(body, media_type=media_type, headers={"Content-Disposition": disposition, "X-Content-Type-Options": "nosniff"})
+
+
+def _archive_names(stems: list[str], target: str) -> list[str]:
+    """Distinct entry names, so two uploads sharing a name do not overwrite each other."""
+    taken: set[str] = set()
+    names = []
+    for stem in stems:
+        candidate = f"{stem}.{target}"
+        index = 1
+        while candidate in taken:
+            index += 1
+            candidate = f"{stem}-{index}.{target}"
+        taken.add(candidate)
+        names.append(candidate)
+    return names
+
+
+def _unavailable_target(target: str, result: ConversionResult) -> str:
+    """Say why this document yielded no such output, rather than only that it did not."""
+    if target == "json":
+        return (
+            "這個檔案沒有可輸出的 Docling JSON。JSON 是文件引擎解析出來的結構，"
+            "Markdown 與純文字檔是直接讀取的，沒有經過引擎解析。請改用 Markdown、HTML 或純文字。"
+        )
+    return f"這個檔案無法輸出 {target} 格式（引擎：{result.engine}）。"
 
 
 def _reject_empty_pdf(result: ConversionResult):
@@ -232,6 +284,7 @@ def pdf_release_page():
         "PDF 會抽取檔案內既有的文字，不重建標題階層與表格；掃描檔沒有文字層，"
         "此版本不含 OCR，轉出來會是空的。此版本不提供 Office 與圖片格式。",
     )
+    page = page.replace(".json · 文件結構，需引擎解析", ".json · 文件結構，僅 PDF 可輸出")
     return page.replace(
         "引擎或模型的網路行為取決於其安裝與設定。",
         "此版本只使用不需模型的本機 PDF 讀取器，不下載任何模型。",
@@ -243,8 +296,11 @@ def text_release_page():
     page = PAGE.replace('accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm,.epub,.md,.markdown,.txt,.png,.jpg,.jpeg,.webp,.csv,.rtf,.odt,.ods,.odp"', 'accept=".md,.markdown,.txt"')
     page = page.replace("支援 PDF、Office、圖片、Markdown、文字與其他文件格式。", "支援 Markdown 與 UTF-8 文字。")
     page = page.replace("PDF、Word、PowerPoint、Excel、HTML、EPUB、Markdown、文字、圖片、CSV、RTF、OpenDocument。", "Markdown（.md、.markdown）、UTF-8 文字（.txt）。此版本不提供 PDF、Office、圖片或 OCR。")
+    page = page.replace(JSON_OPTION, "")
     return page.replace("引擎或模型的網路行為取決於其安裝與設定。", "此版本不包含文件引擎或模型，不需要下載模型。")
 
+
+JSON_OPTION = '<label class="format"><input type="radio" name="target" value="json"><span><span class="ext">Docling JSON</span><span class="desc">.json · 文件結構，需引擎解析</span></span></label>'
 
 PAGE = '''<!doctype html>
 <html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>文件轉換工作台</title>
@@ -254,12 +310,12 @@ PAGE = '''<!doctype html>
 <header class="topbar"><div class="brand"><span class="mark" aria-hidden="true">↗</span><span>文件轉換工作台</span></div><span class="badge">僅限本機使用</span></header>
 <main class="wrap"><section class="hero"><div class="eyebrow">PRIVATE DOCUMENT WORKSPACE</div><h1>讓文件轉換，<br>回到簡單。</h1><p>在這台電腦上將文件轉成 Markdown 或 HTML。選擇檔案、挑選格式，完成後立即下載。</p></section>
 <form id="form" class="workspace" enctype="multipart/form-data"><section class="section"><div class="head"><h2>選擇文件</h2><span class="hint">最多 5 個檔案 · 單檔 24 MiB · 請控制總量</span></div><div id="drop" class="drop"><div class="upload" aria-hidden="true">↑</div><strong>將文件拖放到這裡</strong><p>或從電腦中選取檔案</p><label class="choose" for="files">選擇檔案</label><input class="vh" id="files" type="file" multiple accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm,.epub,.md,.markdown,.txt,.png,.jpg,.jpeg,.webp,.csv,.rtf,.odt,.ods,.odp" aria-describedby="file-hint"><span id="file-hint" class="vh">支援 PDF、Office、圖片、Markdown、文字與其他文件格式。</span></div><ul id="list" class="files" aria-label="已選擇的文件"></ul></section>
-<section class="section"><div class="head"><h2>輸出格式</h2><span class="hint">選擇一種格式</span></div><div class="options"><label class="format"><input type="radio" name="target" value="md" checked><span><span class="ext">Markdown</span><span class="desc">.md · 適合筆記與知識庫</span></span></label><label class="format"><input type="radio" name="target" value="html"><span><span class="ext">HTML</span><span class="desc">.html · 可用瀏覽器直接開啟</span></span></label></div></section><div class="actions"><button id="submit" class="submit" type="submit">開始轉換 →</button><span class="privacy">文件由本機服務處理，轉換後會立即清除暫存檔。<br>引擎或模型的網路行為取決於其安裝與設定。</span></div><p id="status" class="status" role="status" aria-live="polite"></p></form>
+<section class="section"><div class="head"><h2>輸出格式</h2><span class="hint">選擇一種格式</span></div><div class="options"><label class="format"><input type="radio" name="target" value="md" checked><span><span class="ext">Markdown</span><span class="desc">.md · 適合筆記與知識庫</span></span></label><label class="format"><input type="radio" name="target" value="html"><span><span class="ext">HTML</span><span class="desc">.html · 可用瀏覽器直接開啟</span></span></label><label class="format"><input type="radio" name="target" value="txt"><span><span class="ext">純文字</span><span class="desc">.txt · 只有文字，不含格式</span></span></label><label class="format"><input type="radio" name="target" value="json"><span><span class="ext">Docling JSON</span><span class="desc">.json · 文件結構，需引擎解析</span></span></label></div></section><div class="actions"><button id="submit" class="submit" type="submit">開始轉換 →</button><span class="privacy">文件由本機服務處理，轉換後會立即清除暫存檔。<br>引擎或模型的網路行為取決於其安裝與設定。</span></div><p id="status" class="status" role="status" aria-live="polite"></p></form>
 <p class="footer"><strong>支援格式</strong>　PDF、Word、PowerPoint、Excel、HTML、EPUB、Markdown、文字、圖片、CSV、RTF、OpenDocument。</p></main>
 <script>
 const input=document.querySelector('#files'),list=document.querySelector('#list'),drop=document.querySelector('#drop'),form=document.querySelector('#form'),status=document.querySelector('#status'),button=document.querySelector('#submit');let selected=[];
 function size(n){return n<1048576?(n/1024).toFixed(0)+' KB':(n/1048576).toFixed(1)+' MB'}
 function draw(){list.replaceChildren();selected.forEach((file,i)=>{const li=document.createElement('li');li.className='row';const icon=document.createElement('span');icon.className='file-icon';icon.textContent=(file.name.split('.').pop()||'FILE').slice(0,4).toUpperCase();icon.setAttribute('aria-hidden','true');const info=document.createElement('span');info.style.minWidth='0';const name=document.createElement('span');name.className='file-name';name.textContent=file.name;const meta=document.createElement('span');meta.className='file-size';meta.textContent=size(file.size);info.append(name,meta);const remove=document.createElement('button');remove.type='button';remove.className='remove';remove.textContent='移除';remove.setAttribute('aria-label','移除 '+file.name);remove.onclick=()=>{selected.splice(i,1);draw()};li.append(icon,info,remove);list.append(li)})}
 function add(files){selected=selected.concat(Array.from(files)).slice(0,5);draw()}input.addEventListener('change',e=>{add(e.target.files);input.value=''});['dragenter','dragover'].forEach(name=>drop.addEventListener(name,e=>{e.preventDefault();drop.classList.add('drag')}));['dragleave','drop'].forEach(name=>drop.addEventListener(name,e=>{e.preventDefault();drop.classList.remove('drag')}));drop.addEventListener('drop',e=>add(e.dataTransfer.files));
-form.addEventListener('submit',async e=>{e.preventDefault();status.className='status';if(!selected.length){status.textContent='請先選擇至少一個文件。';status.classList.add('show','error');return}if(selected.some(f=>f.size>24*1048576)){status.textContent='單一檔案超過 24 MiB，請移除或縮小檔案。';status.classList.add('show','error');return}if(selected.reduce((n,f)=>n+f.size,0)>24*1048576){status.textContent='檔案總量超過 24 MiB，請減少檔案或分批轉換。';status.classList.add('show','error');return}button.disabled=true;button.textContent='正在本機轉換…';status.textContent='文件正在這台電腦上處理。';status.classList.add('show');try{const data=new FormData();selected.forEach(file=>data.append('files',file));data.append('target',form.querySelector('[name=target]:checked').value);const response=await fetch('/convert',{method:'POST',body:data});if(!response.ok){let detail='轉換失敗。請確認文件格式及本機引擎。';try{detail=(await response.json()).detail||detail}catch{}throw new Error(detail)}const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;const disposition=response.headers.get('content-disposition')||'';const match=disposition.match(/filename="([^"]+)"/);a.download=match?match[1]:'converted-document';a.click();URL.revokeObjectURL(url);status.textContent='轉換完成，下載已開始。';status.classList.add('show')}catch(error){status.textContent=error.message;status.classList.add('show','error')}finally{button.disabled=false;button.textContent='開始轉換 →'}});
+form.addEventListener('submit',async e=>{e.preventDefault();status.className='status';if(!selected.length){status.textContent='請先選擇至少一個文件。';status.classList.add('show','error');return}if(selected.some(f=>f.size>24*1048576)){status.textContent='單一檔案超過 24 MiB，請移除或縮小檔案。';status.classList.add('show','error');return}if(selected.reduce((n,f)=>n+f.size,0)>24*1048576){status.textContent='檔案總量超過 24 MiB，請減少檔案或分批轉換。';status.classList.add('show','error');return}button.disabled=true;button.textContent='正在本機轉換…';status.textContent='文件正在這台電腦上處理。';status.classList.add('show');try{const data=new FormData();selected.forEach(file=>data.append('files',file));data.append('target',form.querySelector('[name=target]:checked').value);const response=await fetch('/convert',{method:'POST',body:data});if(!response.ok){let detail='轉換失敗。請確認文件格式及本機引擎。';try{detail=(await response.json()).detail||detail}catch{}throw new Error(detail)}const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;const disposition=response.headers.get('content-disposition')||'';const encoded=disposition.match(/UTF-8''([^;]+)/i);const plain=disposition.match(/filename="([^"]+)"/);a.download=encoded?decodeURIComponent(encoded[1]):(plain?plain[1]:'converted-document');a.click();URL.revokeObjectURL(url);status.textContent='轉換完成，下載已開始。';status.classList.add('show')}catch(error){status.textContent=error.message;status.classList.add('show','error')}finally{button.disabled=false;button.textContent='開始轉換 →'}});
 </script></body></html>'''

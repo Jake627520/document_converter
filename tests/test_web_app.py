@@ -1,9 +1,13 @@
 """OpenSpec CHG-005: local web workbench behavior and security boundaries."""
+import io
+import json
+import zipfile
 from pathlib import Path
 from unittest import TestCase, mock
 import unittest
 import tempfile
 
+from document_converter.models import ConversionResult
 from pdf_samples import write_scanned_pdf, write_text_pdf
 
 try:
@@ -58,8 +62,9 @@ class WebAppTests(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_rejects_invalid_target(self):
+        # JSON became a real output; a format nothing produces is still refused.
         response = self.client.post(
-            "/convert", data={"target": "json"},
+            "/convert", data={"target": "docx"},
             files={"files": ("notes.md", b"hello", "text/markdown")},
         )
         self.assertEqual(response.status_code, 400)
@@ -80,8 +85,14 @@ class WebAppTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content, b"# Hello")
-        self.assertEqual(response.headers["content-disposition"], 'attachment; filename="converted-document.md"')
-        self.assertNotIn("private", response.headers["content-disposition"])
+        # The download is named after the upload, which is why only its last
+        # segment is used and the suffix dropped: the traversal is gone, and so
+        # is any chance of ending the quoted header value.
+        disposition = response.headers["content-disposition"]
+        self.assertEqual(disposition, "attachment; filename=\"private name.md\"; filename*=UTF-8''private%20name.md")
+        for dangerous in ("..", "/", "\\", "\r", "\n"):
+            self.assertNotIn(dangerous, disposition)
+        # The file on disk is still a generated name, never the uploaded one.
         self.assertNotIn("private", seen["name"])
         self.assertTrue(seen["exists_during_conversion"])
         self.assertFalse(seen["path"].exists())
@@ -182,3 +193,124 @@ class ReleaseProfileTests(TestCase):
         self.assertEqual(response.status_code, 422)
         self.assertIn("沒有文字層", response.json()["detail"])
         self.assertIn("OCR", response.json()["detail"])
+
+
+@unittest.skipIf(TestClient is None, "install the optional web extra to run web tests")
+class DownloadNamingTests(TestCase):
+    """A converted file keeps the name of the document it came from.
+
+    The uploaded name is still never trusted as a path - the file on disk keeps
+    a generated name - but discarding it entirely left a batch of spec sheets as
+    document-1.md to document-5.md, with no way to tell which was which.
+    Hostile name shapes are covered in tests/test_web_security.py, since a
+    multipart encoder will not carry a quote or a newline in a filename.
+    """
+
+    def setUp(self):
+        self.client = TestClient(web_app.app, headers={"host": "127.0.0.1"})
+
+    def convert(self, uploads):
+        files = [("files", (name, body, "text/markdown")) for name, body in uploads]
+        with mock.patch.object(web_app, "convert_one") as convert:
+            convert.side_effect = lambda path, engine, mode: ConversionResult(
+                source=Path(path), engine="mock", markdown="# Hello"
+            )
+            return self.client.post("/convert", data={"target": "md"}, files=files)
+
+    def test_single_download_is_named_after_the_document(self):
+        response = self.convert([("車燈規格表_v3.md", b"# Hello")])
+        self.assertEqual(response.status_code, 200)
+        disposition = response.headers["content-disposition"]
+        self.assertIn("filename*=UTF-8''%E8%BB%8A%E7%87%88%E8%A6%8F%E6%A0%BC%E8%A1%A8_v3.md", disposition)
+        # A client that reads only `filename` gets the fallback rather than the
+        # fragment that dropping the Chinese characters would leave.
+        self.assertIn('filename="converted-document.md"', disposition)
+
+    def test_ascii_name_is_carried_in_both_forms(self):
+        disposition = self.convert([("resume-1.md", b"# Hello")]).headers["content-disposition"]
+        self.assertEqual(disposition, "attachment; filename=\"resume-1.md\"; filename*=UTF-8''resume-1.md")
+
+    def test_archive_entries_keep_their_names_and_do_not_collide(self):
+        response = self.convert([
+            ("headlamp.md", b"# A"),
+            ("headlamp.md", b"# B"),
+            ("面板備忘.md", b"# C"),
+        ])
+        self.assertEqual(response.status_code, 200)
+        with zipfile.ZipFile(io.BytesIO(response.content)) as bundle:
+            self.assertEqual(bundle.namelist(), ["headlamp.md", "headlamp-2.md", "面板備忘.md"])
+        self.assertIn('filename="converted-documents.zip"', response.headers["content-disposition"])
+
+    def test_a_name_that_is_only_a_suffix_still_gets_a_download_name(self):
+        response = self.convert([(".md", b"# Hello")])
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('filename="document.md"', response.headers["content-disposition"])
+
+
+
+@unittest.skipIf(TestClient is None, "install the optional web extra to run web tests")
+class OutputFormatTests(TestCase):
+    """The page offers every output a release can actually produce, and no other.
+
+    The README listed Markdown, HTML, Docling JSON and plain text, while the page
+    offered only the first two.
+    """
+
+    def tearDown(self):
+        web_app._RELEASE_PROFILE = None
+
+    @staticmethod
+    def offered(page):
+        return [value for value in ("md", "html", "txt", "json") if f'value="{value}"' in page]
+
+    def client(self, configure=None):
+        web_app._RELEASE_PROFILE = None
+        if configure:
+            configure()
+        return TestClient(web_app.app, headers={"host": "127.0.0.1"})
+
+    def test_each_release_offers_what_it_can_produce(self):
+        self.assertEqual(self.offered(self.client().get("/").text), ["md", "html", "txt", "json"])
+        pdf_page = self.client(web_app.configure_pdf_release).get("/").text
+        self.assertEqual(self.offered(pdf_page), ["md", "html", "txt", "json"])
+        self.assertIn("僅 PDF 可輸出", pdf_page)
+        # The text release runs no engine, so it has no Docling JSON to give.
+        self.assertEqual(self.offered(self.client(web_app.configure_text_release).get("/").text), ["md", "html", "txt"])
+
+    def test_text_release_refuses_a_json_request_outright(self):
+        client = self.client(web_app.configure_text_release)
+        response = client.post("/convert", data={"target": "json"}, files={"files": ("a.md", b"# A", "text/markdown")})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("不提供這種輸出格式", response.json()["detail"])
+
+    def test_plain_text_is_served_as_text_and_keeps_a_text_file_intact(self):
+        client = self.client(web_app.configure_text_release)
+        body = "#1 priority\n- 5 units\n".encode()
+        response = client.post("/convert", data={"target": "txt"}, files={"files": ("notes.txt", body, "text/plain")})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["content-type"], "text/plain; charset=utf-8")
+        self.assertEqual(response.content, body)
+
+    def test_markdown_becomes_plain_text(self):
+        client = self.client(web_app.configure_text_release)
+        response = client.post("/convert", data={"target": "txt"}, files={"files": ("a.md", b"## Spec\n\n- 84\n", "text/markdown")})
+        self.assertEqual(response.content.decode(), "Spec\n\n84\n")
+
+    def test_json_for_a_file_no_engine_parsed_says_why(self):
+        client = self.client(web_app.configure_pdf_release)
+        response = client.post("/convert", data={"target": "json"}, files={"files": ("a.md", b"# A", "text/markdown")})
+        self.assertEqual(response.status_code, 422)
+        detail = response.json()["detail"]
+        self.assertIn("Docling JSON", detail)
+        self.assertIn("沒有經過引擎解析", detail)
+
+    def test_json_for_a_pdf_is_the_docling_document(self):
+        client = self.client(web_app.configure_pdf_release)
+        with tempfile.TemporaryDirectory() as temp:
+            sample = write_text_pdf(Path(temp) / "spec.pdf", "Headlamp module 84 lumens & bright")
+            response = client.post("/convert", data={"target": "json"}, files={"files": ("spec.pdf", sample.read_bytes(), "application/pdf")})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["content-type"], "application/json; charset=utf-8")
+        document = json.loads(response.content)
+        self.assertEqual(document["schema_name"], "DoclingDocument")
+        self.assertIn("84 lumens & bright", response.content.decode())

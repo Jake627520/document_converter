@@ -84,9 +84,11 @@ PyInstaller 官方說明允許在符合依賴授權的前提下使用例外條�
 
 ### 一般使用者：啟動本機候選包
 
-目前這台 Mac 的候選 ZIP 位於：
+候選 ZIP 位於建置它的那台 Mac 的專案資料夾內，以 `text` 版為例：
 
-`/Users/jakechiu/Documents/Projects/document_converter/build/private-release/candidate-3/Document-Converter-macos-arm64-local-candidate.zip`
+`build/private-release/candidate-text/Document-Converter-macos-arm64-local-candidate.zip`
+
+`pdf` 版則是 `build/private-release/candidate-pdf/Document-Converter-macos-arm64-pdf-local-candidate.zip`。
 
 此 ZIP 是本機建置產物，不在 GitHub 原始碼倉庫內。於 Finder 雙擊 ZIP
 解壓縮，再雙擊解壓資料夾中的 **Document Converter.app**。App 啟動後會選用
@@ -116,5 +118,10 @@ build/private-release/venv/bin/python -I -m unittest discover -s tests -p test_r
 ```
 
 HTTP smoke 使用新的 loopback port，驗證首頁、Markdown round trip、HTML、UTF-8 TXT、PDF 拒絕、非法 UTF-8 與 Host／Origin 安全邊界。`--diagnostics` 報告 frozen 狀態與 import paths，拒絕已載入的 forbidden engines。正常開啟 `.app` 會選可用 loopback port 並開啟預設瀏覽器。關閉頁面不會停止背景程式；在「活動監視器」退出 Document Converter，或從 CLI 啟動時按 Ctrl-C。測試使用 `--no-browser`；Finder 雙擊與 GUI 啟動仍未驗證。
+
+乾淨機器的安裝驗收不需要第二台 Mac：`docs-release/macos-vm-verification.md` 是用免費的 macOS 虛擬機
+（Apple 授權允許同一台 Apple Silicon Mac 同時執行 2 台）走完「同事收到 App」全程的 SOP，
+含刻意貼上隔離標籤以觸發 Gatekeeper、以及在沒有 Python 的客體系統確認 `.app` 自我完整。
+它驗收「漏帶東西」與 Gatekeeper 流程，不驗收不同晶片世代與不同 macOS 大版本的差異。
 
 候選包固定標記 `distribution_ready: false`，沒有 Developer ID 簽章或 notarization。此流程不 commit、push、發布、修改 GitHub visibility，也不代表第三方或產品的完整法律核准。正式交付仍需確認自有權利／接受者、native inventory、獨立驗收、簽章／notarization 與目標電腦的實際安裝。不得以關閉 Gatekeeper 取代安裝驗收。

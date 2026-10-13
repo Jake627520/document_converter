@@ -14,6 +14,25 @@ The writer MUST emit requested available formats as UTF-8 files and report when 
 - **WHEN** HTML output is requested and an engine supplies Markdown but no HTML
 - **THEN** the built-in renderer writes a complete HTML5 document with embedded styles and no external resources
 
+#### Scenario: Plain text is absent but Markdown exists
+- **WHEN** plain text output is requested and an engine supplies Markdown but no plain text, as a release that reads a text file directly does
+- **THEN** the writer renders the plain text from the Markdown instead of reporting it unavailable
+
+### Requirement: Write plain text that reads as plain text
+Plain text output MUST carry the document's text without Markdown syntax and without HTML entities, and MUST leave a document that already is plain text as it is.
+
+#### Scenario: Markdown becomes plain text
+- **WHEN** plain text is produced from a Markdown document
+- **THEN** heading marks, list bullets and code fences are removed and the text itself is kept
+
+#### Scenario: A text file is already plain text
+- **WHEN** plain text is produced from a `.txt` input
+- **THEN** its content is returned unchanged, so a genuine line such as `#1 priority` or `- 5 units` is not damaged
+
+#### Scenario: The engine's Markdown serializer escapes HTML
+- **WHEN** an engine's Markdown export carries HTML entities for characters the document holds literally, as Docling's does for `&`, `<` and `>`
+- **THEN** the Markdown and plain text outputs carry the literal characters, exactly one level of escaping is undone, and the engine's own HTML output keeps its entities
+
 ### Requirement: Clean Markdown without discarding content
 Cleaning MUST remove labelled page markers and MUST preserve a line that holds only
 digits, because engines emit table cells and other document values on their own

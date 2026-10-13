@@ -122,6 +122,41 @@ class DoclingAdapterTests(unittest.TestCase):
         self.assertEqual(result.assets, {"assets/md.png": b"markdown image", "assets/html.png": b"html image"})
         self.assertEqual(result.html, '<img src="assets/html.png">')
 
+    def test_html_entities_from_the_markdown_serializer_are_undone(self):
+        """Docling escapes the document's own text when it serializes Markdown.
+
+        The document model holds that text unescaped, so the entities belong to
+        the serializer, not to the document, and neither Markdown nor plain text
+        may carry them: a spec sheet reading "Inbound & Outbound" must not be
+        written out as "Inbound &amp; Outbound".
+        """
+        document = SimpleNamespace(
+            export_to_markdown=lambda: '## A &amp; B\n\n5 &lt; 6 &gt; 4, said &quot;hi&quot;\n',
+            export_to_dict=lambda: {"text": 'A & B, 5 < 6, said "hi"'},
+        )
+        result = self.convert_with_document(document)
+        self.assertEqual(result.markdown, '## A & B\n\n5 < 6 > 4, said "hi"\n')
+        self.assertEqual(result.text, 'A & B\n\n5 < 6 > 4, said "hi"\n')
+
+    def test_exactly_one_level_is_undone_so_a_written_out_entity_survives(self):
+        """A document whose own text reads "&amp;" is exported doubly escaped."""
+        document = SimpleNamespace(
+            export_to_markdown=lambda: "write &amp;amp; for an ampersand\n",
+            export_to_dict=lambda: {},
+        )
+        result = self.convert_with_document(document)
+        self.assertEqual(result.markdown, "write &amp; for an ampersand\n")
+
+    def test_engine_html_keeps_the_entities_that_belong_there(self):
+        document = SimpleNamespace(
+            export_to_markdown=lambda: "A &amp; B\n",
+            export_to_html=lambda: "<p>A &amp; B</p>",
+            export_to_dict=lambda: {},
+        )
+        result = self.convert_with_document(document)
+        self.assertEqual(result.markdown, "A & B\n")
+        self.assertEqual(result.html, "<p>A &amp; B</p>")
+
     def test_serialization_failure_retains_cause_and_source_in_engine_error(self):
         failure = ValueError("invalid document representation")
         document = SimpleNamespace(export_to_markdown=Mock(side_effect=failure))

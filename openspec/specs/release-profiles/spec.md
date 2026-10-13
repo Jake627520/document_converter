@@ -21,6 +21,10 @@ The `text-only` profile MUST accept Markdown and UTF-8 text only, MUST reject ev
 - **WHEN** a PDF is uploaded to the text release
 - **THEN** the request is rejected as an unsupported input type
 
+#### Scenario: Docling JSON is requested from the text release
+- **WHEN** the text release is asked for Docling JSON
+- **THEN** the page does not offer it and the request is refused, because the release runs no engine that could produce one
+
 #### Scenario: Forbidden module is frozen
 - **WHEN** the build would freeze an engine, pipeline, detector, CLI or document-engine module
 - **THEN** the build fails before producing a candidate
@@ -44,8 +48,15 @@ The `pdf-text` profile MUST accept text-layer PDFs in addition to Markdown and U
 - **WHEN** the profile's requirement files or frozen inventory would include a deep-learning runtime or an optional engine
 - **THEN** the build fails before producing a candidate
 
+### Requirement: Offer only the outputs a release can produce
+Every release MUST offer Markdown, HTML and plain text. A release MUST offer Docling JSON only when it runs an engine that produces one, and MUST explain, rather than fail without reason, when a given input yields none.
+
+#### Scenario: Docling JSON from the pdf release
+- **WHEN** the pdf release is asked for Docling JSON
+- **THEN** a PDF yields the Docling document, and a Markdown or text input is refused with the reason that no engine parsed it
+
 ### Requirement: A frozen candidate reports its own profile
-A frozen application MUST select its reviewed profile without a command-line argument, and MUST be able to report the profile and its accepted inputs for validation.
+A frozen application MUST select its reviewed profile without a command-line argument, and MUST be able to report the profile and its accepted inputs and outputs for validation.
 
 #### Scenario: Frozen application starts
 - **WHEN** a frozen candidate is launched with no arguments
@@ -53,7 +64,7 @@ A frozen application MUST select its reviewed profile without a command-line arg
 
 #### Scenario: Diagnostics are requested
 - **WHEN** the candidate is run with the diagnostics flag
-- **THEN** it reports the active profile, the accepted input suffixes and that no forbidden module is loaded
+- **THEN** it reports the active profile, the accepted input suffixes, the output formats it can produce and that no forbidden module is loaded
 
 ### Requirement: Collect every notice a pinned wheel ships
 A candidate build MUST copy each pinned distribution's own license material out of the installed wheel, recognising it both by file name and by the standardised `<dist-info>/licenses/` location, whose file names follow the upstream project rather than any convention. A build MUST fail rather than produce a candidate for a distribution that ships no license material at all.

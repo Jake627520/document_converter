@@ -98,6 +98,12 @@ class ReleaseRuntimeMixin:
         self.assertEqual(status, 200)
         self.assertIn("<p>本機 UTF-8 文字</p>".encode(), html)
         self.assertEqual(self.request_conversion("plain.txt", b"\xff")[0], 422)
+        # Plain text from every release: a text file comes back untouched, since
+        # stripping its "#" or "- " would damage real content, and Markdown is
+        # rendered.
+        plain = "#1 優先\n- 5 件\n".encode()
+        self.assertEqual(self.request_conversion("plain.txt", plain, "txt"), (200, plain))
+        self.assertEqual(self.request_conversion("spec.md", "## 規格\n\n- 84 流明\n".encode(), "txt"), (200, "規格\n\n84 流明\n".encode()))
         self.assertEqual(self.request_conversion("report.docx", b"stub")[0], 400)
         self.assertEqual(self.request_conversion("notes.md", b"hello", headers={"Origin": "https://attacker.example"})[0], 403)
         try:
@@ -128,10 +134,18 @@ class TextReleaseRuntimeTests(ReleaseRuntimeMixin, unittest.TestCase):
     def test_pdf_is_rejected(self):
         self.assertEqual(self.request_conversion("sample.pdf", b"%PDF-1.7")[0], 400)
 
+    def test_page_offers_no_docling_json(self):
+        with urlopen(self.base) as response:
+            page = response.read().decode()
+        self.assertIn('value="txt"', page)
+        self.assertNotIn('value="json"', page)
+        self.assertEqual(self.request_conversion("notes.md", b"# A", "json")[0], 400)
+
     def test_shared_conversion_and_security_behavior(self):
         diagnostic = self.assert_shared_behavior()
         self.assertEqual(diagnostic["profile"], "text-only")
         self.assertEqual(diagnostic["inputs"], [".markdown", ".md", ".txt"])
+        self.assertEqual(diagnostic["outputs"], ["html", "md", "txt"])
 
 
 @unittest.skipUnless(PDF_BUILD_PYTHON.is_file(), "prepare the isolated pdf release environment first")
@@ -163,10 +177,21 @@ class PdfReleaseRuntimeTests(ReleaseRuntimeMixin, unittest.TestCase):
         self.assertEqual(status, 422)
         self.assertIn("沒有文字層", body.decode())
 
+    def test_docling_json_comes_from_a_pdf_only(self):
+        with tempfile.TemporaryDirectory() as temp:
+            sample = write_text_pdf(Path(temp) / "sample.pdf").read_bytes()
+        status, body = self.request_conversion("sample.pdf", sample, "json")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["schema_name"], "DoclingDocument")
+        status, body = self.request_conversion("notes.md", b"# A", "json")
+        self.assertEqual(status, 422)
+        self.assertIn("沒有經過引擎解析", body.decode())
+
     def test_shared_conversion_and_security_behavior(self):
         diagnostic = self.assert_shared_behavior()
         self.assertEqual(diagnostic["profile"], "pdf-text")
         self.assertEqual(diagnostic["inputs"], [".markdown", ".md", ".pdf", ".txt"])
+        self.assertEqual(diagnostic["outputs"], ["html", "json", "md", "txt"])
 
 
 if __name__ == "__main__":
