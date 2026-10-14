@@ -5,7 +5,7 @@ Each layer answers a question the one before it cannot.
 | Layer | Answers | Where |
 | --- | --- | --- |
 | Regression tests | Does this exact defect stay fixed? | `tests/`: 180 run in CI on Python 3.11 and 3.12 |
-| Release runtime tests | Does the *packaged* launcher behave, with only the pinned packages present? | `tests/test_release_packaging.py`: 9 more, run by hand |
+| Release runtime tests | Does the *packaged* launcher behave, with only the pinned packages present? | `tests/test_release_packaging.py`: 9 more, run in CI on Linux and by hand on the Mac |
 | Real hardware | Does it build, sign and run on the platform it ships for? | The owner's Apple Silicon Mac |
 | Clean machine | Does it carry everything it needs? | A macOS virtual machine, [SOP](../../docs-release/macos-vm-verification.md) |
 | UAT | What does a user actually see, in every case? | [`verification/2026-10-13-uat/`](../../verification/2026-10-13-uat/REPORT.md) |
@@ -19,25 +19,28 @@ way: **put the defect back, and confirm the test fails.** The notice collector,
 the entity fix, download naming, the empty-result guard and the rejection
 messages were all checked like this before being merged.
 
-## The packaged app's tests do not run in CI
+## The packaged app's tests run in CI, against pinned versions
 
 The release runtime tests start the real launcher in an isolated Python
 environment holding only the pinned packages, then talk to it over HTTP. Each
-one skips itself when that environment is absent — and CI does not build it. On
-`main`, CI reports **180 passed, 9 skipped**.
+one skips itself when that environment is absent. For a while CI did not build
+it, so on `main` CI reported **180 passed, 9 skipped**.
 
-They have been run outside the owner's Mac once: on Linux, in environments built
-from the same pinned requirement sets (the same versions, as Linux builds, since
-the lock file's hashes name the macOS artifacts). All nine passed, including the
-two added for `.txt` and Docling JSON output. Otherwise they run when someone
-prepares the environments and runs them.
+A separate CI job now builds both environments — `text` and `pdf` — and runs the
+nine tests from them, with no test dependency installed. The job fails if any
+test skips, so a missing environment turns red instead of quietly passing.
+
+It checks the pinned *versions*, not the exact artifacts that ship. The lock
+files' hashes name macOS arm64 wheels, so on the Linux runner the environments
+come from the unhashed requirement files: the same versions, as Linux builds.
+Whether those exact macOS wheels behave is still answered on the owner's Mac,
+where the tests run against environments built from the hashed locks.
 
 This case study first said the suite ran with "0 skipped". That was true on the
 machine where the environments existed, and not in CI — the same mistake as
 [Chapter 3, item 3](03-silent-failures.md#3-sixteen-tests-skipped-counted-as-passing),
 made again while writing it up. It was caught by reading the CI log rather than
-remembering the local run. A CI job that builds the two environments would close
-the gap; it has not been added.
+remembering the local run, and closed by the CI job above.
 
 ## A verification gap that let a defect through
 

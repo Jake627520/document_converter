@@ -69,7 +69,7 @@ agent, more by the owner, all by checking against something real.
 | Found the FreeType acknowledgement and missed the IJG one | Reading every shipped license file in full |
 | Said a download-naming behaviour was not deliberate; a test's name showed it was a safety choice | Reading the test before changing it |
 | Staged an unrelated change into a commit whose message did not describe it | Reviewing the commit; it was split in two |
-| Wrote in this case study that the suite ran with "0 skipped" | Reading the CI log ([Chapter 4](04-verification-strategy.md#the-packaged-apps-tests-do-not-run-in-ci)) |
+| Wrote in this case study that the suite ran with "0 skipped" | Reading the CI log ([Chapter 4](04-verification-strategy.md#the-packaged-apps-tests-run-in-ci-against-pinned-versions)) |
 
 The pattern is the same one as Chapter 3: a claim made from memory, or from one
 environment, instead of from the thing itself.
