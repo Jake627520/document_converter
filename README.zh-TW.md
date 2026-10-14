@@ -6,6 +6,9 @@
 打包好的 macOS App，以及給 Codex 與 Claude 使用的 agent 技能（[`SKILL.md`](SKILL.md)）。
 文件都在你的電腦上轉換，不會上傳到任何遠端服務。
 
+這個專案怎麼做出來的，以及十個「看起來沒問題、查了才知道有問題」的缺陷：
+見[案例研究](docs/case-study/README.md)（英文）。
+
 ---
 
 ## 1. 可以轉換什麼
