@@ -26,7 +26,7 @@ check that had passed: **how much did it actually look at?** —
 | --- | --- |
 | Pull requests merged | 6 (one more closed as superseded) |
 | Defects found and fixed | 10 that looked fine, plus the ones that looked broken |
-| Tests | 189 (180 run in CI; 9 need the packaged app's environments) — 2,637 lines of tests against 2,197 lines of product code |
+| Tests | 189, all run in CI (the 9 release runtime tests in their own job, against the pinned versions as Linux builds) — 2,637 lines of tests against 2,197 lines of product code |
 | Coverage | 91% |
 | Third-party notices shipped in the macOS app | 124, across 60 packages |
 | GPL or AGPL code in the shipped app | none |
