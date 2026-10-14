@@ -65,10 +65,11 @@ whole web interface was measured at 0% coverage in CI.
 **Found by:** the coverage gate, once new code tipped the total to 76%, under
 its 80% threshold.
 
-**Fix:** CI installs `.[dev,web]`, and the 16 web tests run on every push. Nine
-tests are still skipped in CI, on purpose and by name: the release runtime tests,
-which need the packaged app's own environments
-([Chapter 4](04-verification-strategy.md#the-packaged-apps-tests-do-not-run-in-ci)).
+**Fix:** CI installs `.[dev,web]`, and the 16 web tests run on every push. The
+nine release runtime tests, which need the packaged app's own environments, were
+still skipped in CI for a while; a separate job now builds those environments,
+runs them, and fails if any skips
+([Chapter 4](04-verification-strategy.md#the-packaged-apps-tests-run-in-ci-against-pinned-versions)).
 
 ## 4. Tests that only passed on one machine
 
