@@ -7,6 +7,9 @@ runs on your own computer, a packaged macOS app, and an agent skill
 ([`SKILL.md`](SKILL.md)) for Codex and Claude. Documents are converted on your
 machine; nothing is uploaded to a remote service.
 
+How it was built, and the ten defects that looked fine until they were checked:
+the [case study](docs/case-study/README.md) (English).
+
 ---
 
 ## 1. What it converts
