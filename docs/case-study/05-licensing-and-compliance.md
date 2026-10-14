@@ -1,5 +1,7 @@
 # 5. Licensing and compliance
 
+**English** | [繁體中文](05-licensing-and-compliance.zh-TW.md) | [简体中文](05-licensing-and-compliance.zh-CN.md)
+
 The project's own code is under a custom license; it ships about sixty other
 people's packages inside its app. Both facts have to hold at once. The evidence
 is in [`docs/LICENSE_AUDIT.md`](../LICENSE_AUDIT.md) and

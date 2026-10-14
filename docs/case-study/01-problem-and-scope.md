@@ -1,5 +1,7 @@
 # 1. Problem and scope
 
+**English** | [繁體中文](01-problem-and-scope.zh-TW.md) | [简体中文](01-problem-and-scope.zh-CN.md)
+
 ## The problem
 
 People who work with specifications, internal memos and review documents want

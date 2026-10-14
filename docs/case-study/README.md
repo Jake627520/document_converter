@@ -1,5 +1,7 @@
 # Case study: taking an open-source engine to a product you can hand over
 
+**English** | [繁體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md)
+
 This repository converts documents to Markdown, HTML, plain text and Docling JSON
 on the user's own computer. The conversion engine is not the interesting part —
 it is [Docling](https://github.com/docling-project/docling), MIT-licensed and free
@@ -24,7 +26,7 @@ check that had passed: **how much did it actually look at?** —
 
 | | |
 | --- | --- |
-| Pull requests merged | 6 (one more closed as superseded) |
+| Pull requests merged | 8 (one more closed as superseded) |
 | Defects found and fixed | 10 that looked fine, plus the ones that looked broken |
 | Tests | 189, all run in CI (the 9 release runtime tests in their own job, against the pinned versions as Linux builds) — 2,637 lines of tests against 2,197 lines of product code |
 | Coverage | 91% |

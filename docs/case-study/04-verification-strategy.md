@@ -1,5 +1,7 @@
 # 4. Verification strategy
 
+**English** | [繁體中文](04-verification-strategy.zh-TW.md) | [简体中文](04-verification-strategy.zh-CN.md)
+
 Each layer answers a question the one before it cannot.
 
 | Layer | Answers | Where |
@@ -90,5 +92,5 @@ history** were checked: no document has ever been committed.
 | OCR | Not shipped, so not claimed |
 | Windows | No installer, no testing |
 
-This table appears in the README too. A claim of "verified" that turns out to
+The README's status table says the same for the app. A claim of "verified" that turns out to
 mean "verified on the one path I tried" is how items 3 and 4 in Chapter 3 happened.
