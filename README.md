@@ -8,7 +8,7 @@ runs on your own computer, a packaged macOS app, and an agent skill
 machine; nothing is uploaded to a remote service.
 
 How it was built, and the ten defects that looked fine until they were checked:
-the [case study](docs/case-study/README.md) (English).
+the [case study](docs/case-study/README.md), also in [繁體中文](docs/case-study/README.zh-TW.md) and [简体中文](docs/case-study/README.zh-CN.md).
 
 ---
 

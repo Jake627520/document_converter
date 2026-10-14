@@ -1,5 +1,7 @@
 # 2. Architecture
 
+**English** | [繁體中文](02-architecture.zh-TW.md) | [简体中文](02-architecture.zh-CN.md)
+
 ## One result shape, many front ends
 
 ```mermaid

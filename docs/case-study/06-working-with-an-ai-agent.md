@@ -1,5 +1,7 @@
 # 6. Working with an AI agent
 
+**English** | [繁體中文](06-working-with-an-ai-agent.zh-TW.md) | [简体中文](06-working-with-an-ai-agent.zh-CN.md)
+
 The code, tests and documents in this repository were written by an AI coding
 agent (Claude Code). The owner did not write code. This chapter is about how
 that division worked, where it failed, and what kept the failures from shipping.

@@ -1,5 +1,7 @@
 # Case study: taking an open-source engine to a product you can hand over
 
+**English** | [繁體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md)
+
 This repository converts documents to Markdown, HTML, plain text and Docling JSON
 on the user's own computer. The conversion engine is not the interesting part —
 it is [Docling](https://github.com/docling-project/docling), MIT-licensed and free

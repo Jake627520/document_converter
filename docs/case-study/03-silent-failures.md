@@ -1,5 +1,7 @@
 # 3. Ten things that looked fine
 
+**English** | [繁體中文](03-silent-failures.zh-TW.md) | [简体中文](03-silent-failures.zh-CN.md)
+
 Each of these was a check, a guard or an output that **looked correct**. Most
 reported success. Two looked like a different, smaller problem. None looked like
 what it was.
