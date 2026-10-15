@@ -5,7 +5,7 @@ sys.path.insert(0, "/home/user/documnet_converter")
 from fastapi.testclient import TestClient
 from document_converter import web_app
 
-S = Path("samples")
+S = Path(__file__).parent / "samples"  # where make_samples.py writes them
 PDF = (S / "01-spec-table-zh.pdf").read_bytes()
 MD = "# 標題\n\n內容 84\n".encode()
 
