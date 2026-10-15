@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import re
 import tempfile
 import uuid
 import zipfile
@@ -234,9 +235,15 @@ async def convert_upload(target: str = Form(...), files: list[UploadFile] = File
                     "請先用文字編輯器另存為 UTF-8 再轉換。",
                 ) from exc
             except Exception as exc:
+                missing = _missing_component(exc)
+                if missing is not None:
+                    raise HTTPException(422, _missing_component_message(original_name, missing)) from exc
                 # The server is loopback-only and processes the operator's own
                 # files, so the reason is more useful to them than a bare failure.
-                reason = str(exc).replace(str(root), "").strip()
+                # The engines name the generated temporary file, which the user
+                # never saw; name their upload instead.
+                reason = str(exc).replace(str(safe_input), f"「{original_name}」")
+                reason = reason.replace(safe_input.name, f"「{original_name}」").replace(str(root), "").strip()
                 detail = "轉換失敗。請確認檔案內容與本機已安裝的引擎。"
                 raise HTTPException(422, f"{detail} ({reason[:300]})" if reason else detail) from exc
             finally:
@@ -309,6 +316,44 @@ def _no_text_recovered(result: ConversionResult) -> str:
         "這個檔案沒有抽出任何文字。可能是掃描或拍照的檔案（只有影像、沒有文字層）、"
         f"整頁都是圖片，或檔案本身是空的。{remedy}"
     )
+
+
+def _missing_component(error: BaseException) -> ImportError | None:
+    """The import failure behind ``error``, if a missing package is its only cause.
+
+    A failure from the engine chain carries each engine's exception in
+    ``failures``; it counts only when every engine failed that way, so a broken
+    file is never reported as a missing package. Only explicit causes
+    (``raise ... from``) are followed: an import tried and handled earlier is
+    not the reason for a later failure. Read by attribute so the text release,
+    which freezes no engine code, never imports it.
+    """
+    failures = getattr(error, "failures", ()) or (error,)
+    causes = []
+    for failure in failures:
+        while failure is not None and not isinstance(failure, ImportError):
+            failure = failure.__cause__
+        causes.append(failure)
+    return causes[0] if all(causes) else None
+
+
+_INSTALL_HINT = re.compile(r"pip install [^`\n]+")
+
+
+def _missing_component_message(original_name: str, error: ImportError) -> str:
+    """Say which component an install lacks, and how to add it when the engine says.
+
+    In practice this is a from-source install's message: each release refuses
+    a format it cannot convert before conversion starts.
+    """
+    module = error.name or getattr(error.__cause__, "name", None)
+    named = f"（Python 模組 {module}）" if module else ""
+    hint = _INSTALL_HINT.search(str(error))
+    how = (
+        f"安裝方式：{hint.group(0).strip()}" if hint
+        else "請依 README「從原始碼執行」一節安裝對應的引擎後再試。"
+    )
+    return f"這個安裝缺少轉換「{original_name}」所需的元件{named}，所以無法轉換。{how}"
 
 
 def _unavailable_target(target: str, result: ConversionResult) -> str:

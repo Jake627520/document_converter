@@ -1,6 +1,8 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
+from document_converter import pipeline
 from document_converter.pipeline import discover_inputs, choose_engine
 from document_converter.detector import PdfProfile
 from document_converter.engines.base import EngineError
@@ -56,6 +58,31 @@ class TestPipeline(unittest.TestCase):
         self.assertEqual(engine_names[0], "docling")
         self.assertIn("mineru", engine_names)
         self.assertIn("marker", engine_names)
+
+    def test_engine_chain_failure_keeps_each_engines_exception(self):
+        """A caller must be able to ask why each engine failed, not parse the text.
+
+        The web page tells a missing package apart from a broken file this way;
+        the aggregate used to carry only a joined message.
+        """
+        class Failing:
+            def __init__(self, name, error):
+                self.name, self.error = name, error
+
+            def convert(self, path, image_mode):
+                raise self.error
+
+        missing = ImportError("No module named 'docx'")
+        broken = ValueError("not a Word document")
+        engines = [Failing("docling", missing), Failing("marker", broken)]
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            source = Path(tmp_dir) / "spec.docx"
+            source.write_bytes(b"x")
+            with mock.patch.object(pipeline, "choose_engine", return_value=engines):
+                with self.assertRaises(EngineError) as caught:
+                    pipeline.convert_one(source, "auto", "none")
+        self.assertEqual(caught.exception.failures, (missing, broken))
+        self.assertIn("docling: No module named 'docx'", str(caught.exception))
 
 if __name__ == "__main__":
     unittest.main()

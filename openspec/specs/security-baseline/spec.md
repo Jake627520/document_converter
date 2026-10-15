@@ -32,6 +32,14 @@ A refused upload or request MUST be explained in the language of the interface t
 - **WHEN** a request reaches the converter with no file, or otherwise fails validation
 - **THEN** it is answered with a sentence the reader can act on, not with the framework's validation output
 
+#### Scenario: The install lacks a component the file needs
+- **WHEN** every engine fails because a package the file's format needs is not installed
+- **THEN** the message names the upload and the missing module, gives the install command where the engine states one, and does not name the server's temporary file
+
+#### Scenario: A conversion fails for another reason
+- **WHEN** a conversion fails and at least one engine failed for a reason other than a missing package
+- **THEN** the failure is not attributed to a missing package, and the reason given names the upload rather than the server's temporary file
+
 ### Requirement: Describe local processing and license status accurately
 Project documentation MUST distinguish the local-first design from unverified network behavior, and MUST identify version-specific package, transitive dependency, model, and deployment license review as pending until verified.
 

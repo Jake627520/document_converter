@@ -446,6 +446,110 @@ class EmptyResultTests(TestCase):
 
 
 
+@unittest.skipIf(TestClient is None, "install the optional web extra to run web tests")
+class EngineFailureMessageTests(TestCase):
+    """A failed conversion has to name what the user can act on.
+
+    A from-source install without Word support answered a .docx upload with
+    the engine chain's English text, naming the generated temporary file and
+    the internal word "All engines failed".
+    """
+
+    def setUp(self):
+        web_app._RELEASE_PROFILE = None
+        self.client = TestClient(web_app.app, headers={"host": "127.0.0.1"})
+
+    def post_failing(self, *failures):
+        """Upload a .docx while every engine fails as given; failures name the real temp path."""
+        from document_converter.engines.base import EngineError
+
+        def fail(path, engine_name, image_mode):
+            raised = []
+            for make in failures:
+                raised.append(make(path))
+            message = "All engines failed:\n" + "\n".join(f"docling: {error}" for error in raised)
+            raise EngineError(message, failures=raised)
+
+        with mock.patch.object(web_app, "convert_one", side_effect=fail):
+            return self.client.post(
+                "/convert", data={"target": "md"},
+                files={"files": ("規格書.docx", b"PK\x03\x04", "application/octet-stream")},
+            )
+
+    @staticmethod
+    def missing_package(path):
+        from document_converter.engines.base import EngineError
+        cause = ModuleNotFoundError("No module named 'docx'", name="docx")
+        try:
+            try:
+                raise cause
+            except ModuleNotFoundError as missing:
+                raise ImportError(
+                    "The 'python-docx' package is required to process Word files. "
+                    "Install it with `pip install 'docling-slim[format-docx]'`."
+                ) from missing
+        except ImportError as error:
+            wrapped = EngineError(f"Docling failed for {path}: {error}")
+            wrapped.__cause__ = error
+            return wrapped
+
+    @staticmethod
+    def broken_file(path):
+        from document_converter.engines.base import EngineError
+        return EngineError(f"Conversion failed for: {path.name} with status: failure")
+
+    def test_missing_package_is_named_with_how_to_install_it(self):
+        response = self.post_failing(self.missing_package)
+        self.assertEqual(response.status_code, 422)
+        detail = response.json()["detail"]
+        self.assertEqual(
+            detail,
+            "這個安裝缺少轉換「規格書.docx」所需的元件（Python 模組 docx），所以無法轉換。"
+            "安裝方式：pip install 'docling-slim[format-docx]'",
+        )
+
+    def test_missing_package_without_an_install_hint_points_to_the_readme(self):
+        from document_converter.engines.base import EngineError
+
+        def bare(path):
+            wrapped = EngineError(f"Docling is not installed for {path}")
+            wrapped.__cause__ = ImportError("No module named 'docling'", name="docling")
+            return wrapped
+
+        detail = self.post_failing(bare).json()["detail"]
+        self.assertIn("（Python 模組 docling）", detail)
+        self.assertIn("請依 README「從原始碼執行」一節安裝對應的引擎後再試。", detail)
+
+    def test_a_broken_file_is_not_blamed_on_a_missing_package(self):
+        detail = self.post_failing(self.missing_package, self.broken_file).json()["detail"]
+        self.assertTrue(detail.startswith("轉換失敗。請確認檔案內容與本機已安裝的引擎。"), detail)
+        self.assertNotIn("缺少", detail)
+
+    def test_an_import_handled_earlier_is_not_the_cause(self):
+        from document_converter.engines.base import EngineError
+
+        def handled_then_failed(path):
+            try:
+                raise ImportError("optional accelerator missing")
+            except ImportError:
+                # Raised while handling, without "from": __context__, not __cause__.
+                try:
+                    raise EngineError(f"Conversion failed for: {path.name}")
+                except EngineError as error:
+                    return error
+
+        detail = self.post_failing(handled_then_failed).json()["detail"]
+        self.assertTrue(detail.startswith("轉換失敗。"), detail)
+
+    def test_failure_names_the_upload_not_the_temporary_file(self):
+        for failure in (self.missing_package, self.broken_file):
+            with self.subTest(failure=failure.__name__):
+                detail = self.post_failing(failure).json()["detail"]
+                self.assertIn("「規格書.docx」", detail)
+                self.assertNotIn("input-", detail)
+                self.assertNotIn("/tmp", detail)
+
+
 class SizeLimitWordingTests(TestCase):
     """A limit is stated in both units, and the page agrees with the server.
 

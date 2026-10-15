@@ -1,8 +1,13 @@
+from collections.abc import Sequence
 from pathlib import Path
 from ..models import ConversionResult, ImageMode
 
 class EngineError(RuntimeError):
-    pass
+    def __init__(self, message: str = "", failures: Sequence[BaseException] = ()):
+        super().__init__(message)
+        # The exceptions behind an aggregate failure, kept as raised so a caller
+        # can ask why each engine failed instead of parsing the message.
+        self.failures = tuple(failures)
 
 class Engine:
     name = "base"
