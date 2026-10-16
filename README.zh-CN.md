@@ -182,8 +182,14 @@ pip install -e . --no-deps
 
 ```bash
 pip install ".[marker]"   # check the package and model license terms first
-# MinerU: install its CLI separately, after reading docs/LICENSE_AUDIT.md
+pip install ".[mineru]"   # MinerU 4.x; read docs/LICENSE_AUDIT.md first
 ```
+
+`mineru` 可选依赖会安装 MinerU 4.x，它会带入 PyTorch，并从 Hugging Face 或
+ModelScope 下载模型文件（`mineru-models-download`）。本项目只运行 `mineru-kit parse`，
+在你的电脑上转换，从不使用 MinerU 的远程服务选项。MinerU 的另一个命令 `mineru`
+会为 mineru.net 收集使用数据：首次运行时会询问，默认为“是”；
+运行 `mineru telemetry disable` 可以关闭。
 
 ## 4. 工作原理
 

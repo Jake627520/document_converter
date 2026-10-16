@@ -43,3 +43,11 @@ Marker and MinerU MUST remain outside the default dependency set and MUST be inv
 #### Scenario: Optional command is unavailable
 - **WHEN** an optional engine executable is not installed
 - **THEN** the adapter reports an unavailable-engine error and the pipeline may try another configured fallback
+
+#### Scenario: MinerU converts on this machine
+- **WHEN** the MinerU adapter converts an input
+- **THEN** it runs `mineru-kit parse` with no remote-service option, and never MinerU's `mineru` command, which has no `kit` subcommand and prepares usage telemetry for every subcommand
+
+#### Scenario: Only MinerU's `mineru` command is installed
+- **WHEN** `mineru` is on the path but `mineru-kit` is not
+- **THEN** MinerU is reported as unavailable, by the adapter and by `list-engines`, and no process is started

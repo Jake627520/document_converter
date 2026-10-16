@@ -36,24 +36,22 @@ class MinerUEngine(Engine):
         return path.suffix.lower() in {".pdf", ".png", ".jpg", ".jpeg", ".webp"}
 
     def convert(self, path: Path, image_mode: ImageMode) -> ConversionResult:
-        exe = shutil.which("mineru")
+        # MinerU 4.x parses a file with `mineru-kit parse`. Its other command,
+        # `mineru`, has no `kit` subcommand, and every `mineru` subcommand,
+        # its own `parse` included, first prepares MinerU's usage telemetry; so
+        # it is never called here. No --remote or --remote-url is passed, so
+        # the document is parsed on this machine, not by a parse service.
+        exe = shutil.which("mineru-kit")
         if not exe:
-            raise EngineError("MinerU CLI not found. Install local MinerU 4.x.")
+            raise EngineError("MinerU CLI not found. Install MinerU 4.x, which provides mineru-kit.")
         outdir = path.parent / ".document-converter-mineru"
         outdir.mkdir(exist_ok=True)
-        # MinerU 4.x supports: mineru-kit parse INPUT -o OUTPUT
         out_md = outdir / f"{path.stem}.md"
-        cmd = [exe, "kit", "parse", str(path), "-o", str(out_md), "--tier", "standard"]
+        cmd = [exe, "parse", str(path), "-o", str(out_md), "--tier", "standard"]
         try:
             subprocess.run(cmd, check=True, capture_output=True, text=True)
         except subprocess.CalledProcessError as e:
             raise EngineError(e.stderr or str(e)) from e
-        if not out_md.exists():
-            # Some releases expose mineru-kit as a separate executable.
-            kit = shutil.which("mineru-kit")
-            if kit:
-                subprocess.run([kit, "parse", str(path), "-o", str(out_md), "--tier", "standard"],
-                               check=True, capture_output=True, text=True)
         if not out_md.exists():
             raise EngineError("MinerU completed but Markdown output was not found.")
         md = out_md.read_text(encoding="utf-8")
