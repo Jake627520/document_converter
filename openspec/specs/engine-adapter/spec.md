@@ -14,6 +14,10 @@ Each engine adapter MUST expose capability detection and conversion through the 
 - **WHEN** an adapter does not support the input format
 - **THEN** it reports that it cannot handle the input without leaking engine-specific behavior into the CLI
 
+#### Scenario: Every engine fails
+- **WHEN** every engine in the chain fails for an input
+- **THEN** the pipeline raises one error that keeps each engine's exception, so a caller can tell why each failed without parsing the message
+
 ### Requirement: Convert PDFs without model weights
 A model-free PDF adapter MUST convert PDF input using only the text and images the
 file already contains, without model weights or a deep-learning runtime, and MUST

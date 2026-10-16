@@ -53,6 +53,8 @@ UTF-16 and asking for a re-save, instead of a Python codec error.
 
 `uat-after.txt` holds the full matrix as it stands after the fixes: 14 cases ×
 2 profiles. Every message is Traditional Chinese, matching the interface.
+It was regenerated on 2026-10-15, after the size limits came to be stated in
+both units (`24 MiB（約 25 MB）`); no other line changed.
 
 ### How images are handled, by path
 

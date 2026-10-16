@@ -78,6 +78,7 @@ def convert_one(path: Path, engine_name: str, image_mode: ImageMode) -> Conversi
             profile = None
 
     errors = []
+    failures: list[Exception] = []
     for engine in choose_engine(engine_name, path, profile=profile):
         try:
             result = engine.convert(path, image_mode)
@@ -92,7 +93,8 @@ def convert_one(path: Path, engine_name: str, image_mode: ImageMode) -> Conversi
             return result
         except Exception as e:
             errors.append(f"{engine.name}: {e}")
-    raise EngineError("All engines failed:\n" + "\n".join(errors))
+            failures.append(e)
+    raise EngineError("All engines failed:\n" + "\n".join(errors), failures=failures)
 
 def _process_single_item(
     path: Path,
