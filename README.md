@@ -195,8 +195,15 @@ installed.
 
 ```bash
 pip install ".[marker]"   # check the package and model license terms first
-# MinerU: install its CLI separately, after reading docs/LICENSE_AUDIT.md
+pip install ".[mineru]"   # MinerU 4.x; read docs/LICENSE_AUDIT.md first
 ```
+
+The `mineru` extra installs MinerU 4.x, which brings PyTorch and fetches its
+model files from Hugging Face or ModelScope (`mineru-models-download`). This
+project runs only `mineru-kit parse`, on your machine, and never passes
+MinerU's remote-service options. MinerU's other command, `mineru`, collects
+usage telemetry for mineru.net: it asks on first run, with yes as the default,
+and `mineru telemetry disable` turns it off.
 
 ## 4. How it works
 

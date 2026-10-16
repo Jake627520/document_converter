@@ -33,6 +33,11 @@ class TestSecurityBaseline(unittest.TestCase):
         opt_deps = data["project"]["optional-dependencies"]
         self.assertIn("marker", opt_deps, "Marker should be isolated in optional-dependencies")
         self.assertIn("mineru", opt_deps, "MinerU should be isolated in optional-dependencies")
+        # The extra installs MinerU 4.x, which provides the mineru-kit command
+        # the adapter runs; magic-pdf is the older AGPL-3.0 package and has none.
+        mineru_extra = " ".join(opt_deps["mineru"]).lower()
+        self.assertNotIn("magic-pdf", mineru_extra, "the mineru extra must not install the AGPL magic-pdf package")
+        self.assertRegex(mineru_extra, r"\bmineru>=4\b", "the mineru extra must install MinerU 4.x")
         self.assertIn("dev", opt_deps, "Dev dependencies must be present")
         self.assertTrue(any("pip-audit" in dep for dep in opt_deps["dev"]))
         self.assertTrue(any("pip-licenses" in dep for dep in opt_deps["dev"]))

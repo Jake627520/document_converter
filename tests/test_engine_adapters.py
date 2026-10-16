@@ -72,12 +72,55 @@ class CommandAdapterTests(unittest.TestCase):
 
     def test_successful_cli_without_output_is_not_a_successful_conversion(self):
         with tempfile.TemporaryDirectory() as tmp, patch(
-            "document_converter.engines.command_engine.shutil.which",
-            side_effect=lambda name: None if name == "mineru-kit" else "/stub/engine",
+            "document_converter.engines.command_engine.shutil.which", return_value="/stub/engine",
         ), patch("document_converter.engines.command_engine.subprocess.run"):
             for engine in (MarkerEngine(), MinerUEngine()):
                 with self.subTest(engine=engine.name), self.assertRaisesRegex(EngineError, "Markdown output"):
                     engine.convert(Path(tmp) / "paper.pdf", "none")
+
+
+class MinerUCommandTests(unittest.TestCase):
+    """MinerU 4.x parses with `mineru-kit parse`, on this machine.
+
+    The adapter used to run `mineru kit parse`. MinerU 4.x's `mineru` command
+    has no `kit` subcommand, so every conversion failed before the
+    `mineru-kit` fallback could be reached; and every `mineru` subcommand
+    prepares MinerU's usage telemetry first.
+    """
+
+    @staticmethod
+    def only(*installed):
+        return lambda name: f"/stub/{name}" if name in installed else None
+
+    def test_parses_with_mineru_kit_and_no_remote_service(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "scan.pdf"
+            source.write_bytes(b"synthetic input")
+            seen = []
+
+            def invoke(argv, **kwargs):
+                seen.append(argv)
+                Path(argv[argv.index("-o") + 1]).write_text("# Scan\n", encoding="utf-8")
+                return subprocess.CompletedProcess(argv, 0)
+
+            with patch("document_converter.engines.command_engine.shutil.which", side_effect=self.only("mineru", "mineru-kit")), patch(
+                "document_converter.engines.command_engine.subprocess.run", side_effect=invoke
+            ):
+                result = MinerUEngine().convert(source, "none")
+
+        output = Path(tmp) / ".document-converter-mineru" / "scan.md"
+        self.assertEqual(seen, [["/stub/mineru-kit", "parse", str(source), "-o", str(output), "--tier", "standard"]])
+        for option in ("--remote", "--remote-url", "--api-key"):
+            self.assertNotIn(option, seen[0])
+        self.assertEqual(result.markdown, "# Scan\n")
+
+    def test_the_mineru_command_alone_is_not_an_install(self):
+        with patch("document_converter.engines.command_engine.shutil.which", side_effect=self.only("mineru")), patch(
+            "document_converter.engines.command_engine.subprocess.run"
+        ) as run:
+            with self.assertRaisesRegex(EngineError, "provides mineru-kit"):
+                MinerUEngine().convert(Path("scan.pdf"), "none")
+        run.assert_not_called()
 
 
 class DoclingAdapterTests(unittest.TestCase):

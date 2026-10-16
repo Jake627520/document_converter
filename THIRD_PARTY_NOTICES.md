@@ -1,6 +1,6 @@
 # Third-party components and notices
 
-Updated: 2026-10-13.
+Updated: 2026-10-16.
 
 Document Converter's original code is covered by the custom proprietary `LICENSE`. That license permits personal and company internal use, including internal commercial use, and restricts resale and redistribution of the original Software. **Those restrictions do not apply to third-party components.** Each third-party component retains its own license, notices, and rights; its applicable terms prevail for that component.
 
@@ -27,7 +27,7 @@ The package's generated inventory and collected original texts identify what tha
 | Docling model-based pipeline and models | Separately installed document engine | Not bundled in either profile. Code and model terms are reviewed separately; its MIT code label does not clear the models |
 | PyMuPDF/MuPDF | PDF analyzer available in some developer environments | AGPL-3.0 or an Artifex commercial license; requires a separate decision. Absent from both profiles |
 | Marker/Surya | Separately installed PDF/OCR engine and models | Code is Apache-2.0; model weights carry separate terms with commercial limits. Absent from both profiles |
-| MinerU/Magic-PDF | Separately installed PDF/OCR engine | MinerU 4.x uses the MinerU Open Source License (Apache-2.0 with additional terms); the earlier `magic-pdf` package is AGPL-3.0. Model artifacts are reviewed separately. Absent from both profiles |
+| MinerU/Magic-PDF | Separately installed PDF/OCR engine | MinerU 4.x uses the MinerU Open Source License (Apache-2.0 with additional terms); the earlier `magic-pdf` package is AGPL-3.0, and the `mineru` extra installs MinerU 4.x, not `magic-pdf`. Model artifacts are reviewed separately. Absent from both profiles |
 | Build, test and audit tools | Development and build environment | Being installed in the build environment does not mean a tool ships to users; bundled bootloader/runtime code still needs its applicable notices |
 
 ## Required acknowledgements (`pdf` profile)

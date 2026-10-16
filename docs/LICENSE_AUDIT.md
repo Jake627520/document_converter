@@ -1,6 +1,6 @@
 # License and third-party review status
 
-Updated: 2026-10-13.
+Updated: 2026-10-16.
 
 The source repository is public. Visibility is an access setting, not a license or a compliance finding: the original Software stays under the proprietary `LICENSE`, which a public repository neither relaxes nor replaces, and third-party terms apply the same either way. This document records evidence and release requirements; it does not establish that every combination or jurisdiction has been legally cleared.
 
@@ -23,7 +23,7 @@ The following upstream sources were consulted on 2026-10-09. A verified statemen
 | PyMuPDF 1.28.0 / MuPDF | The upstream [1.28.0 COPYING](https://github.com/pymupdf/PyMuPDF/blob/1.28.0/COPYING) contains AGPL v3; the [official licensing page](https://pymupdf.readthedocs.io/en/latest/about.html#license-and-copyright) describes AGPL and commercial licensing | Do not bundle it under the original Software's restrictive license. A proposed combined distribution or network deployment needs review of the exact code, applicable AGPL obligations, or an appropriate commercial agreement |
 | Docling 2.97.0 | Maintainer-published [versioned PyPI page](https://pypi.org/project/docling/2.97.0/) identifies the code license as MIT and states individual model licenses must be consulted; [current upstream LICENSE](https://github.com/docling-project/docling/blob/main/LICENSE) was also read | Exact resolved package license files, transitive dependencies, and actual model/checkpoint terms remain to be collected. The 2.97.0 archive's original license text was not extracted in this review; the current branch text is not a replacement for it |
 | Marker 2.0.0 | [Versioned upstream LICENSE](https://github.com/datalab-to/marker/blob/v2.0.0/LICENSE) is Apache-2.0; [versioned README](https://github.com/datalab-to/marker/blob/v2.0.0/README.md#commercial-usage) distinguishes code from modified AI Pubs Open Rail-M model terms and describes commercial limits | Apache-2.0 for code does not grant model rights. Actual Surya and other artifacts, revisions, original terms, use conditions, and any separately acquired commercial license remain unverified |
-| MinerU / Magic-PDF | The pre-change repository declared `magic-pdf>=0.9,<2`, while `document_converter/engines/command_engine.py` described a MinerU 4.x command and `cli.py` recommended MinerU 4.x | Package/API mismatch is recorded; no license conclusion is drawn from a different version. Resolve the actual package, executable, version, dependencies, and model artifacts before enabling or distributing this profile |
+| MinerU / Magic-PDF | The pre-change repository declared `magic-pdf>=0.9,<2`, while `document_converter/engines/command_engine.py` described a MinerU 4.x command and `cli.py` recommended MinerU 4.x | Package/API mismatch is recorded; no license conclusion is drawn from a different version. Resolve the actual package, executable, version, dependencies, and model artifacts before enabling or distributing this profile. Resolved on 2026-10-16: see "MinerU's commands and telemetry" below |
 
 The local `python3` metadata inspection on 2026-10-09 found PyMuPDF 1.28.0 in `/opt/homebrew/lib/python3.14/site-packages`. It did not find Docling, Marker, Magic-PDF, MinerU, or Surya in that interpreter. This is a developer-environment observation, not the installer inventory. The PDF detector contains `import fitz` in `document_converter/detector.py`; a package need not appear in the project's declared dependencies to be used when available in the runtime environment.
 
@@ -46,6 +46,16 @@ These remain outside both profiles. The PyPI metadata and license texts were rea
 | MinerU 4.0.12 | [PyPI](https://pypi.org/project/mineru/) records `LicenseRef-MinerU-Open-Source-License`; the [upstream LICENSE](https://github.com/opendatalab/MinerU/blob/master/LICENSE.md) is Apache-2.0 with additional terms: commercial use is permitted without a separate licence unless monthly active users exceed 100 million or monthly revenue exceeds USD 20 million, an online service offered to third parties must indicate prominently that it uses MinerU, and the licence terminates automatically on breach | Supersedes the earlier unresolved row. The older `magic-pdf` 1.3.12 package records AGPL-3.0. MinerU's model artifacts were not reviewed |
 | Marker 2.0.0 / Surya 0.22.1 | [PyPI](https://pypi.org/project/marker-pdf/) records Apache-2.0 for both packages' code | Unchanged: the model weights carry the separate terms described above |
 | Docling model-based pipeline | Model weights are published on Hugging Face; huggingface.co was unreachable from the review environment, so no model card was read | Not reviewed. Irrelevant to both profiles, which bundle no model |
+
+### MinerU's commands and telemetry (2026-10-16)
+
+The `mineru` 4.0.12 wheel was downloaded from PyPI by version and read without being installed or run:
+
+- It provides two commands. `mineru-kit parse INPUT -o OUTPUT --tier standard` parses on the local machine, and switches to a parse service only with `--remote` (mineru.net) or `--remote-url`. `mineru` has no `kit` subcommand, so the adapter's earlier `mineru kit parse` could not succeed.
+- Every `mineru` subcommand runs a root callback that prepares usage telemetry, sent to `https://mineru.net/metrics/v2/metrics`. On first run it asks for consent with yes as the default; `mineru telemetry disable` turns it off. Tracing static imports from `mineru-kit parse` reaches no telemetry module.
+- Upstream installs it as `pip install "mineru>=4.0,<5"`, and its base requirements include PyTorch, `huggingface-hub` and `modelscope` for its model files.
+
+Consequences in this repository: the adapter runs only `mineru-kit parse`, with no remote option; `list-engines` detects MinerU by `mineru-kit`; and the `mineru` extra installs `mineru>=4,<5` instead of the AGPL-3.0 `magic-pdf`. MinerU stays outside both release profiles. Its model artifacts were not reviewed, and MinerU itself was not run in the review environment.
 
 ## Review rules for every artifact
 

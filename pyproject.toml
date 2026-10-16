@@ -22,7 +22,9 @@ marker = [
   "marker-pdf>=2,<3",
 ]
 mineru = [
-  "magic-pdf>=0.9,<2",
+  # MinerU 4.x, which provides the mineru-kit command the adapter runs. The
+  # older magic-pdf package is AGPL-3.0 and offers no mineru-kit.
+  "mineru>=4,<5",
 ]
 web = [
   "fastapi>=0.115,<1",

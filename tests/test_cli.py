@@ -32,6 +32,21 @@ class TestCli(unittest.TestCase):
         self.assertIn("marker", result.output)
         self.assertIn("mineru", result.output)
 
+    def test_list_engines_detects_mineru_by_the_command_the_adapter_runs(self):
+        from unittest import mock
+
+        def listing(installed):
+            with mock.patch("shutil.which", side_effect=lambda name: f"/stub/{name}" if name in installed else None):
+                return self.runner.invoke(app, ["list-engines"]).output
+
+        def mineru_line(installed):
+            return next(line for line in listing(installed).splitlines() if line.startswith("mineru"))
+
+        self.assertIn("not detected", mineru_line({"mineru"}))
+        self.assertIn("installed", mineru_line({"mineru-kit"}))
+        # The install command stays on its row: wrapped, its second half reads as another command.
+        self.assertIn("pip install 'mineru>=4,<5'", mineru_line(set()))
+
     def test_inspect_text_pdf(self):
         with tempfile.TemporaryDirectory() as temp:
             sample = write_text_pdf(Path(temp) / "sample_text.pdf")
