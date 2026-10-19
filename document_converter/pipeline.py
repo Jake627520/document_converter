@@ -6,7 +6,7 @@ from .engines.docling_engine import DoclingEngine
 from .engines.docling_native_engine import DoclingNativePdfEngine
 from .engines.command_engine import MarkerEngine, MinerUEngine
 from .engines.text_direct_engine import TextDirectEngine
-from .models import ConversionResult, ImageMode
+from .models import ConversionResult, ImageMode, no_text_recovered_message
 from .detector import inspect_pdf, PdfProfile
 from .writer import write_result
 from .formats import SUPPORTED
@@ -114,6 +114,15 @@ def _process_single_item(
     target_outdir = output_dir / rel_parent
     try:
         result = convert_one(path, engine_name, image_mode)
+        if not result.has_recovered_text():
+            return {
+                "path": path,
+                "success": False,
+                "engine": result.engine,
+                "error": no_text_recovered_message(result),
+                "warnings": list(result.warnings),
+                "metadata": dict(result.metadata),
+            }
         write_result(
             result=result,
             output_dir=target_outdir,

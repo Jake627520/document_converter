@@ -31,3 +31,21 @@ class ConversionResult:
         same each time: say so, rather than hand over an empty file.
         """
         return bool(_PLACEHOLDER.sub("", self.markdown or "").strip())
+
+
+def no_text_recovered_message(result: ConversionResult) -> str:
+    """Explain why no output file was written (CLI / shared policy)."""
+    source = getattr(result, "source", None)
+    name = getattr(source, "name", str(source)) if source else "file"
+    engine = getattr(result, "engine", None) or "unknown"
+    # text_direct / plain text inputs: empty or whitespace only
+    if engine == "text_direct":
+        return (
+            f"{name}: no text recovered. The file is empty or contains only whitespace. "
+            "No output file was written."
+        )
+    return (
+        f"{name}: no text recovered (engine: {engine}). "
+        "The file may be a scan or photo with no text layer, image-only pages, or empty. "
+        "No output file was written. A scanned PDF needs an OCR-capable engine."
+    )
