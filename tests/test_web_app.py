@@ -129,6 +129,20 @@ def _native_pdf_available():
     return True
 
 
+def _docling_available() -> bool:
+    try:
+        import docling  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+requires_docling = unittest.skipUnless(
+    _docling_available(),
+    "docling not installed; install with: pip install -e '.[docling]'",
+)
+
+
 @unittest.skipIf(TestClient is None, "install the optional web extra to run web tests")
 class ReleaseProfileTests(TestCase):
     """Ref: openspec/specs/release-profiles/spec.md"""
@@ -304,6 +318,7 @@ class OutputFormatTests(TestCase):
         self.assertIn("Docling JSON", detail)
         self.assertIn("沒有經過引擎解析", detail)
 
+    @requires_docling
     def test_json_for_a_pdf_is_the_docling_document(self):
         client = self.client(web_app.configure_pdf_release)
         with tempfile.TemporaryDirectory() as temp:
@@ -411,6 +426,7 @@ class EmptyResultTests(TestCase):
         client = TestClient(web_app.app, headers={"host": "127.0.0.1"})
         return client.post("/convert", data={"target": "md"}, files={"files": (name, body, kind)})
 
+    @requires_docling
     def test_a_pdf_with_no_text_layer_is_refused_in_every_release(self):
         with tempfile.TemporaryDirectory() as temp:
             scan = write_scanned_pdf(Path(temp) / "scan.pdf").read_bytes()
@@ -429,6 +445,7 @@ class EmptyResultTests(TestCase):
         self.assertNotIn("掃描", detail)
         self.assertNotIn("OCR", detail)
 
+    @requires_docling
     def test_the_reason_names_ocr_only_where_a_scan_could_arrive(self):
         with tempfile.TemporaryDirectory() as temp:
             scan = write_scanned_pdf(Path(temp) / "scan.pdf").read_bytes()
