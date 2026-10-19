@@ -41,12 +41,12 @@ flowchart LR
 - **新增一種輸出，只要改一個地方。** 網頁原本沒有純文字輸出；writer 本來就會從 Markdown 產生純文字，
   所以所有引擎一次就都有了——包括完全不跑引擎的 `text` 版 App。
 - **關於輸出的問題，問結果，不問引擎。**「這次轉換有沒有抽出任何文字？」變成了
-  `ConversionResult.has_recovered_text()`（[PR #7](https://github.com/Jake627520/documnet_converter/pull/7)）。
+  `ConversionResult.has_recovered_text()`（[PR #7](https://github.com/Jake627520/document_converter/pull/7)）。
   先前的版本寫在單一引擎裡，只檢查那個引擎自己的警告，於是其他引擎全都漏過去了——
   見[第 3 章](03-silent-failures.zh-TW.md#9-空的轉換結果被當成成功回傳)。
 - **引擎的怪癖，在它的轉接層修一次就好。** Docling 的 Markdown 序列化會把 `&` 跳脫成 `&amp;`。
   兩個 Docling 轉接層都透過同一個函式序列化，所以一行就同時修好了兩個
-  （[PR #6](https://github.com/Jake627520/documnet_converter/pull/6)）。
+  （[PR #6](https://github.com/Jake627520/document_converter/pull/6)）。
 
 ## 引擎選擇
 

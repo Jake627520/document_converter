@@ -7,16 +7,16 @@
 
 | # | 看起來 | 實際上 | 修正於 |
 | --- | --- | --- | --- |
-| 1 | 密鑰掃描：每次推送都 ✅ | 讀了 **0 個 commit** | [#4](https://github.com/Jake627520/documnet_converter/pull/4) |
-| 2 | 依賴稽核：❌，我們自己的套件無法稽核 | 根本沒碰到它本該檢查的套件——背後藏著**兩個真正的安全通報** | [#2](https://github.com/Jake627520/documnet_converter/pull/2) |
-| 3 | 測試：✅ | CI 裡 **16 個網頁測試被跳過**，網頁介面的覆蓋率是 0% | [#1](https://github.com/Jake627520/documnet_converter/pull/1) |
-| 4 | 測試：✅ | **只在有某個被 gitignore 檔案的那台機器上**才會過 | [#1](https://github.com/Jake627520/documnet_converter/pull/1) |
-| 5 | PDF 偵測器：判斷正確 | **同一個 PDF**，答案取決於裝了什麼 | [#1](https://github.com/Jake627520/documnet_converter/pull/1) |
-| 6 | `--clean`：轉換乾淨 | **把表格裡的 `84` 刪掉了**，當成頁碼 | [#1](https://github.com/Jake627520/documnet_converter/pull/1) |
-| 7 | 授權聲明：已收集 | **默默漏掉 21 份**，包括 PDFium 元件的 18 份 | [#5](https://github.com/Jake627520/documnet_converter/pull/5) |
-| 8 | App 隨附法律文件 | 文件描述的是**App 並沒有的範圍** | [#6](https://github.com/Jake627520/documnet_converter/pull/6) |
-| 9 | 轉換：200 OK | **一個 97 bytes、什麼都沒有的檔案** | [#7](https://github.com/Jake627520/documnet_converter/pull/7) |
-| 10 | 頁面顯示檔案大小 | **頁面上 24.0 MB，Finder 裡 25.2 MB**——同一個檔案 | [#7](https://github.com/Jake627520/documnet_converter/pull/7) |
+| 1 | 密鑰掃描：每次推送都 ✅ | 讀了 **0 個 commit** | [#4](https://github.com/Jake627520/document_converter/pull/4) |
+| 2 | 依賴稽核：❌，我們自己的套件無法稽核 | 根本沒碰到它本該檢查的套件——背後藏著**兩個真正的安全通報** | [#2](https://github.com/Jake627520/document_converter/pull/2) |
+| 3 | 測試：✅ | CI 裡 **16 個網頁測試被跳過**，網頁介面的覆蓋率是 0% | [#1](https://github.com/Jake627520/document_converter/pull/1) |
+| 4 | 測試：✅ | **只在有某個被 gitignore 檔案的那台機器上**才會過 | [#1](https://github.com/Jake627520/document_converter/pull/1) |
+| 5 | PDF 偵測器：判斷正確 | **同一個 PDF**，答案取決於裝了什麼 | [#1](https://github.com/Jake627520/document_converter/pull/1) |
+| 6 | `--clean`：轉換乾淨 | **把表格裡的 `84` 刪掉了**，當成頁碼 | [#1](https://github.com/Jake627520/document_converter/pull/1) |
+| 7 | 授權聲明：已收集 | **默默漏掉 21 份**，包括 PDFium 元件的 18 份 | [#5](https://github.com/Jake627520/document_converter/pull/5) |
+| 8 | App 隨附法律文件 | 文件描述的是**App 並沒有的範圍** | [#6](https://github.com/Jake627520/document_converter/pull/6) |
+| 9 | 轉換：200 OK | **一個 97 bytes、什麼都沒有的檔案** | [#7](https://github.com/Jake627520/document_converter/pull/7) |
+| 10 | 頁面顯示檔案大小 | **頁面上 24.0 MB，Finder 裡 25.2 MB**——同一個檔案 | [#7](https://github.com/Jake627520/document_converter/pull/7) |
 
 ---
 

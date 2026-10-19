@@ -257,8 +257,8 @@ fork 來閱讀、研究、執行都沒問題，但不得重新發布或販售本
 
 ```bash
 # 1. 在 GitHub 上 fork，然後 clone 你的 fork
-git clone https://github.com/<你的帳號>/documnet_converter.git
-cd documnet_converter
+git clone https://github.com/<你的帳號>/document_converter.git
+cd document_converter
 
 # 2. Python 3.11 到 3.14
 python -m venv .venv && source .venv/bin/activate

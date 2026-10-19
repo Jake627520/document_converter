@@ -1,7 +1,7 @@
 """UAT: every rejection and edge case a user can hit, with the exact message."""
 import sys
 from pathlib import Path
-sys.path.insert(0, "/home/user/documnet_converter")
+sys.path.insert(0, "/home/user/document_converter")
 from fastapi.testclient import TestClient
 from document_converter import web_app
 

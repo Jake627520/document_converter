@@ -43,12 +43,12 @@ files. This one rule paid for itself repeatedly:
   got it at once — including the `text` app, which runs no engine.
 - **A question about the output is asked of the result, not of an engine.**
   "Did this conversion recover any text?" became `ConversionResult.has_recovered_text()`
-  ([PR #7](https://github.com/Jake627520/documnet_converter/pull/7)). The earlier
+  ([PR #7](https://github.com/Jake627520/document_converter/pull/7)). The earlier
   version lived inside one engine and checked for that engine's own warning, so
   every other engine slipped past it — see [Chapter 3](03-silent-failures.md#9-an-empty-conversion-returned-as-a-success).
 - **An engine's quirk is fixed once, at its adapter.** Docling's Markdown
   serializer escapes `&` as `&amp;`. Both Docling adapters serialize through one
-  function, so one line undid it for both ([PR #6](https://github.com/Jake627520/documnet_converter/pull/6)).
+  function, so one line undid it for both ([PR #6](https://github.com/Jake627520/document_converter/pull/6)).
 
 ## Engine selection
 

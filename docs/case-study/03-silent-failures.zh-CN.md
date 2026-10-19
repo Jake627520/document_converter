@@ -7,16 +7,16 @@
 
 | # | 看起来 | 实际上 | 修复于 |
 | --- | --- | --- | --- |
-| 1 | 密钥扫描：每次推送都 ✅ | 读了 **0 个提交** | [#4](https://github.com/Jake627520/documnet_converter/pull/4) |
-| 2 | 依赖审计：❌，我们自己的包无法审计 | 根本没触及它本该检查的软件包——背后藏着**两个真实的安全公告** | [#2](https://github.com/Jake627520/documnet_converter/pull/2) |
-| 3 | 测试：✅ | CI 中 **16 个网页测试被跳过**，网页界面的覆盖率为 0% | [#1](https://github.com/Jake627520/documnet_converter/pull/1) |
-| 4 | 测试：✅ | **只在有某个被 gitignore 文件的那台机器上**才能通过 | [#1](https://github.com/Jake627520/documnet_converter/pull/1) |
-| 5 | PDF 检测器：判断正确 | **同一个 PDF**，答案取决于装了什么 | [#1](https://github.com/Jake627520/documnet_converter/pull/1) |
-| 6 | `--clean`：转换干净 | **把表格里的 `84` 删掉了**，当成了页码 | [#1](https://github.com/Jake627520/documnet_converter/pull/1) |
-| 7 | 许可声明：已收集 | **悄悄漏掉 21 份**，包括 PDFium 组件的 18 份 | [#5](https://github.com/Jake627520/documnet_converter/pull/5) |
-| 8 | 应用附带法律文档 | 文档描述的是**应用并不具备的范围** | [#6](https://github.com/Jake627520/documnet_converter/pull/6) |
-| 9 | 转换：200 OK | **一个 97 字节、什么都没有的文件** | [#7](https://github.com/Jake627520/documnet_converter/pull/7) |
-| 10 | 页面显示文件大小 | **页面上 24.0 MB，Finder 里 25.2 MB**——同一个文件 | [#7](https://github.com/Jake627520/documnet_converter/pull/7) |
+| 1 | 密钥扫描：每次推送都 ✅ | 读了 **0 个提交** | [#4](https://github.com/Jake627520/document_converter/pull/4) |
+| 2 | 依赖审计：❌，我们自己的包无法审计 | 根本没触及它本该检查的软件包——背后藏着**两个真实的安全公告** | [#2](https://github.com/Jake627520/document_converter/pull/2) |
+| 3 | 测试：✅ | CI 中 **16 个网页测试被跳过**，网页界面的覆盖率为 0% | [#1](https://github.com/Jake627520/document_converter/pull/1) |
+| 4 | 测试：✅ | **只在有某个被 gitignore 文件的那台机器上**才能通过 | [#1](https://github.com/Jake627520/document_converter/pull/1) |
+| 5 | PDF 检测器：判断正确 | **同一个 PDF**，答案取决于装了什么 | [#1](https://github.com/Jake627520/document_converter/pull/1) |
+| 6 | `--clean`：转换干净 | **把表格里的 `84` 删掉了**，当成了页码 | [#1](https://github.com/Jake627520/document_converter/pull/1) |
+| 7 | 许可声明：已收集 | **悄悄漏掉 21 份**，包括 PDFium 组件的 18 份 | [#5](https://github.com/Jake627520/document_converter/pull/5) |
+| 8 | 应用附带法律文档 | 文档描述的是**应用并不具备的范围** | [#6](https://github.com/Jake627520/document_converter/pull/6) |
+| 9 | 转换：200 OK | **一个 97 字节、什么都没有的文件** | [#7](https://github.com/Jake627520/document_converter/pull/7) |
+| 10 | 页面显示文件大小 | **页面上 24.0 MB，Finder 里 25.2 MB**——同一个文件 | [#7](https://github.com/Jake627520/document_converter/pull/7) |
 
 ---
 

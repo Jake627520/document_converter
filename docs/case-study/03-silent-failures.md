@@ -8,16 +8,16 @@ what it was.
 
 | # | Looked like | Actually | Fixed in |
 | --- | --- | --- | --- |
-| 1 | Secret scan: ✅ on every push | Read **0 commits** | [#4](https://github.com/Jake627520/documnet_converter/pull/4) |
-| 2 | Dependency audit: ❌, our own package unauditable | Never reached the packages it exists to check — **two real advisories** behind it | [#2](https://github.com/Jake627520/documnet_converter/pull/2) |
-| 3 | Test suite: ✅ | **16 web tests skipped** in CI, the web interface measured at 0% | [#1](https://github.com/Jake627520/documnet_converter/pull/1) |
-| 4 | Test suite: ✅ | Passed **only on the machine that had a gitignored file** | [#1](https://github.com/Jake627520/documnet_converter/pull/1) |
-| 5 | PDF detector: correct | The **same PDF** got a different answer depending on what was installed | [#1](https://github.com/Jake627520/documnet_converter/pull/1) |
-| 6 | `--clean`: conversion clean | **Deleted `84` from a table** as if it were a page number | [#1](https://github.com/Jake627520/documnet_converter/pull/1) |
-| 7 | License notices: collected | **21 silently dropped**, including 18 for PDFium's components | [#5](https://github.com/Jake627520/documnet_converter/pull/5) |
-| 8 | App ships its legal documents | They described **a scope the app did not have** | [#6](https://github.com/Jake627520/documnet_converter/pull/6) |
-| 9 | Conversion: 200 OK | **A 97-byte file holding nothing** | [#7](https://github.com/Jake627520/documnet_converter/pull/7) |
-| 10 | Page shows the file size | **24.0 MB on the page, 25.2 MB in Finder** — same file | [#7](https://github.com/Jake627520/documnet_converter/pull/7) |
+| 1 | Secret scan: ✅ on every push | Read **0 commits** | [#4](https://github.com/Jake627520/document_converter/pull/4) |
+| 2 | Dependency audit: ❌, our own package unauditable | Never reached the packages it exists to check — **two real advisories** behind it | [#2](https://github.com/Jake627520/document_converter/pull/2) |
+| 3 | Test suite: ✅ | **16 web tests skipped** in CI, the web interface measured at 0% | [#1](https://github.com/Jake627520/document_converter/pull/1) |
+| 4 | Test suite: ✅ | Passed **only on the machine that had a gitignored file** | [#1](https://github.com/Jake627520/document_converter/pull/1) |
+| 5 | PDF detector: correct | The **same PDF** got a different answer depending on what was installed | [#1](https://github.com/Jake627520/document_converter/pull/1) |
+| 6 | `--clean`: conversion clean | **Deleted `84` from a table** as if it were a page number | [#1](https://github.com/Jake627520/document_converter/pull/1) |
+| 7 | License notices: collected | **21 silently dropped**, including 18 for PDFium's components | [#5](https://github.com/Jake627520/document_converter/pull/5) |
+| 8 | App ships its legal documents | They described **a scope the app did not have** | [#6](https://github.com/Jake627520/document_converter/pull/6) |
+| 9 | Conversion: 200 OK | **A 97-byte file holding nothing** | [#7](https://github.com/Jake627520/document_converter/pull/7) |
+| 10 | Page shows the file size | **24.0 MB on the page, 25.2 MB in Finder** — same file | [#7](https://github.com/Jake627520/document_converter/pull/7) |
 
 ---
 

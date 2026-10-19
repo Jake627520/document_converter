@@ -278,8 +278,8 @@ selling the project's own software is not.
 
 ```bash
 # 1. Fork on GitHub, then clone your fork
-git clone https://github.com/<your-account>/documnet_converter.git
-cd documnet_converter
+git clone https://github.com/<your-account>/document_converter.git
+cd document_converter
 
 # 2. Python 3.11 to 3.14
 python -m venv .venv && source .venv/bin/activate

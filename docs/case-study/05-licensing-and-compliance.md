@@ -67,7 +67,7 @@ of those were dropped without a word, including the 18 from `pypdfium2`.
 It surfaced on the owner's Mac, when the build stopped because `latex2mathml`
 had no notice at all. Looking into why showed that versions 3.81.0 and 3.81.1
 ship no license file, and that the collector had a second, quieter gap. The
-fix in [#5](https://github.com/Jake627520/documnet_converter/pull/5):
+fix in [#5](https://github.com/Jake627520/document_converter/pull/5):
 
 - match the standard location as well as the names;
 - pin `latex2mathml` to 3.80.0, which does ship its license;
@@ -86,7 +86,7 @@ still said Docling was excluded. Nothing checks prose against a dependency list.
 
 It was caught when the owner asked for the licensing to be confirmed once more
 before going public, and fixed in
-[#6](https://github.com/Jake627520/documnet_converter/pull/6). The rule taken
+[#6](https://github.com/Jake627520/document_converter/pull/6). The rule taken
 from it: **a change to what ships is a change to the legal documents**, in the
 same pull request.
 

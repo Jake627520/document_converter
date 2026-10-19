@@ -54,7 +54,7 @@ IJG 的要求在一个单独的文件 `libjpeg_turbo.ijg` 里，是把每一份�
 
 问题是在负责人的 Mac 上暴露的：构建停了下来，因为 `latex2mathml` 完全没有许可声明。
 追查原因后发现，3.81.0 和 3.81.1 两个版本都没有附带许可证文件，而收集器另外还有一个更隐蔽的漏洞。
-[#5](https://github.com/Jake627520/documnet_converter/pull/5) 的修复：
+[#5](https://github.com/Jake627520/document_converter/pull/5) 的修复：
 
 - 除了按文件名匹配，也匹配那个标准位置；
 - 把 `latex2mathml` 锁定在 3.80.0，这个版本附带了许可证文件；
@@ -68,7 +68,7 @@ IJG 的要求在一个单独的文件 `libjpeg_turbo.ijg` 里，是把每一份�
 法律文档是为第一版应用写的，那一版不含任何文档引擎。后来 `pdf` 配置加入了 Docling 和 PDFium——
 文档却仍然写着 Docling 被排除在外。没有任何东西会拿文字描述去对照依赖清单。
 
-这是在负责人要求公开前再确认一次许可时发现的，并在 [#6](https://github.com/Jake627520/documnet_converter/pull/6) 中修复。
+这是在负责人要求公开前再确认一次许可时发现的，并在 [#6](https://github.com/Jake627520/document_converter/pull/6) 中修复。
 从中得出的规则：**发行内容的变更，就是法律文档的变更**，放在同一个 PR 里。
 
 ## 公开不等于开源
