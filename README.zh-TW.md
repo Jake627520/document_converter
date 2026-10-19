@@ -186,6 +186,17 @@ document-converter convert paper.pdf --to md --clean --strip-page-numbers
 只有數字的那一行會保留，因為引擎常把表格儲存格和其他數值單獨放一行；
 只有在文件的頁碼以單獨數字殘留、而且你接受連帶刪掉單獨數值時，才加上 `--strip-page-numbers`。
 
+### 平行批次轉換
+
+```bash
+document-converter convert ./documents --to md --output ./converted --parallel 4
+```
+
+- 預設 1 個 worker，安全上限為 4。
+- 適合一次轉換**多個檔案**（目錄或批次輸入）。
+- **單一大型 PDF** 通常加速有限：時間主要花在轉換引擎；行程內引擎還受 Python GIL 限制。
+- 單一檔案失敗不會中止整批其餘檔案。
+
 ### 不需 PyTorch 的 PDF 轉換（`docling-native`）
 
 Docling 預設的 PDF 流程會執行版面與表格模型：需要安裝好幾 GB 的 PyTorch，

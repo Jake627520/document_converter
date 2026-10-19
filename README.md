@@ -198,6 +198,17 @@ other values on their own line; add `--strip-page-numbers` only when a
 document's page numbers survive as bare numerals and you accept losing
 standalone numbers with them.
 
+### Parallel batch conversion
+
+```bash
+document-converter convert ./documents --to md --output ./converted --parallel 4
+```
+
+- Default is 1 worker; the safe upper bound is 4.
+- Use higher values when converting **many files** in one run (directory or multiple inputs).
+- A **single large PDF** rarely benefits: work is dominated by the conversion engine, and in-process engines share the interpreter GIL.
+- Failed files do not abort the rest of the batch.
+
 ### PDF without PyTorch (`docling-native`)
 
 Docling's default PDF pipeline runs layout and table models: it needs PyTorch, a

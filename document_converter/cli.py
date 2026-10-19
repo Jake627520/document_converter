@@ -24,7 +24,16 @@ def convert(
              "are often table values rather than page numbers.",
     ),
     preserve_layout: bool = typer.Option(False, "--preserve-layout", help="Preserve raw page breaks and layout in markdown"),
-    parallel: int = typer.Option(DEFAULT_PARALLEL, "--parallel", "-p", help=f"Concurrent worker count (1-{MAX_WORKER_LIMIT})"),
+    parallel: int = typer.Option(
+        DEFAULT_PARALLEL,
+        "--parallel",
+        "-p",
+        help=(
+            f"Concurrent workers for batch conversion (1-{MAX_WORKER_LIMIT}; default {DEFAULT_PARALLEL}). "
+            "Helps when converting many files; a single large PDF gains little because conversion is "
+            "engine-bound (and under the GIL for in-process engines)."
+        ),
+    ),
     watch: bool = typer.Option(False, "--watch", help="Watch a directory for new or changed files"),
     watch_interval: float = typer.Option(1.0, "--watch-interval", help="Finite polling interval in seconds when --watch is enabled"),
 ):
