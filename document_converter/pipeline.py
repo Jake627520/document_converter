@@ -5,9 +5,10 @@ from .engines.base import EngineError
 from .engines.docling_engine import DoclingEngine
 from .engines.docling_native_engine import DoclingNativePdfEngine
 from .engines.command_engine import MarkerEngine, MinerUEngine
+from .engines.text_direct_engine import TextDirectEngine
 from .models import ConversionResult, ImageMode
 from .detector import inspect_pdf, PdfProfile
-from .writer import write_result, plain_text_of
+from .writer import write_result
 from .formats import SUPPORTED
 
 DEFAULT_PARALLEL = 1
@@ -25,21 +26,30 @@ def discover_inputs(source: Path) -> list[Path]:
 
 def choose_engine(name: str, path: Path, profile: PdfProfile | None = None):
     engines = {
+        "text_direct": TextDirectEngine(),
         "docling": DoclingEngine(),
         "docling-native": DoclingNativePdfEngine(),
         "marker": MarkerEngine(),
         "mineru": MinerUEngine(),
     }
     if name != "auto":
+        if name not in engines:
+            raise EngineError(f"Unknown engine: {name}")
         engine = engines[name]
         if not engine.can_handle(path):
             raise EngineError(f"{name} cannot handle {path.suffix}")
         return [engine]
 
     # Auto engine selection strategy
-    is_pdf = path.suffix.lower() == ".pdf"
-    is_image = path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
+    suffix = path.suffix.lower()
+    is_pdf = suffix == ".pdf"
+    is_image = suffix in {".png", ".jpg", ".jpeg", ".webp"}
+    is_text = suffix in {".md", ".markdown", ".txt"}
 
+    if is_text:
+        # Prefer the zero-dependency reader; Docling remains a fallback only if
+        # the caller forced a non-auto engine (handled above).
+        return [engines["text_direct"]]
     if is_pdf and profile and profile.is_scanned:
         # Scanned PDF without text layer: prioritize engines with dedicated OCR/VLM
         # capabilities, then fall back to the model-free reader as a last resort.
@@ -57,19 +67,6 @@ def convert_one(path: Path, engine_name: str, image_mode: ImageMode) -> Conversi
     if not path.exists():
         raise FileNotFoundError(f"Input file not found: {path}")
 
-    # Lightweight direct handler for markdown and text files if Docling is unavailable or for testing
-    if path.suffix.lower() in {".md", ".markdown", ".txt"} and engine_name == "auto":
-        try:
-            content = path.read_text(encoding="utf-8")
-            return ConversionResult(
-                source=path,
-                engine="text_direct",
-                markdown=content,
-                text=plain_text_of(content, path.suffix),
-            )
-        except Exception:
-            pass
-
     profile: PdfProfile | None = None
     if path.suffix.lower() == ".pdf":
         try:
@@ -77,18 +74,23 @@ def convert_one(path: Path, engine_name: str, image_mode: ImageMode) -> Conversi
         except Exception:
             profile = None
 
-    errors = []
+    errors: list[str] = []
     failures: list[Exception] = []
     for engine in choose_engine(engine_name, path, profile=profile):
         try:
             result = engine.convert(path, image_mode)
             if profile:
                 result.metadata["pdf_profile"] = profile
-                if profile.is_scanned:
+                if profile.classification == "scanned":
                     result.warnings.append(
                         f"Scanned PDF detected ({profile.page_count} pages, {profile.total_chars} text chars). "
                         f"Text recovery depends on OCR support in the {result.engine} engine; "
                         "check the output before relying on it."
+                    )
+                elif profile.classification == "hybrid":
+                    result.warnings.append(
+                        f"Sparse text or mixed PDF detected ({profile.page_count} pages, {profile.total_chars} text chars). "
+                        f"Some content may require OCR support in the {result.engine} engine."
                     )
             return result
         except Exception as e:

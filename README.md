@@ -126,8 +126,32 @@ Python 3.11 to 3.14 is supported; CI tests 3.11 and 3.12.
 python -m venv .venv
 source .venv/bin/activate          # Windows PowerShell: .\.venv\Scripts\Activate.ps1
 python -m pip install -U pip
-pip install -e .
 ```
+
+Choose the installation tier that matches your needs:
+
+- **Minimal install** (UTF-8 Markdown / plain text only + CLI + PDF text-layer detection):
+  ```bash
+  pip install -e .
+  ```
+  Without Docling installed, `.md` and `.txt` files convert directly; PDF/Office documents show `not detected` under `list-engines`, and `convert` reports engine unavailable rather than an installation error.
+
+- **Common install** (adds Docling for PDF, Office, and layout conversion):
+  ```bash
+  pip install -e ".[docling]"
+  ```
+
+- **Browser workbench**:
+  ```bash
+  pip install -e ".[web]"
+  # or with Docling:
+  pip install -e ".[docling,web]"
+  ```
+
+- **Full install** (Docling + web workbench):
+  ```bash
+  pip install -e ".[full]"
+  ```
 
 The Windows command sets up the source tree only; it does not mean Windows has
 been tested.
@@ -135,7 +159,6 @@ been tested.
 ### Browser workbench
 
 ```bash
-pip install -e ".[web]"
 document-converter web             # http://127.0.0.1:8765 ; --port 8766 for another port
 ```
 

@@ -5,6 +5,7 @@ from document_converter.web_security import (
     DOWNLOAD_STEM_LIMIT, RequestAdmission, RequestBodyCounter, RequestBodyTooLarge,
     content_disposition, content_length_exceeds_limit, host_is_local, origin_is_same_local,
     request_exceeds_limit, safe_output_stem, supported_suffix, valid_file_count, valid_target,
+    SECURITY_HEADERS, CSP_DIRECTIVES, normalize_locale, SUPPORTED_LOCALES,
 )
 
 
@@ -122,3 +123,45 @@ class DownloadNameTests(TestCase):
         self.assertIn("filename*=UTF-8''%E8%BB%8A%E7%87%88%E8%A6%8F%E6%A0%BC%E8%A1%A8.md", header)
         self.assertIn('filename="converted-document.md"', header)
         self.assertTrue(header.split('filename="', 1)[1].split('"', 1)[0].isascii())
+
+
+class CspAndI18nSecurityTests(TestCase):
+    def test_security_headers_contain_required_policies(self):
+        self.assertIn("Content-Security-Policy", SECURITY_HEADERS)
+        self.assertEqual(SECURITY_HEADERS.get("X-Content-Type-Options"), "nosniff")
+        self.assertEqual(SECURITY_HEADERS.get("X-Frame-Options"), "DENY")
+        self.assertEqual(SECURITY_HEADERS.get("Referrer-Policy"), "no-referrer")
+
+    def test_csp_directives_are_strict_and_comprehensive(self):
+        csp = CSP_DIRECTIVES
+        self.assertIn("default-src 'none'", csp)
+        self.assertIn("script-src 'self' 'unsafe-inline'", csp)
+        self.assertIn("style-src 'self' 'unsafe-inline'", csp)
+        self.assertIn("img-src 'self' data: blob:", csp)
+        self.assertIn("connect-src 'self'", csp)
+        self.assertIn("font-src 'self'", csp)
+        self.assertIn("object-src 'none'", csp)
+        self.assertIn("base-uri 'none'", csp)
+        self.assertIn("form-action 'self'", csp)
+        self.assertIn("frame-ancestors 'none'", csp)
+        self.assertIn("frame-src 'self' blob: data:", csp)
+
+    def test_locale_normalization_and_fallback(self):
+        self.assertEqual(SUPPORTED_LOCALES, {"en", "zh-TW", "zh-CN"})
+        self.assertEqual(normalize_locale("zh-TW"), "zh-TW")
+        self.assertEqual(normalize_locale("zh-HK"), "zh-TW")
+        self.assertEqual(normalize_locale("zh-MO"), "zh-TW")
+        self.assertEqual(normalize_locale("zh-Hant"), "zh-TW")
+        self.assertEqual(normalize_locale("zh-CN"), "zh-CN")
+        self.assertEqual(normalize_locale("zh-Hans"), "zh-CN")
+        self.assertEqual(normalize_locale("zh-SG"), "zh-CN")
+        self.assertEqual(normalize_locale("zh"), "zh-CN")
+        self.assertEqual(normalize_locale("en"), "en")
+        self.assertEqual(normalize_locale("en-US"), "en")
+        self.assertEqual(normalize_locale("en-GB"), "en")
+        # Unsupported fallback to en
+        self.assertEqual(normalize_locale("fr"), "en")
+        self.assertEqual(normalize_locale("de-DE"), "en")
+        self.assertEqual(normalize_locale("ja"), "en")
+        self.assertEqual(normalize_locale(""), "en")
+        self.assertEqual(normalize_locale(None), "en")

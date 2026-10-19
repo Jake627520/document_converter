@@ -2,7 +2,7 @@ install:
 	python3 -m pip install -e .
 
 test:
-	python3 -m unittest discover -s tests -p "test_*.py"
+	python3 -m pytest -q
 
 coverage:
 	pytest --cov=document_converter --cov-report=term-missing --cov-report=html

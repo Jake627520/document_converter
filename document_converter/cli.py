@@ -33,8 +33,8 @@ def convert(
     bad = set(to) - valid
     if bad:
         raise typer.BadParameter(f"Unsupported output(s): {', '.join(sorted(bad))}")
-    if engine not in {"auto", "docling", "docling-native", "marker", "mineru"}:
-        raise typer.BadParameter("engine must be auto, docling, docling-native, marker, or mineru")
+    if engine not in {"auto", "text_direct", "docling", "docling-native", "marker", "mineru"}:
+        raise typer.BadParameter("engine must be auto, text_direct, docling, docling-native, marker, or mineru")
     if images not in {"none", "referenced", "embedded"}:
         raise typer.BadParameter("images must be none, referenced, or embedded")
     if parallel < 1:
@@ -144,18 +144,22 @@ def list_engines():
     """Show available engines."""
     import shutil
     rows = [
+        ("text_direct", "built-in (always available)", "UTF-8 Markdown / plain text"),
         ("docling", "pip install docling", "primary/local"),
         ("docling-native", "pip install docling-slim", "model-free PDF text reader"),
         ("marker", "pip install marker-pdf", "optional PDF fallback"),
         ("mineru", "pip install 'mineru>=4,<5'", "optional PDF/OCR fallback"),
     ]
     for name, install, role in rows:
-        found = "installed" if (
-            (name == "docling" and _importable("docling")) or
-            (name == "docling-native" and _importable("docling.pipeline.native_pdf_pipeline")) or
-            (name == "marker" and shutil.which("marker_single")) or
-            (name == "mineru" and shutil.which("mineru-kit"))
-        ) else "not detected"
+        if name == "text_direct":
+            found = "installed"
+        else:
+            found = "installed" if (
+                (name == "docling" and _importable("docling")) or
+                (name == "docling-native" and _importable("docling.pipeline.native_pdf_pipeline")) or
+                (name == "marker" and shutil.which("marker_single")) or
+                (name == "mineru" and shutil.which("mineru-kit"))
+            ) else "not detected"
         # soft_wrap: an install command broken across lines reads as two commands.
         console.print(f"{name:14} {found:12} {role:26} {install}", soft_wrap=True)
 

@@ -28,6 +28,7 @@ class TestCli(unittest.TestCase):
     def test_list_engines_command(self):
         result = self.runner.invoke(app, ["list-engines"])
         self.assertEqual(result.exit_code, 0)
+        self.assertIn("text_direct", result.output)
         self.assertIn("docling", result.output)
         self.assertIn("marker", result.output)
         self.assertIn("mineru", result.output)
@@ -46,6 +47,16 @@ class TestCli(unittest.TestCase):
         self.assertIn("installed", mineru_line({"mineru-kit"}))
         # The install command stays on its row: wrapped, its second half reads as another command.
         self.assertIn("pip install 'mineru>=4,<5'", mineru_line(set()))
+
+    def test_convert_accepts_text_direct_engine(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / "notes.md"
+            source.write_text("# Direct Title\n", encoding="utf-8")
+            result = self.runner.invoke(
+                app, ["convert", str(source), "--engine", "text_direct", "-o", str(Path(temp) / "out")]
+            )
+        self.assertEqual(result.exit_code, 0)
+        self.assertNotIn("engine must be", result.output)
 
     def test_inspect_text_pdf(self):
         with tempfile.TemporaryDirectory() as temp:

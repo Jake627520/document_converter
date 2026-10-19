@@ -120,15 +120,38 @@ RELEASE_PROFILE=pdf BUILD_PYTHON="$HOME/.local/bin/python3.12" \
 python -m venv .venv
 source .venv/bin/activate          # Windows PowerShell: .\.venv\Scripts\Activate.ps1
 python -m pip install -U pip
-pip install -e .
 ```
+
+按需选择安装层级：
+
+- **最小安装**（仅 UTF-8 Markdown / 纯文本 + CLI + PDF inspect 检测）：
+  ```bash
+  pip install -e .
+  ```
+  未安装 Docling 时，`.md` 与 `.txt` 仍可正常转换；PDF/Office 会在 `list-engines` 显示 `not detected`，在执行 `convert` 时给出引擎不可用错误，而不是安装失败。
+
+- **常用安装**（包含 Docling，可转换 PDF/Office 等格式）：
+  ```bash
+  pip install -e ".[docling]"
+  ```
+
+- **浏览器工作台**：
+  ```bash
+  pip install -e ".[web]"
+  # 或连同 Docling：
+  pip install -e ".[docling,web]"
+  ```
+
+- **完整安装**（Docling + 浏览器工作台）：
+  ```bash
+  pip install -e ".[full]"
+  ```
 
 Windows 的命令仅说明如何配置源代码环境，并不代表 Windows 已经过测试。
 
 ### 浏览器工作台
 
 ```bash
-pip install -e ".[web]"
 document-converter web             # http://127.0.0.1:8765 ; --port 8766 for another port
 ```
 

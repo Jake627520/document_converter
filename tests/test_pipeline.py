@@ -84,5 +84,42 @@ class TestPipeline(unittest.TestCase):
         self.assertEqual(caught.exception.failures, (missing, broken))
         self.assertIn("docling: No module named 'docx'", str(caught.exception))
 
+    def test_pipeline_warnings_for_scanned_and_text_pdfs(self):
+        from document_converter.models import ConversionResult
+
+        class MockEngine:
+            name = "mock"
+            def can_handle(self, p): return True
+            def convert(self, p, mode):
+                return ConversionResult(source=p, engine=self.name, text="extracted")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            pdf_path = Path(tmp_dir) / "doc.pdf"
+            pdf_path.write_bytes(b"%PDF-1.4")
+
+            for classification, is_scanned, expected_warning in (
+                ("scanned", True, "Scanned PDF detected"),
+                ("hybrid", True, "Sparse text or mixed PDF detected"),
+                ("text_based", False, None),
+                ("unknown", False, None),
+            ):
+                with self.subTest(classification=classification):
+                    profile = PdfProfile(
+                        path=pdf_path,
+                        page_count=1,
+                        total_chars=10,
+                        has_text_layer=(classification in ("text_based", "hybrid")),
+                        is_scanned=is_scanned,
+                        classification=classification,
+                    )
+                    with mock.patch("document_converter.pipeline.inspect_pdf", return_value=profile):
+                        with mock.patch("document_converter.pipeline.choose_engine", return_value=[MockEngine()]):
+                            res = pipeline.convert_one(pdf_path, "auto", "none")
+                            if expected_warning:
+                                self.assertTrue(any(expected_warning in w for w in res.warnings))
+                            else:
+                                self.assertFalse(any("Scanned PDF detected" in w for w in res.warnings))
+
+
 if __name__ == "__main__":
     unittest.main()

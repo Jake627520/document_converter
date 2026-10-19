@@ -9,15 +9,15 @@ description = "Local-first multi-format document to Markdown/HTML converter"
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
 dependencies = [
-  "docling>=2.97,<3",
   "typer>=0.16,<1",
   "rich>=13.9,<15",
-  # PDF text-layer detection: without it the detector falls back to its built-in
-  # stream analyzer, so classification would vary with the local environment.
   "pypdf>=5,<7",
 ]
 
 [project.optional-dependencies]
+docling = [
+  "docling>=2.97,<3",
+]
 marker = [
   "marker-pdf>=2,<3",
 ]
@@ -31,13 +31,13 @@ web = [
   "uvicorn>=0.30,<1",
   "python-multipart>=0.0.9,<1",
 ]
+# 一鍵裝齊常用轉換能力（不含 marker/mineru 授權敏感套件）
+full = [
+  "document-converter-skill[docling,web]",
+]
 dev = [
-  # pytest 8 and pytest-cov 6 are held back by PYSEC-2026-1845, which the
-  # dependency audit reports; the fix landed in pytest 9.0.3.
   "pytest>=9.0.3,<10",
   "pytest-cov>=7,<8",
-  # Starlette 1.x runs its TestClient on httpx2 and warns when only httpx is
-  # present; older Starlette within the fastapi range still imports httpx.
   "httpx>=0.27,<1",
   "httpx2>=2,<3",
   "pip-audit>=2.7,<3",

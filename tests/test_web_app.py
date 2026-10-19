@@ -578,3 +578,186 @@ class SizeLimitWordingTests(TestCase):
         # Decimal, so the page and Finder show one number for one file.
         self.assertIn("(n/1e6).toFixed(1)+' MB'", web_app.PAGE)
         self.assertNotIn("(n/1048576).toFixed(1)+' MB'", web_app.PAGE)
+
+
+@unittest.skipIf(TestClient is None, "install the optional web extra to run web tests")
+class CspAndResponseHeaderTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(web_app.app, headers={"host": "127.0.0.1"})
+
+    def test_get_page_includes_strict_csp_and_security_headers(self):
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("content-security-policy", response.headers)
+        csp = response.headers["content-security-policy"]
+        self.assertIn("default-src 'none'", csp)
+        self.assertIn("script-src 'self' 'unsafe-inline'", csp)
+        self.assertIn("style-src 'self' 'unsafe-inline'", csp)
+        self.assertIn("img-src 'self' data: blob:", csp)
+        self.assertIn("connect-src 'self'", csp)
+        self.assertIn("frame-ancestors 'none'", csp)
+        self.assertIn("frame-src 'self' blob: data:", csp)
+        self.assertEqual(response.headers.get("x-content-type-options"), "nosniff")
+        self.assertEqual(response.headers.get("x-frame-options"), "DENY")
+        self.assertEqual(response.headers.get("referrer-policy"), "no-referrer")
+
+    def test_post_convert_includes_security_headers(self):
+        response = self.client.post(
+            "/convert",
+            data={"target": "md"},
+            files={"files": ("notes.md", b"# hello", "text/markdown")},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("content-security-policy", response.headers)
+        self.assertEqual(response.headers.get("x-content-type-options"), "nosniff")
+        self.assertEqual(response.headers.get("x-frame-options"), "DENY")
+
+
+@unittest.skipIf(TestClient is None, "install the optional web extra to run web tests")
+class PreviewBoundaryTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(web_app.app, headers={"host": "127.0.0.1"})
+
+    def test_workbench_page_contains_isolated_preview_frame(self):
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        # Verify an iframe with sandbox attribute is present for HTML preview
+        self.assertIn('<iframe', response.text)
+        self.assertIn('sandbox=', response.text)
+        # Sandbox MUST NOT permit scripts in converted HTML
+        self.assertNotIn('allow-scripts', response.text)
+        # Copy to clipboard button
+        self.assertIn('id="copy-preview"', response.text)
+
+
+@unittest.skipIf(TestClient is None, "install the optional web extra to run web tests")
+class InternationalizationTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(web_app.app, headers={"host": "127.0.0.1"})
+
+    def test_page_contains_language_selector_with_all_supported_locales(self):
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('id="lang-select"', response.text)
+        self.assertIn('value="en"', response.text)
+        self.assertIn('value="zh-TW"', response.text)
+        self.assertIn('value="zh-CN"', response.text)
+
+    def test_all_translations_have_matching_keys(self):
+        translations = web_app.TRANSLATIONS
+        self.assertEqual(set(translations.keys()), {"en", "zh-TW", "zh-CN"})
+        tw_keys = set(translations["zh-TW"].keys())
+        en_keys = set(translations["en"].keys())
+        cn_keys = set(translations["zh-CN"].keys())
+        self.assertEqual(tw_keys, en_keys)
+        self.assertEqual(tw_keys, cn_keys)
+
+    def test_negotiated_language_rendering_via_query_param(self):
+        res_en = self.client.get("/?lang=en")
+        self.assertEqual(res_en.status_code, 200)
+        self.assertIn('lang="en"', res_en.text)
+        self.assertIn("Local Only", res_en.text)
+
+        res_cn = self.client.get("/?lang=zh-CN")
+        self.assertEqual(res_cn.status_code, 200)
+        self.assertIn('lang="zh-CN"', res_cn.text)
+        self.assertIn("仅限本地使用", res_cn.text)
+
+        res_tw = self.client.get("/?lang=zh-TW")
+        self.assertEqual(res_tw.status_code, 200)
+        self.assertIn('lang="zh-TW"', res_tw.text)
+        self.assertIn("僅限本機使用", res_tw.text)
+
+    def test_unsupported_language_falls_back_to_english(self):
+        res = self.client.get("/?lang=fr-FR")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('lang="en"', res.text)
+        self.assertIn("Local Only", res.text)
+
+    def test_error_message_is_localized_when_requested(self):
+        # Client requests English via Accept-Language
+        res_en = self.client.post(
+            "/convert",
+            data={"target": "invalid_format"},
+            files={"files": ("notes.md", b"hello", "text/markdown")},
+            headers={"Accept-Language": "en-US,en;q=0.9"},
+        )
+        self.assertEqual(res_en.status_code, 400)
+        self.assertIn("Please choose an output format", res_en.json()["detail"])
+
+        # Default without preference remains Traditional Chinese for backward compatibility
+        res_tw = self.client.post(
+            "/convert",
+            data={"target": "invalid_format"},
+            files={"files": ("notes.md", b"hello", "text/markdown")},
+        )
+        self.assertEqual(res_tw.status_code, 400)
+        self.assertIn("請選擇一種輸出格式", res_tw.json()["detail"])
+
+    def test_unsupported_format_error_is_localized_in_en_and_zh_cn(self):
+        res_en = self.client.post(
+            "/convert",
+            data={"target": "md"},
+            files={"files": ("doc.xyz", b"hello", "application/octet-stream")},
+            headers={"Accept-Language": "en"},
+        )
+        self.assertEqual(res_en.status_code, 400)
+        self.assertIn("does not support '.xyz' files", res_en.json()["detail"])
+
+        res_cn = self.client.post(
+            "/convert",
+            data={"target": "md"},
+            files={"files": ("doc.xyz", b"hello", "application/octet-stream")},
+            headers={"Accept-Language": "zh-CN"},
+        )
+        self.assertEqual(res_cn.status_code, 400)
+        self.assertIn("不支持「.xyz」文件", res_cn.json()["detail"])
+
+    def test_oversize_single_file_error_is_localized_in_en_and_zh_cn(self):
+        big = b"x" * (web_app.MAX_FILE_BYTES + 1)
+        res_en = self.client.post(
+            "/convert",
+            data={"target": "md"},
+            files={"files": ("big.md", big, "text/markdown")},
+            headers={"Accept-Language": "en"},
+        )
+        self.assertEqual(res_en.status_code, 413)
+        self.assertIn("Single file must not exceed", res_en.json()["detail"])
+
+        res_cn = self.client.post(
+            "/convert",
+            data={"target": "md"},
+            files={"files": ("big.md", big, "text/markdown")},
+            headers={"Accept-Language": "zh-CN"},
+        )
+        self.assertEqual(res_cn.status_code, 413)
+        self.assertIn("单文件不得超过", res_cn.json()["detail"])
+
+    def test_security_boundary_errors_are_localized_with_accept_language(self):
+        # Invalid host header
+        r_en = self.client.get("/", headers={"host": "evil.com", "accept-language": "en"})
+        self.assertEqual(r_en.status_code, 400)
+        self.assertIn("Please open using http://127.0.0.1", r_en.text)
+
+        r_cn = self.client.get("/", headers={"host": "evil.com", "accept-language": "zh-CN"})
+        self.assertEqual(r_cn.status_code, 400)
+        self.assertIn("请使用 http://127.0.0.1", r_cn.text)
+
+        # Cross-site request
+        r_cs_en = self.client.post("/convert", headers={"sec-fetch-site": "cross-site", "accept-language": "en"})
+        self.assertEqual(r_cs_en.status_code, 403)
+        self.assertIn("Cross-site requests are not accepted", r_cs_en.text)
+
+    def test_page_attributes_are_localized_per_language(self):
+        res_en = self.client.get("/?lang=en")
+        self.assertIn('aria-label="Language selection"', res_en.text)
+        self.assertIn('title="Document Preview"', res_en.text)
+
+        res_cn = self.client.get("/?lang=zh-CN")
+        self.assertIn('aria-label="选择语言"', res_cn.text)
+        self.assertIn('title="文档预览"', res_cn.text)
+
+        res_tw = self.client.get("/?lang=zh-TW")
+        self.assertIn('aria-label="選擇語言"', res_tw.text)
+        self.assertIn('title="文件預覽"', res_tw.text)
+

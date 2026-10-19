@@ -10,6 +10,46 @@ ALLOWED_TARGETS = {"md", "html", "json", "txt"}
 MAX_FILE_COUNT = 5
 MAX_ACTIVE_REQUESTS = 2
 
+SUPPORTED_LOCALES = {"en", "zh-TW", "zh-CN"}
+DEFAULT_LOCALE = "zh-TW"
+
+CSP_DIRECTIVES = (
+    "default-src 'none'; "
+    "script-src 'self' 'unsafe-inline'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: blob:; "
+    "connect-src 'self'; "
+    "font-src 'self'; "
+    "object-src 'none'; "
+    "base-uri 'none'; "
+    "form-action 'self'; "
+    "frame-ancestors 'none'; "
+    "frame-src 'self' blob: data:;"
+)
+
+SECURITY_HEADERS = {
+    "Content-Security-Policy": CSP_DIRECTIVES,
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+}
+
+
+def normalize_locale(value: str | None) -> str:
+    """Normalize a browser/client language tag, falling back to 'en' for unsupported."""
+    if not value:
+        return "en"
+    # Take first item in Accept-Language list if multiple
+    primary = value.strip().split(",")[0].split(";")[0].strip()
+    tag = primary.lower()
+    if tag in ("zh-tw", "zh-hk", "zh-mo", "zh-hant") or tag.startswith("zh-tw") or tag.startswith("zh-hk"):
+        return "zh-TW"
+    if tag in ("zh-cn", "zh-hans", "zh-sg", "zh") or tag.startswith("zh-cn") or tag.startswith("zh-hans"):
+        return "zh-CN"
+    if tag == "en" or tag.startswith("en-") or tag.startswith("en_"):
+        return "en"
+    return "en"
+
 
 class RequestAdmission:
     """Non-blocking cap for active requests; callers release in a finally block."""
