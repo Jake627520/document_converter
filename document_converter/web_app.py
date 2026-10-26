@@ -13,7 +13,6 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
-from .engines.base import EngineError
 from .models import ConversionResult
 from .formats import PDF_TEXT_SUPPORTED, SUPPORTED, TEXT_SUPPORTED
 from .web_security import (
@@ -248,10 +247,15 @@ def release_formats() -> frozenset[str] | None:
 
 
 def _convert_text(path):
-    """UTF-8-only path used by text/pdf release profiles."""
-    from .engines.text_direct_engine import TextDirectEngine
+    """UTF-8-only path used by text/pdf release profiles.
 
-    return TextDirectEngine().convert(path, "none")
+    Read here rather than through TextDirectEngine: importing anything under
+    document_converter.engines runs the package's __init__, which loads every
+    adapter, and the text release forbids that package outright. convert_upload's
+    failure handler answers a UnicodeDecodeError by naming Big5, GBK and UTF-16.
+    """
+    content = path.read_text(encoding="utf-8")
+    return ConversionResult(source=path, engine="text_direct", markdown=content, text=plain_text_of(content, path.suffix))
 
 
 def convert_one(path, engine_name, image_mode):
