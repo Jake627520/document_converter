@@ -567,6 +567,48 @@ class EngineFailureMessageTests(TestCase):
                 self.assertNotIn("/tmp", detail)
 
 
+@unittest.skipIf(TestClient is None, "install the optional web extra to run web tests")
+class TextReleaseEngineBoundaryTests(TestCase):
+    """The text release must convert without loading engine code.
+
+    Routing its Markdown and text through TextDirectEngine imported
+    document_converter.engines, whose __init__ loads every adapter, and the
+    frozen text app then refused to start. Only the release runtime job, which
+    runs separately, caught it. This runs the text release's conversions in a
+    fresh interpreter and lists what they loaded.
+    """
+
+    SCRIPT = """
+import json, sys
+sys.path.insert(0, sys.argv[1])
+sys.path.insert(0, sys.argv[1] + "/scripts/packaging")
+import profiles
+from fastapi.testclient import TestClient
+from document_converter import web_app
+web_app.configure_text_release()
+client = TestClient(web_app.app, headers={"host": "127.0.0.1"})
+answers = [
+    client.post("/convert", data={"target": "md"}, files={"files": ("notes.md", "# 本機\\n".encode(), "text/markdown")}),
+    client.post("/convert", data={"target": "md"}, files={"files": ("big5.txt", "規格".encode("big5"), "text/plain")}),
+]
+own = [name for name in profiles.TEXT.forbidden if name.startswith("document_converter")]
+loaded = sorted(m for m in sys.modules if any(m == name or m.startswith(name + ".") for name in own))
+print(json.dumps({"status": [a.status_code for a in answers], "big5": answers[1].json()["detail"], "loaded": loaded}))
+"""
+
+    def test_text_release_conversions_load_no_forbidden_module(self):
+        import subprocess
+        import sys
+
+        root = Path(__file__).resolve().parent.parent
+        run = subprocess.run([sys.executable, "-c", self.SCRIPT, str(root)], capture_output=True, text=True, timeout=120)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        report = json.loads(run.stdout.strip().splitlines()[-1])
+        self.assertEqual(report["loaded"], [])
+        self.assertEqual(report["status"], [200, 422])
+        self.assertIn("不是 UTF-8 編碼的文字檔", report["big5"])
+
+
 class SizeLimitWordingTests(TestCase):
     """A limit is stated in both units, and the page agrees with the server.
 
