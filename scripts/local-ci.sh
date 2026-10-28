@@ -56,29 +56,34 @@ run_fast() {
 }
 
 run_audit() {
-  log_step "Stage 2: Security & License Audit"
-  if command -v gitleaks >/dev/null 2>&1; then
-    log_info "Running Gitleaks secret scan..."
-    gitleaks detect --source . --verbose --redact
-    log_pass "Gitleaks clean."
+  log_step "Stage 2: Security & License Audit (Fail-Closed)"
+  if ! command -v gitleaks >/dev/null 2>&1; then
+    log_fail "Security scanner 'gitleaks' is required for audit but not found in PATH (fail-closed)."
+    exit 1
   fi
+  log_info "Running Gitleaks secret scan..."
+  gitleaks detect --source . --verbose --redact
+  log_pass "Gitleaks clean."
 
-  if [[ -x "${VENV_LICENSES}" ]]; then
-    log_info "Checking third-party licenses for viral infectivity (AGPL/GPL)..."
-    "${VENV_LICENSES}" --fail-on="AGPL;GPLv3"
-    log_pass "License check passed."
+  if [[ ! -x "${VENV_LICENSES}" ]]; then
+    log_fail "License checker 'pip-licenses' is required for audit but not found in ${REPO_ROOT}/.venv (fail-closed)."
+    exit 1
   fi
+  log_info "Checking third-party licenses for viral infectivity (AGPL/GPL)..."
+  "${VENV_LICENSES}" --fail-on="AGPL;GPLv3"
+  log_pass "License check passed."
 }
 
 run_release() {
-  log_step "Stage 3: Release Packaging Runtime Tests"
-  log_info "Running packaging verification..."
-  if [[ -f build/private-release/venv-pdf/bin/python ]]; then
-    build/private-release/venv-pdf/bin/python -I -m unittest discover -s tests -p test_release_packaging.py -v
-    log_pass "Release runtime verification passed."
-  else
-    log_warn "Release venv not found. Skipping release packaging test."
+  log_step "Stage 3: Release Packaging Runtime Tests (Strict)"
+  local release_python="build/private-release/venv-pdf/bin/python"
+  if [[ ! -f "${release_python}" ]]; then
+    log_fail "Release packaging virtual environment missing: ${release_python}. Tests cannot run. Run scripts/packaging/bootstrap_macos.sh first."
+    exit 1
   fi
+  log_info "Running packaging verification..."
+  "${release_python}" -I -m unittest discover -s tests -p test_release_packaging.py -v
+  log_pass "Release runtime verification passed."
 }
 
 START_TIME=$(date +%s)
