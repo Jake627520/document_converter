@@ -51,7 +51,8 @@ fi
 run_fast() {
   log_step "Stage 1: Unit & Functional Tests"
   log_info "Running pytest suite..."
-  "${VENV_PYTEST}" tests/ -m "not slow" -k "not test_release_packaging"
+  "${VENV_PYTEST}" tests/ -m "not slow" -k "not test_release_packaging" \
+    --cov=document_converter --cov-report=term-missing --cov-fail-under=80
   log_pass "Fast test suite passed."
 }
 

@@ -8,6 +8,11 @@
 
 - **CHG-003 — Watch mode**: implemented and pushed in commit `f572e78`. Uses standard-library polling, stable-file fingerprints, output-subtree exclusion, and existing batch fault isolation. Local-first; no runtime dependency or model is added.
 
+## Next
+
+- **macOS Developer ID signing and notarization** (priority): the candidate app is signed ad hoc only, so Gatekeeper blocks a double-click on a colleague's Mac until they override it. Needs an Apple Developer Program membership, a Developer ID Application certificate, hardened runtime, `notarytool` submission and stapling. Required before formal delivery (`docs-release/macos.md`).
+- **Windows verification**: the README states Windows is untested. A minimal Windows test job, or a recorded manual run, should come before any "known to work" list. A GitHub-hosted Windows runner costs about twice the Linux minutes, so it waits until the Actions quota allows it.
+
 ## Active development
 
 - **CHG-004 — Image asset output and reference mapping**: active under `openspec/changes/CHG-004-image-asset-mapping/`. Keeps nested asset paths safe and rewrites matching local Markdown/HTML references in `referenced` mode; no runtime dependency is added.

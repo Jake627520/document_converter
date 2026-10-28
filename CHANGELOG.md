@@ -44,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tests Use httpx2 Where Starlette Asks For It**: Starlette 1.x runs its `TestClient` on `httpx2` and warns, deprecating plain `httpx`. The `dev` extra adds `httpx2` (BSD-3-Clause, development only) and keeps `httpx` for older Starlette within the supported FastAPI range.
 - `clean_markdown`, `write_result`, `process_batch` and `DirectoryWatcher` accept `strip_bare_numbers`.
 - `AGENTS.md` validation now runs `document-converter list-engines`; `--list-engines` was never a registered option.
+- **Plain `pytest` No Longer Needs pytest-cov**: `pyproject.toml` put `--cov … --cov-fail-under=80` in `addopts`, so `pytest` without the `dev` extra stopped at "unrecognized arguments". The coverage flags and the 80% gate moved to the CI test job and `scripts/local-ci.sh`, where they still apply.
+- **README Install And Limits**: the source install says what to do when `python -m venv` fails (`python3-venv`, or `uv`), and why not `pip install --user`. The 5-file, 24 MiB limits are stated as the web page's and the macOS app's; the CLI has none.
+- **Roadmap**: Developer ID signing and notarization is listed as the next priority, and Windows verification after it.
 
 ### Removed
 - **Python 3.10 Support**: `requires-python` is now `>=3.11,<3.15` and the CI matrix tests 3.11 and 3.12. `tests/test_security_baseline.py` imports `tomllib`, which entered the standard library in 3.11, so the suite has never been collectable on 3.10 and the job aborted before any test ran. The README already recommended 3.11 or 3.12.
