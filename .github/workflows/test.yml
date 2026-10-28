@@ -57,6 +57,51 @@ jobs:
           name: coverage-py${{ matrix.python-version }}
           path: coverage.xml
 
+  docling:
+    # The test job installs no document engine, so the tests that convert a
+    # real PDF through Docling skip there. This job installs the `docling`
+    # extra the way a from-source user does, from PyPI only, and runs the suite
+    # with nothing skipped.
+    #
+    # HF_HUB_OFFLINE stops Docling from downloading layout or OCR models: no
+    # test checks model output, and a download would make the job slower and
+    # dependent on Hugging Face. The model pipeline therefore fails fast and
+    # the engine chain falls back to docling-native, as it does on a machine
+    # without the models.
+    name: Tests with Docling installed (no model download)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      HF_HUB_OFFLINE: "1"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install the project with the docling extra
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,web,docling]"
+
+      - name: Run the test suite with nothing skipped
+        run: |
+          # `shell: bash` runs with -eo pipefail, so a failing pytest fails the
+          # step through tee; -rs lists each skip as a "SKIPPED" line.
+          pytest -rs --ignore=tests/test_release_packaging.py 2>&1 | tee docling-tests.log
+          if grep -q "^SKIPPED" docling-tests.log; then
+            echo "::error::Tests were skipped although Docling is installed"
+            exit 1
+          fi
+
   release-runtime:
     name: Release runtime tests (pinned versions, Linux wheels)
     runs-on: ubuntu-latest
