@@ -70,6 +70,9 @@ jobs:
     # without the models.
     name: Tests with Docling installed (no model download)
     runs-on: ubuntu-latest
+    # Longer than the other jobs' 15: with a cold pip cache this job downloads
+    # PyTorch. A warm run takes about three minutes.
+    timeout-minutes: 20
     defaults:
       run:
         shell: bash
