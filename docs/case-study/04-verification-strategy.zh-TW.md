@@ -6,12 +6,12 @@
 
 | 層級 | 回答什麼 | 在哪裡 |
 | --- | --- | --- |
-| 回歸測試 | 這個缺陷修好後，會不會再犯？ | `tests/`：CI 在 Python 3.11 與 3.12 上跑 180 個 |
+| 回歸測試 | 這個缺陷修好後，會不會再犯？ | `tests/`：226 個，CI 在 Python 3.11 與 3.12 上跑；其中需要 Docling 的 5 個在那裡會跳過，改由另一個安裝 Docling 的工作執行 |
 | 發行執行階段測試 | *打包後*的啟動器，在只有鎖定套件的情況下，行為正確嗎？ | `tests/test_release_packaging.py`：另外 9 個，在 CI 的 Linux 上執行，並在 Mac 上手動執行 |
 | 真實硬體 | 能在它要出貨的平台上建置、簽章、執行嗎？ | 負責人的 Apple Silicon Mac |
 | 乾淨機器 | 它有帶齊所需的一切嗎？ | macOS 虛擬機，[SOP](../../docs-release/macos-vm-verification.md) |
 | UAT | 在每種情況下，使用者實際上看到什麼？ | [`verification/2026-10-13-uat/`](../../verification/2026-10-13-uat/REPORT.md) |
-| CI 檢查 | 依賴套件安全嗎？授權沒問題嗎？沒有密鑰外洩嗎？ | 每次推送與 PR 都會跑的兩個 workflow |
+| CI 檢查 | 依賴套件安全嗎？授權沒問題嗎？沒有密鑰外洩嗎？ | 兩個 workflow，在推送到 `main` 與對 `main` 開 PR 時執行；只改文件時不執行 |
 
 ## 每個回歸測試都對照 bug 驗過
 

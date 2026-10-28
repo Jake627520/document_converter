@@ -285,7 +285,7 @@ document-converter web
 
 ```bash
 pip install -e ".[dev,web]"
-python -m pytest                       # 186 個測試
+python -m pytest
 document-converter --help
 document-converter list-engines
 python3 scripts/packaging/audit_notices.py --profile pdf   # 需要網路

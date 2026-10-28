@@ -6,12 +6,12 @@ Each layer answers a question the one before it cannot.
 
 | Layer | Answers | Where |
 | --- | --- | --- |
-| Regression tests | Does this exact defect stay fixed? | `tests/`: 180 run in CI on Python 3.11 and 3.12 |
+| Regression tests | Does this exact defect stay fixed? | `tests/`: 226, run in CI on Python 3.11 and 3.12; the 5 that need Docling skip there and run in a job that installs it |
 | Release runtime tests | Does the *packaged* launcher behave, with only the pinned packages present? | `tests/test_release_packaging.py`: 9 more, run in CI on Linux and by hand on the Mac |
 | Real hardware | Does it build, sign and run on the platform it ships for? | The owner's Apple Silicon Mac |
 | Clean machine | Does it carry everything it needs? | A macOS virtual machine, [SOP](../../docs-release/macos-vm-verification.md) |
 | UAT | What does a user actually see, in every case? | [`verification/2026-10-13-uat/`](../../verification/2026-10-13-uat/REPORT.md) |
-| CI checks | Are the dependencies safe, licensed, and free of secrets? | Two workflows on every push and pull request |
+| CI checks | Are the dependencies safe, licensed, and free of secrets? | Two workflows on pushes to `main` and pull requests into it, except changes to documentation only |
 
 ## Every regression test is checked against the bug
 

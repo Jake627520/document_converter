@@ -6,12 +6,12 @@
 
 | 层级 | 回答什么 | 在哪里 |
 | --- | --- | --- |
-| 回归测试 | 这个缺陷修复后，会不会再犯？ | `tests/`：CI 在 Python 3.11 和 3.12 上运行 180 个 |
+| 回归测试 | 这个缺陷修复后，会不会再犯？ | `tests/`：226 个，CI 在 Python 3.11 和 3.12 上运行；其中需要 Docling 的 5 个在那里会跳过，改由另一个安装 Docling 的任务运行 |
 | 发行运行时测试 | *打包后*的启动器，在只有锁定软件包的情况下，行为正确吗？ | `tests/test_release_packaging.py`：另外 9 个，在 CI 的 Linux 上运行，并在 Mac 上手动运行 |
 | 真实硬件 | 能在它要发行的平台上构建、签名、运行吗？ | 负责人的 Apple Silicon Mac |
 | 干净的机器 | 它带齐了所需的一切吗？ | macOS 虚拟机，[SOP](../../docs-release/macos-vm-verification.md) |
 | UAT | 在每种情况下，用户实际看到的是什么？ | [`verification/2026-10-13-uat/`](../../verification/2026-10-13-uat/REPORT.md) |
-| CI 检查 | 依赖安全吗？许可没问题吗？没有泄露密钥吗？ | 每次推送和 PR 都会运行的两个 workflow |
+| CI 检查 | 依赖安全吗？许可没问题吗？没有泄露密钥吗？ | 两个 workflow，在推送到 `main` 和对 `main` 提 PR 时运行；只改文档时不运行 |
 
 ## 每个回归测试都对照 bug 验证过
 
