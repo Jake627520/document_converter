@@ -2,14 +2,29 @@ name: Security & License Audit
 
 on:
   push:
-    branches: [ "main", "feat/*", "develop" ]
+    branches: [ "main" ]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'LICENSE'
+      - 'THIRD_PARTY_NOTICES.md'
   pull_request:
     branches: [ "main" ]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'LICENSE'
+      - 'THIRD_PARTY_NOTICES.md'
+
+concurrency:
+  group: audit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   secret-scan:
     name: Secret & Credential Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -17,12 +32,6 @@ jobs:
           fetch-depth: 0
 
       - name: TruffleHog Secret Scan
-        # On a push, default_branch resolves to the branch that was just pushed, so
-        # base and head were the same commit and the action stopped with "BASE and
-        # HEAD commits are the same" before scanning anything. Scan the commits the
-        # event actually added instead: a pull request's base against its head, or
-        # the range the push advanced. A newly created branch has no earlier commit
-        # to compare against, and is scanned by its pull request.
         if: github.event_name == 'pull_request' || github.event.before != '0000000000000000000000000000000000000000'
         uses: trufflesecurity/trufflehog@main
         with:
@@ -34,6 +43,7 @@ jobs:
   dependency-audit:
     name: Dependency Vulnerability Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -42,16 +52,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
-          # The runner's own setuptools carries PYSEC-2026-3447, fixed in 83.0.0.
           python -m pip install --upgrade pip "setuptools>=83"
           pip install ".[dev]"
-          # This project is not published to PyPI, so pip-audit can never audit
-          # the installed document-converter-skill itself and --strict treats
-          # that as a failed audit. Remove it and audit its dependencies, which
-          # stay installed.
           pip uninstall -y document-converter-skill
 
       - name: Run pip-audit
@@ -61,6 +67,7 @@ jobs:
   license-audit:
     name: License Compliance Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -69,6 +76,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
@@ -77,6 +85,5 @@ jobs:
 
       - name: Check core dependencies licenses
         run: |
-          # Ensure core installation does not introduce AGPL/GPL infectious licenses
           pip-licenses --format=markdown
           pip-licenses --fail-on="AGPL;GPLv3"

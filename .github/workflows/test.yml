@@ -2,14 +2,29 @@ name: Test & Coverage
 
 on:
   push:
-    branches: [ "main", "feat/*", "develop" ]
+    branches: [ "main" ]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'LICENSE'
+      - 'THIRD_PARTY_NOTICES.md'
   pull_request:
     branches: [ "main" ]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'LICENSE'
+      - 'THIRD_PARTY_NOTICES.md'
+
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
     name: Test on Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -23,18 +38,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # The web extra is required for coverage: without FastAPI the whole
-          # tests/test_web_app.py suite skips and web_app.py reports 0%.
           pip install -e ".[dev,web]"
 
       - name: Run test suite with coverage
         run: |
-          # The release runtime tests need the isolated release environments;
-          # the release-runtime job below builds them and runs that file.
           pytest --cov=document_converter --cov-report=term-missing --cov-report=xml \
             --ignore=tests/test_release_packaging.py
 
@@ -45,18 +57,9 @@ jobs:
           path: coverage.xml
 
   release-runtime:
-    # Builds build/private-release/venv (text) and venv-pdf (pdf) the way
-    # scripts/packaging/bootstrap_macos.sh does, then runs
-    # tests/test_release_packaging.py from venv-pdf as docs-release/macos.md does.
-    #
-    # This checks the pinned versions, not the shipped artifacts: the .lock
-    # hashes name macOS arm64 wheels, so on Linux the environments come from the
-    # unhashed .txt pins - the same versions, as Linux wheels.
-    #
-    # Neither environment gets pytest or any other test dependency, and the
-    # project itself is not installed: the launcher imports it from the checkout.
     name: Release runtime tests (pinned versions, Linux wheels)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         shell: bash
@@ -90,7 +93,6 @@ jobs:
         run: |
           build/private-release/venv-pdf/bin/python -I -m unittest discover \
             -s tests -p test_release_packaging.py -v 2>&1 | tee release-tests.log
-          # A missing environment skips its tests instead of failing them.
           if grep -q "skipped" release-tests.log; then
             echo "::error::Release runtime tests were skipped"
             exit 1
