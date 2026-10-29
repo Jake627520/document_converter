@@ -1,18 +1,30 @@
 # Development Roadmap
 
-## Current implemented changes
+## Done and archived
 
-- **CHG-001 — Standalone offline HTML renderer**: implemented in `document_converter/renderer.py` and integrated with the writer. Its OpenSpec change remains in the change history pending review/archive workflow.
-- **CHG-002 — Batch parallel processing**: implemented with a default of one worker, a hard limit of four, per-file fault isolation, relative-directory preservation, and collision-safe output names. Its OpenSpec change remains in the change history pending review/archive workflow.
-- **PDF text/scanned detection**: already implemented in `document_converter/detector.py` and integrated into engine selection in `document_converter/pipeline.py`. Do not create a new OCR-detection implementation change unless a specific missing behavior is identified.
+Archived on 2026-10-29 under `openspec/changes/archive/`; their requirements are in `openspec/specs/`.
 
-- **CHG-003 — Watch mode**: implemented and pushed in commit `f572e78`. Uses standard-library polling, stable-file fingerprints, output-subtree exclusion, and existing batch fault isolation. Local-first; no runtime dependency or model is added.
+- **CHG-001 — Standalone offline HTML renderer**: `document_converter/renderer.py`, used by the writer when no engine supplies HTML.
+- **CHG-002 — Batch parallel processing**: one worker by default, a hard limit of four, per-file fault isolation, relative-directory preservation, and collision-safe output names.
+- **CHG-003 — Watch mode**: standard-library polling, stable-file fingerprints, output-subtree exclusion, and the batch fault isolation.
+- **CHG-004 — Image asset output and reference mapping**: nested asset paths stay safe; matching local Markdown/HTML references are rewritten in `referenced` mode.
+- **CHG-008 — CJK PDF detection**: CJK text and ToUnicode CMaps count as a text layer; an empty or corrupt PDF is `unknown`, not `scanned`. Already in `openspec/specs/pdf-detection/`, so archived without a spec update.
+- **CI cost optimization**: concurrency, `paths-ignore`, timeouts, pip caching and `scripts/local-ci.sh`. Tooling only, archived without a spec update.
+
+PDF text/scanned detection lives in `document_converter/detector.py` and drives engine selection in `document_converter/pipeline.py`. Do not create a new OCR-detection change unless a specific missing behavior is identified.
+
+## Implemented, spec not yet recorded
+
+The behavior ships and is tested, but the change has no spec delta, so it cannot be archived yet.
+
+- **CHG-005 — Local web workbench**: its `spec.md` sits at the change root instead of `specs/<capability>/spec.md`, and lists only `md`/`html` outputs while the code also offers `json` and `txt`. Needs a `web-workbench` spec delta.
+- **CHG-007 — CSP and interface languages**: the security headers, the sandboxed preview and the language selector are in no spec. Needs deltas for `security-baseline` and `web-workbench`.
+
+## Waiting on the owner
+
+- **CHG-006 — Private macOS release**: the candidate builds and its release tests pass. Before distribution the owner confirms the rights owner and recipients and installs on a target machine; a fresh-context acceptance review follows.
+- **macOS Developer ID signing and notarization — not planned** (owner's decision, 2026-10-29): the app is not distributed through the App Store, and recipients are few, so it stays signed ad hoc. A recipient opens it once through **System Settings › Privacy & Security › Open Anyway**, as the README describes. Revisit if the app is handed to people who cannot do that; it would need an Apple Developer Program membership, a Developer ID Application certificate, hardened runtime, `notarytool` submission and stapling.
 
 ## Next
 
-- **macOS Developer ID signing and notarization** (priority): the candidate app is signed ad hoc only, so Gatekeeper blocks a double-click on a colleague's Mac until they override it. Needs an Apple Developer Program membership, a Developer ID Application certificate, hardened runtime, `notarytool` submission and stapling. Required before formal delivery (`docs-release/macos.md`).
-- **Windows verification**: the README states Windows is untested. A minimal Windows test job, or a recorded manual run, should come before any "known to work" list. A GitHub-hosted Windows runner costs about twice the Linux minutes, so it waits until the Actions quota allows it.
-
-## Active development
-
-- **CHG-004 — Image asset output and reference mapping**: active under `openspec/changes/CHG-004-image-asset-mapping/`. Keeps nested asset paths safe and rewrites matching local Markdown/HTML references in `referenced` mode; no runtime dependency is added.
+- **Windows verification**: the README states Windows is untested. A minimal Windows test job, or a recorded manual run, should come before any "known to work" list. A GitHub-hosted Windows runner may cost about twice the Linux minutes; check the account's Actions usage before adding one.

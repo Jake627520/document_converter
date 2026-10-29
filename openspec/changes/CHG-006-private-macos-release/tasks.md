@@ -6,4 +6,4 @@
 - [x] Source integration smoke for MD/TXT, HTML, rejected PDF/UTF-8 and security boundaries.
 - [x] Frozen app startup and synthetic conversion smoke (temporary staging using draft legal text; not a distributable release).
 - [ ] Fresh-context acceptance review.
-- [ ] Confirm rights owner and recipients; Developer ID/notarization and target-machine installation before distribution.
+- [ ] Confirm rights owner and recipients, and target-machine installation, before distribution. Developer ID signing and notarization: not planned (owner's decision, 2026-10-29); the app stays signed ad hoc.

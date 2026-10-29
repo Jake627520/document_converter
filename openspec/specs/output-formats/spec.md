@@ -97,7 +97,7 @@ When image extraction is requested in `referenced` mode, the writer MUST write a
 - **THEN** the standalone HTML contains an image element pointing to the stored local asset
 
 #### Scenario: Unsafe or colliding asset path
-- **WHEN** an asset key is unsafe, escapes through a symlink, or collides after case folding
+- **WHEN** an asset key is absolute, drive-qualified, contains traversal or backslashes, escapes through a symlink, or collides after case folding
 - **THEN** the writer skips the affected asset, records a warning, and does not write outside the asset root
 - **AND** references to rejected assets remain unchanged
 
@@ -108,3 +108,26 @@ When image extraction is requested in `referenced` mode, the writer MUST write a
 #### Scenario: Non-referenced image mode
 - **WHEN** image mode is `none` or `embedded`
 - **THEN** the writer preserves existing asset and reference behavior without reference mapping
+
+### Requirement: Offline HTML rendering fallback
+When an engine returns Markdown but no HTML, the writer MUST render Markdown to a complete HTML5 document using the built-in renderer. Rendering MUST work without network access or additional runtime dependencies, and the generated document MUST use embedded CSS without external stylesheets, scripts, or fonts.
+
+#### Scenario: Markdown is the only available source
+- **WHEN** `write_result` receives a result with Markdown and no engine HTML and HTML output is requested
+- **THEN** it writes a complete standalone HTML document with rendered block structure and embedded styles
+- **AND** it renders headings and paragraph text as semantic HTML elements
+
+#### Scenario: Markdown is empty
+- **WHEN** `write_result` receives an empty string as Markdown and HTML output is requested
+- **THEN** it writes a complete standalone HTML document with an empty content area
+
+### Requirement: Safe Markdown-to-HTML conversion
+The built-in renderer MUST support headings, paragraphs, ordered and unordered lists, tables, fenced code blocks, inline code, bold and italic emphasis, and empty documents. Source text and document titles MUST be escaped as text. Raw HTML MUST NOT be executed. Fenced-code language labels MUST be restricted to safe attribute characters.
+
+#### Scenario: HTML-looking Markdown content
+- **WHEN** Markdown includes tags such as `<script>` or `<tag>` in text or table cells
+- **THEN** those characters are emitted escaped and cannot create HTML elements
+
+#### Scenario: Fenced code language is malformed
+- **WHEN** a code fence language label contains quotes or attribute syntax
+- **THEN** the renderer omits the language class rather than emitting an unsafe attribute

@@ -6,7 +6,7 @@
 
 | 層級 | 回答什麼 | 在哪裡 |
 | --- | --- | --- |
-| 回歸測試 | 這個缺陷修好後，會不會再犯？ | `tests/`：226 個，CI 在 Python 3.11 與 3.12 上跑；其中需要 Docling 的 5 個在那裡會跳過，改由另一個安裝 Docling 的工作執行 |
+| 回歸測試 | 這個缺陷修好後，會不會再犯？ | `tests/`：CI 在 Python 3.11 與 3.12 上跑；其中需要 Docling 的 5 個在那裡會跳過，改由另一個安裝 Docling 的工作執行 |
 | 發行執行階段測試 | *打包後*的啟動器，在只有鎖定套件的情況下，行為正確嗎？ | `tests/test_release_packaging.py`：另外 9 個，在 CI 的 Linux 上執行，並在 Mac 上手動執行 |
 | 真實硬體 | 能在它要出貨的平台上建置、簽章、執行嗎？ | 負責人的 Apple Silicon Mac |
 | 乾淨機器 | 它有帶齊所需的一切嗎？ | macOS 虛擬機，[SOP](../../docs-release/macos-vm-verification.md) |

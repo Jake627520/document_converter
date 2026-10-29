@@ -10,7 +10,7 @@ from document_converter.pipeline import (
 )
 
 class TestBatchParallel(unittest.TestCase):
-    """Regression tests for openspec/changes/CHG-002-batch-parallel-processing."""
+    """Regression tests for openspec/changes/archive/2026-10-29-CHG-002-batch-parallel-processing."""
 
     def test_default_and_hard_worker_limit(self):
         self.assertEqual(DEFAULT_PARALLEL, 1)

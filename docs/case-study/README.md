@@ -24,12 +24,14 @@ check that had passed: **how much did it actually look at?** —
 
 ## In numbers
 
+As of 2026-10-29, commit `5315470`. These numbers are a snapshot; they are not updated with every change.
+
 | | |
 | --- | --- |
-| Pull requests merged | 14 (one more closed as superseded) |
+| Pull requests merged | 19 (one more closed as superseded) |
 | Defects found and fixed | 10 that looked fine, plus the ones that looked broken |
-| Tests | 235, all run in CI: 226 in the test suite (the 5 that need Docling in a job that installs it), and the 9 release runtime tests in their own job, against the pinned versions as Linux builds — 3,651 lines of tests against 3,059 lines of product code |
-| Coverage | 87% |
+| Tests | 239, all run in CI: 230 in the test suite (the 5 that need Docling in a job that installs it), and the 9 release runtime tests in their own job, against the pinned versions as Linux builds — 3,691 lines of tests against 3,083 lines of product code |
+| Coverage | 87.5% |
 | Third-party notices shipped in the macOS app | 124, across 60 packages |
 | GPL or AGPL code in the shipped app | none |
 | OCR shipped | none, by design — a scan is reported, never guessed at |
