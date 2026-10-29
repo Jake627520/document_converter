@@ -6,7 +6,7 @@
 
 | 层级 | 回答什么 | 在哪里 |
 | --- | --- | --- |
-| 回归测试 | 这个缺陷修复后，会不会再犯？ | `tests/`：226 个，CI 在 Python 3.11 和 3.12 上运行；其中需要 Docling 的 5 个在那里会跳过，改由另一个安装 Docling 的任务运行 |
+| 回归测试 | 这个缺陷修复后，会不会再犯？ | `tests/`：CI 在 Python 3.11 和 3.12 上运行；其中需要 Docling 的 5 个在那里会跳过，改由另一个安装 Docling 的任务运行 |
 | 发行运行时测试 | *打包后*的启动器，在只有锁定软件包的情况下，行为正确吗？ | `tests/test_release_packaging.py`：另外 9 个，在 CI 的 Linux 上运行，并在 Mac 上手动运行 |
 | 真实硬件 | 能在它要发行的平台上构建、签名、运行吗？ | 负责人的 Apple Silicon Mac |
 | 干净的机器 | 它带齐了所需的一切吗？ | macOS 虚拟机，[SOP](../../docs-release/macos-vm-verification.md) |

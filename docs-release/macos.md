@@ -124,4 +124,4 @@ HTTP smoke 使用新的 loopback port，驗證首頁、Markdown round trip、HTM
 含刻意貼上隔離標籤以觸發 Gatekeeper、以及在沒有 Python 的客體系統確認 `.app` 自我完整。
 它驗收「漏帶東西」與 Gatekeeper 流程，不驗收不同晶片世代與不同 macOS 大版本的差異。
 
-候選包固定標記 `distribution_ready: false`，沒有 Developer ID 簽章或 notarization。此流程不 commit、push、發布、修改 GitHub visibility，也不代表第三方或產品的完整法律核准。正式交付仍需確認自有權利／接受者、native inventory、獨立驗收、簽章／notarization 與目標電腦的實際安裝。不得以關閉 Gatekeeper 取代安裝驗收。
+候選包固定標記 `distribution_ready: false`，沒有 Developer ID 簽章或 notarization。此流程不 commit、push、發布、修改 GitHub visibility，也不代表第三方或產品的完整法律核准。正式交付仍需確認自有權利／接受者、native inventory、獨立驗收與目標電腦的實際安裝。擁有者已決定（2026-10-29）不申請 Developer ID，維持 ad-hoc 簽章：收件者第一次開啟時，依 README「開啟 App」的步驟，在「系統設定 › 隱私權與安全性」按**仍要打開**。不得以關閉 Gatekeeper 取代安裝驗收。

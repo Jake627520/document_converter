@@ -10,7 +10,7 @@
 
 ## Next
 
-- **macOS Developer ID signing and notarization** (priority): the candidate app is signed ad hoc only, so Gatekeeper blocks a double-click on a colleague's Mac until they override it. Needs an Apple Developer Program membership, a Developer ID Application certificate, hardened runtime, `notarytool` submission and stapling. Required before formal delivery (`docs-release/macos.md`).
+- **macOS Developer ID signing and notarization — not planned** (owner's decision, 2026-10-29): the app is not distributed through the App Store, and recipients are few, so it stays signed ad hoc. A recipient opens it once through **System Settings › Privacy & Security › Open Anyway**, as the README describes. Revisit if the app is handed to people who cannot do that; it would need an Apple Developer Program membership, a Developer ID Application certificate, hardened runtime, `notarytool` submission and stapling.
 - **Windows verification**: the README states Windows is untested. A minimal Windows test job, or a recorded manual run, should come before any "known to work" list. A GitHub-hosted Windows runner costs about twice the Linux minutes, so it waits until the Actions quota allows it.
 
 ## Active development

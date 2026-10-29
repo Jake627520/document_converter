@@ -6,7 +6,7 @@ Each layer answers a question the one before it cannot.
 
 | Layer | Answers | Where |
 | --- | --- | --- |
-| Regression tests | Does this exact defect stay fixed? | `tests/`: 226, run in CI on Python 3.11 and 3.12; the 5 that need Docling skip there and run in a job that installs it |
+| Regression tests | Does this exact defect stay fixed? | `tests/`: run in CI on Python 3.11 and 3.12; the 5 that need Docling skip there and run in a job that installs it |
 | Release runtime tests | Does the *packaged* launcher behave, with only the pinned packages present? | `tests/test_release_packaging.py`: 9 more, run in CI on Linux and by hand on the Mac |
 | Real hardware | Does it build, sign and run on the platform it ships for? | The owner's Apple Silicon Mac |
 | Clean machine | Does it carry everything it needs? | A macOS virtual machine, [SOP](../../docs-release/macos-vm-verification.md) |
