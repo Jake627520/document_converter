@@ -1,11 +1,11 @@
 # Change Proposal: CHG-007 CSP Hardening and UI Internationalization
 
-## Problem
+## Why
 
 1. **Security Policy**: The local browser workbench currently does not serve a `Content-Security-Policy` (CSP) header, nor other defense-in-depth headers such as `X-Frame-Options` and `Referrer-Policy`. When converted HTML is previewed, injecting arbitrary converted HTML into the application DOM would introduce Cross-Site Scripting (XSS) risks.
 2. **Localization**: The browser workbench UI is hardcoded in Traditional Chinese (`zh-Hant`), offering no English (`en`) or Simplified Chinese (`zh-CN`) support, no language selector, and no browser language detection or preference persistence.
 
-## Solution
+## What Changes
 
 1. **CSP and Security Boundaries**:
    - Enforce a strict, tailored `Content-Security-Policy` header on all workbench responses:
