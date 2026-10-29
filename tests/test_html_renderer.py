@@ -3,7 +3,7 @@ from pathlib import Path
 from document_converter.renderer import render_markdown_to_html
 
 class TestStandaloneHtmlRenderer(unittest.TestCase):
-    """Ref: openspec/changes/CHG-001-standalone-html-renderer/"""
+    """Ref: openspec/changes/archive/2026-10-29-CHG-001-standalone-html-renderer/"""
 
     def test_headings_and_paragraphs(self):
         md = "# Main Title\n\n## Sub Title\n\nThis is a standard paragraph."

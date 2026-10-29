@@ -16,4 +16,4 @@
 - [x] **Phase 3: 驗證與同步**
 - [x] 執行 `make lint`、`make test` 與 `git diff --check`
 - [x] OpenSpec change 與基線規格驗證通過
-- [ ] Commit / push 不屬於本次修改範圍
+- [x] Commit / push：已於 `b758692` 提交

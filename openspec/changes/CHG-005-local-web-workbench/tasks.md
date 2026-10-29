@@ -6,4 +6,4 @@
 - [x] Build responsive accessible upload workspace with local CSS/JS.
 - [x] Add optional web dependencies and loopback-only CLI launcher.
 - [x] Document setup, startup, input formats, and local processing limitations.
-- [ ] Run focused and existing tests, CLI help, and ASGI GET/POST checks where dependencies permit.
+- [x] Run focused and existing tests, CLI help, and ASGI GET/POST checks where dependencies permit. (2026-10-29: `scripts/local-ci.sh --all` passed, 230 tests with none skipped; `tests/test_web_app.py` drives GET/POST through TestClient; `document-converter web --help` OK.)

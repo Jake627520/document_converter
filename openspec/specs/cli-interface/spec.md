@@ -31,16 +31,28 @@ lines MUST be preserved unless `--strip-page-numbers` is also given.
 The convert command MUST be able to watch a local directory and convert supported new or changed files after they become stable. Polling MUST use the Python standard library and MUST NOT add runtime dependencies or send local files to a remote service.
 
 #### Scenario: Process stable files once
-- **WHEN** a supported file has the same size and modification timestamp in two consecutive snapshots
-- **THEN** it is processed through the existing batch pipeline, and that fingerprint is not processed again unless it changes
+- **WHEN** watch mode observes a supported file with an unchanged size and modification timestamp in two consecutive snapshots
+- **THEN** it submits that file to the existing batch pipeline
+
+#### Scenario: Ignore duplicate snapshots
+- **WHEN** watch mode sees a fingerprint already processed
+- **THEN** it does not submit that file again unless its fingerprint changes and becomes stable
 
 #### Scenario: Exclude output subtree
 - **WHEN** the output directory is within the watched directory
-- **THEN** the resolved output subtree is excluded from input discovery
+- **THEN** the output subtree is excluded from all input snapshots
+
+#### Scenario: Process changed files again
+- **WHEN** a previously processed file has a changed fingerprint and then remains stable across two snapshots
+- **THEN** the changed file is submitted to the existing batch pipeline once
 
 #### Scenario: Validate and stop watch mode
-- **WHEN** watch mode is enabled with a file source, identical source/output paths, or a non-finite or non-positive interval
-- **THEN** the CLI reports an input error; Ctrl-C stops a running watcher cleanly
+- **WHEN** watch mode is enabled for a file, identical source and output directory, or a non-finite or non-positive polling interval
+- **THEN** the command reports an input error; Ctrl-C stops a running watcher cleanly
+
+#### Scenario: Stop watching
+- **WHEN** the user presses Ctrl-C
+- **THEN** the command exits cleanly with a concise message
 
 ### Requirement: List available engines
 The CLI MUST provide a command that reports registered engines and whether their local runtime is detected.
@@ -48,3 +60,14 @@ The CLI MUST provide a command that reports registered engines and whether their
 #### Scenario: List engines
 - **WHEN** the user invokes `document-converter list-engines`
 - **THEN** the CLI reports each supported engine and its detected availability
+
+### Requirement: Bounded batch concurrency
+The `convert` command MUST default `--parallel` to 1, accept values from 1 through 4 inclusive, and reject values outside that range.
+
+#### Scenario: Parallel option is omitted
+- **WHEN** the user runs `convert` without `--parallel`
+- **THEN** the command processes inputs with one worker
+
+#### Scenario: Parallel option is out of range
+- **WHEN** the user provides a value below 1 or above 4
+- **THEN** the command reports a parameter error before processing inputs
