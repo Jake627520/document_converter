@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `clean_markdown`, `write_result`, `process_batch` and `DirectoryWatcher` accept `strip_bare_numbers`.
 - `AGENTS.md` validation now runs `document-converter list-engines`; `--list-engines` was never a registered option.
 - **Plain `pytest` No Longer Needs pytest-cov**: `pyproject.toml` put `--cov … --cov-fail-under=80` in `addopts`, so `pytest` without the `dev` extra stopped at "unrecognized arguments". The coverage flags and the 80% gate moved to the CI test job and `scripts/local-ci.sh`, where they still apply.
+- **`scripts/local-ci.sh` Fails On Any Skipped Test**: a skipped test does not fail pytest or unittest, so a missing Docling install or a missing `build/private-release/venv` ended in PASS while tests had not run. Both test stages now fail on any skip, and the release stage requires both release environments, not only `venv-pdf`. This matches the GitHub jobs, while the Actions quota is used up and CI runs locally.
 - **README Install And Limits**: the source install says what to do when `python -m venv` fails (`python3-venv`, or `uv`), and why not `pip install --user`. The 5-file, 24 MiB limits are stated as the web page's and the macOS app's; the CLI has none.
 - **Roadmap**: Developer ID signing and notarization is listed as the next priority, and Windows verification after it.
 

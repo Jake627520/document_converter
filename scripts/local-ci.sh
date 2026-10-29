@@ -20,6 +20,12 @@ log_pass()  { echo -e "${GREEN}${BOLD}[PASS]${RESET} $*"; }
 log_fail()  { echo -e "${RED}${BOLD}[FAIL]${RESET} $*"; }
 log_warn()  { echo -e "${YELLOW}${BOLD}[WARN]${RESET} $*"; }
 
+# A skipped test does not fail its runner, so a missing dependency or release
+# environment would otherwise end in PASS. Each test stage keeps its output
+# here and fails on any skip.
+STAGE_LOG="$(mktemp)"
+trap 'rm -f "${STAGE_LOG}"' EXIT
+
 VENV_PYTHON="${REPO_ROOT}/.venv/bin/python"
 VENV_PYTEST="${REPO_ROOT}/.venv/bin/pytest"
 VENV_AUDIT="${REPO_ROOT}/.venv/bin/pip-audit"
@@ -51,8 +57,12 @@ fi
 run_fast() {
   log_step "Stage 1: Unit & Functional Tests"
   log_info "Running pytest suite..."
-  "${VENV_PYTEST}" tests/ -m "not slow" -k "not test_release_packaging" \
-    --cov=document_converter --cov-report=term-missing --cov-fail-under=80
+  "${VENV_PYTEST}" tests/ -m "not slow" -k "not test_release_packaging" -rs \
+    --cov=document_converter --cov-report=term-missing --cov-fail-under=80 2>&1 | tee "${STAGE_LOG}"
+  if grep -q "^SKIPPED" "${STAGE_LOG}"; then
+    log_fail "Tests were skipped (listed above as SKIPPED). Install what they need, e.g. pip install -e \".[dev,web,docling]\"."
+    exit 1
+  fi
   log_pass "Fast test suite passed."
 }
 
@@ -78,12 +88,21 @@ run_audit() {
 run_release() {
   log_step "Stage 3: Release Packaging Runtime Tests (Strict)"
   local release_python="build/private-release/venv-pdf/bin/python"
-  if [[ ! -f "${release_python}" ]]; then
-    log_fail "Release packaging virtual environment missing: ${release_python}. Tests cannot run. Run scripts/packaging/bootstrap_macos.sh first."
+  # The text profile's tests run from build/private-release/venv; without it
+  # they skip, so both environments are required.
+  local env
+  for env in build/private-release/venv build/private-release/venv-pdf; do
+    if [[ ! -f "${env}/bin/python" ]]; then
+      log_fail "Release packaging virtual environment missing: ${env}. Tests cannot run. Run scripts/packaging/bootstrap_macos.sh first (RELEASE_PROFILE=text and pdf)."
+      exit 1
+    fi
+  done
+  log_info "Running packaging verification..."
+  "${release_python}" -I -m unittest discover -s tests -p test_release_packaging.py -v 2>&1 | tee "${STAGE_LOG}"
+  if grep -q "skipped" "${STAGE_LOG}"; then
+    log_fail "Release runtime tests were skipped (see above)."
     exit 1
   fi
-  log_info "Running packaging verification..."
-  "${release_python}" -I -m unittest discover -s tests -p test_release_packaging.py -v
   log_pass "Release runtime verification passed."
 }
 
