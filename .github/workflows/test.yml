@@ -48,7 +48,7 @@ jobs:
 
       - name: Run test suite with coverage
         run: |
-          pytest --cov=document_converter --cov-report=term-missing --cov-report=xml \
+          pytest --cov=document_converter --cov-report=term-missing --cov-report=xml --cov-fail-under=80 \
             --ignore=tests/test_release_packaging.py
 
       - name: Upload coverage report

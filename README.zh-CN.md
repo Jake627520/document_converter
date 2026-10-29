@@ -35,9 +35,9 @@
 
 > 「規格.txt」不是 UTF-8 編碼的文字檔（常見的是 Big5、GBK 或 UTF-16）。請先用文字編輯器另存為 UTF-8 再轉換。
 
-**数量与大小限制。** 一次最多 5 个文件，单个文件和全部合计各不超过 24 MiB（约 25 MB），
+**数量与大小限制。** 网页与 macOS app 一次最多 5 个文件，单个文件和全部合计各不超过 24 MiB（约 25 MB），
 整个请求上限 25 MiB（约 26 MB）。1 MiB 是 1,048,576 字节，而 Finder 显示的 1 MB 是
-1,000,000 字节，所以 Finder 显示 25.1 MB 的文件仍可上传。
+1,000,000 字节，所以 Finder 显示 25.1 MB 的文件仍可上传。CLI 没有大小或文件数量限制。
 
 **绝不会给你空文件。** 如果转换提取不到任何文字 —— 没有文字层的扫描件、
 整页都是图片、或文件本身是空的 —— 系统会明确说明原因，
@@ -121,6 +121,19 @@ python -m venv .venv
 source .venv/bin/activate          # Windows PowerShell: .\.venv\Scripts\Activate.ps1
 python -m pip install -U pip
 ```
+
+如果 `python -m venv` 失败，说明这个 Python 缺少 venv 模块。在 Debian 或 Ubuntu 上，
+用 `sudo apt install python3-venv` 安装后再运行一次。或改用
+[uv](https://docs.astral.sh/uv/) 创建环境，它不需要这个模块；之后把下面的 `pip`
+换成 `uv pip`：
+
+```bash
+uv venv .venv && source .venv/bin/activate
+uv pip install -e .
+```
+
+不要用 `pip install --user`：较新的 Linux 发行版会在虚拟环境外拒绝它（PEP 668），
+而且它会把这个项目的软件包混进你的用户目录。
 
 按需选择安装层级：
 

@@ -34,9 +34,10 @@ app: 這個版本不支援「.docx」檔案。可以轉換的格式：.markdown�
 message saying so and asking you to re-save it as UTF-8; it is not converted
 into mojibake.
 
-**Limits.** Up to 5 files per conversion, each up to 24 MiB (about 25 MB as Finder
+**Limits.** The web page and the macOS app take up to 5 files per conversion, each up to 24 MiB (about 25 MB as Finder
 counts it), 25 MiB (about 26 MB) per request. A MiB is 1,048,576 bytes; the MB
-Finder shows is 1,000,000, so a file Finder lists as 25.1 MB is still accepted.
+Finder shows is 1,000,000, so a file Finder lists as 25.1 MB is still accepted. The CLI has no size or
+file-count limit.
 
 **Nothing is ever returned empty.** If a conversion recovers no text — a scan
 with no text layer, a page that is one picture, an empty file — the answer says
@@ -127,6 +128,20 @@ python -m venv .venv
 source .venv/bin/activate          # Windows PowerShell: .\.venv\Scripts\Activate.ps1
 python -m pip install -U pip
 ```
+
+If `python -m venv` fails, the Python install lacks the venv module. On Debian
+or Ubuntu, install it with `sudo apt install python3-venv` and run the line
+again. Or create the environment with [uv](https://docs.astral.sh/uv/), which
+does not need that module, and keep `uv pip` in place of `pip` below:
+
+```bash
+uv venv .venv && source .venv/bin/activate
+uv pip install -e .
+```
+
+Avoid `pip install --user`: newer Linux distributions refuse it outside a
+virtual environment (PEP 668), and it mixes this project's packages into your
+user site.
 
 Choose the installation tier that matches your needs:
 
