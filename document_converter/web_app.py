@@ -122,6 +122,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "status_total_limit": "檔案總量超過 24 MiB（約 25 MB），請減少檔案或分批轉換。",
         "status_processing": "文件正在這台電腦上處理。",
         "status_done": "轉換完成，下載已開始。",
+        "note_model_free": "這次用的是不跑模型的 PDF 讀取方式（docling-native）：只取出文字，不還原標題層級、表格與閱讀順序。",
         "status_failed": "轉換失敗。請確認文件格式及本機引擎。",
     },
     "zh-CN": {
@@ -161,6 +162,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "status_total_limit": "文件总量超过 24 MiB（约 25 MB），请减少文件或分批转换。",
         "status_processing": "文件正在这台电脑上处理。",
         "status_done": "转换完成，下载已开始。",
+        "note_model_free": "这次使用的是不运行模型的 PDF 读取方式（docling-native）：只提取文本，不还原标题层级、表格和阅读顺序。",
         "status_failed": "转换失败。请检查文件格式及本地引擎。",
     },
     "en": {
@@ -200,6 +202,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "status_total_limit": "Total size exceeds 24 MiB (approx. 25 MB). Please reduce files or convert in batches.",
         "status_processing": "Processing document locally on this computer.",
         "status_done": "Conversion complete. Download has started.",
+        "note_model_free": "This used the model-free PDF reader (docling-native): it extracts the text but does not rebuild heading levels, tables or reading order.",
         "status_failed": "Conversion failed. Please verify the document format and local engines.",
     },
 }
@@ -479,6 +482,8 @@ async def convert_upload(
     with tempfile.TemporaryDirectory(prefix="document-converter-") as temp_root:
         root = Path(temp_root)
         produced: list[tuple[str, bytes]] = []
+        # Codes, not text: the page shows each in the reader's language.
+        notes: set[str] = set()
         for upload in files:
             original_name = upload.filename or "document"
             suffix = supported_suffix(original_name)
@@ -503,6 +508,8 @@ async def convert_upload(
                 if not output_path.is_file():
                     raise HTTPException(422, _unavailable_target(target, result, locale))
                 produced.append((safe_output_stem(original_name), output_path.read_bytes()))
+                if result.engine == "docling-native":
+                    notes.add("model-free")
             except HTTPException:
                 raise
             except Exception as exc:
@@ -544,7 +551,10 @@ async def convert_upload(
             disposition = content_disposition("converted-documents", "zip")
             media_type = "application/zip"
 
-    return Response(body, media_type=media_type, headers={"Content-Disposition": disposition, "X-Content-Type-Options": "nosniff"})
+    headers = {"Content-Disposition": disposition, "X-Content-Type-Options": "nosniff"}
+    if notes:
+        headers["X-Conversion-Notes"] = ",".join(sorted(notes))
+    return Response(body, media_type=media_type, headers=headers)
 
 
 def _archive_names(stems: list[str], target: str) -> list[str]:
@@ -616,7 +626,11 @@ def _no_text_recovered(result: ConversionResult, locale: str = DEFAULT_LOCALE) -
         remedy = (
             "This release does not include OCR text recognition."
             if _RELEASE_PROFILE is not None
-            else f"Scanned files require an OCR-capable engine (used: {result.engine})."
+            else (
+                f"Scanned files require an OCR-capable engine (used: {result.engine}). "
+                "This project ships none; Marker or MinerU can be installed separately, under their own terms. "
+                "`document-converter list-engines` shows what is installed."
+            )
         )
         return (
             "No text was extracted from this file. It may be a scanned document, image-only page, "
@@ -626,7 +640,11 @@ def _no_text_recovered(result: ConversionResult, locale: str = DEFAULT_LOCALE) -
         remedy = (
             "此版本不包含 OCR 文本识别，无法从图像中提取文本。"
             if _RELEASE_PROFILE is not None
-            else f"扫描件需要具备 OCR 的引擎才能提取文本（本次使用的引擎：{result.engine}）。"
+            else (
+                f"扫描件需要具备 OCR 的引擎才能提取文本（本次使用的引擎：{result.engine}）。"
+                "本项目不附带 OCR；可另行安装 Marker 或 MinerU，并按其各自的条款使用。"
+                "`document-converter list-engines` 会列出已安装的引擎。"
+            )
         )
         return (
             "该文件未提取出任何文本。可能是扫描或拍照的文件（仅有图像、无文本层）、"
@@ -636,7 +654,11 @@ def _no_text_recovered(result: ConversionResult, locale: str = DEFAULT_LOCALE) -
         remedy = (
             "此版本不包含 OCR 文字辨識，無法從影像中取出文字。"
             if _RELEASE_PROFILE is not None
-            else f"掃描檔需要具備 OCR 的引擎才能取出文字（這次使用的引擎：{result.engine}）。"
+            else (
+                f"掃描檔需要具備 OCR 的引擎才能取出文字（這次使用的引擎：{result.engine}）。"
+                "本專案不附 OCR；可另行安裝 Marker 或 MinerU，並依其各自的條款使用。"
+                "`document-converter list-engines` 會列出已安裝的引擎。"
+            )
         )
         return (
             "這個檔案沒有抽出任何文字。可能是掃描或拍照的檔案（只有影像、沒有文字層）、"
@@ -867,7 +889,7 @@ function updateLanguage(lang,persist=true){{if(!I18N[lang])lang='en';currentLang
 if(langSelect)langSelect.addEventListener('change',e=>updateLanguage(e.target.value));
 const detected=detectLanguage();if(detected&&detected!==currentLang&&!location.search.includes('lang='))updateLanguage(detected,false);
 if(copyBtn)copyBtn.addEventListener('click',async()=>{{if(!currentPreviewText)return;try{{await navigator.clipboard.writeText(currentPreviewText);copyBtn.textContent=t('copied_btn');setTimeout(()=>{{copyBtn.textContent=t('copy_btn')}},2000)}}catch(err){{}}}});
-form.addEventListener('submit',async e=>{{e.preventDefault();status.className='status';if(!selected.length){{status.textContent=t('status_need_file');status.classList.add('show','error');return}}if(selected.some(f=>f.size>24*1048576)){{status.textContent=t('status_single_limit');status.classList.add('show','error');return}}if(selected.reduce((n,f)=>n+f.size,0)>24*1048576){{status.textContent=t('status_total_limit');status.classList.add('show','error');return}}button.disabled=true;button.textContent=t('submitting_btn');status.textContent=t('status_processing');status.classList.add('show');try{{const data=new FormData();selected.forEach(file=>data.append('files',file));const targetVal=form.querySelector('[name=target]:checked').value;data.append('target',targetVal);data.append('lang',currentLang);const response=await fetch('/convert',{{method:'POST',headers:{{'Accept-Language':currentLang}},body:data}});if(!response.ok){{let detail=t('status_failed');try{{detail=(await response.json()).detail||detail}}catch{{}}throw new Error(detail)}}const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;const disposition=response.headers.get('content-disposition')||'';const encoded=disposition.match(/UTF-8''([^;]+)/i);const plain=disposition.match(/filename="([^"]+)"/);a.download=encoded?decodeURIComponent(encoded[1]):(plain?plain[1]:'converted-document');a.click();URL.revokeObjectURL(url);if(selected.length===1&&previewSection){{try{{const text=await blob.text();currentPreviewText=text;previewSection.style.display='block';if(targetVal==='html'){{previewFrameWrap.style.display='block';previewRawWrap.style.display='none';previewFrame.srcdoc=text}}else{{previewFrameWrap.style.display='none';previewRawWrap.style.display='block';previewCode.textContent=text}}}}catch(err){{}}}}status.textContent=t('status_done');status.classList.add('show')}}catch(error){{status.textContent=error.message;status.classList.add('show','error')}}finally{{button.disabled=false;button.textContent=t('submit_btn')}}}});
+form.addEventListener('submit',async e=>{{e.preventDefault();status.className='status';if(!selected.length){{status.textContent=t('status_need_file');status.classList.add('show','error');return}}if(selected.some(f=>f.size>24*1048576)){{status.textContent=t('status_single_limit');status.classList.add('show','error');return}}if(selected.reduce((n,f)=>n+f.size,0)>24*1048576){{status.textContent=t('status_total_limit');status.classList.add('show','error');return}}button.disabled=true;button.textContent=t('submitting_btn');status.textContent=t('status_processing');status.classList.add('show');try{{const data=new FormData();selected.forEach(file=>data.append('files',file));const targetVal=form.querySelector('[name=target]:checked').value;data.append('target',targetVal);data.append('lang',currentLang);const response=await fetch('/convert',{{method:'POST',headers:{{'Accept-Language':currentLang}},body:data}});if(!response.ok){{let detail=t('status_failed');try{{detail=(await response.json()).detail||detail}}catch{{}}throw new Error(detail)}}const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;const disposition=response.headers.get('content-disposition')||'';const encoded=disposition.match(/UTF-8''([^;]+)/i);const plain=disposition.match(/filename="([^"]+)"/);a.download=encoded?decodeURIComponent(encoded[1]):(plain?plain[1]:'converted-document');a.click();URL.revokeObjectURL(url);if(selected.length===1&&previewSection){{try{{const text=await blob.text();currentPreviewText=text;previewSection.style.display='block';if(targetVal==='html'){{previewFrameWrap.style.display='block';previewRawWrap.style.display='none';previewFrame.srcdoc=text}}else{{previewFrameWrap.style.display='none';previewRawWrap.style.display='block';previewCode.textContent=text}}}}catch(err){{}}}}const notes=(response.headers.get('x-conversion-notes')||'').split(',');status.textContent=t('status_done')+(notes.includes('model-free')?(currentLang==='en'?' ':'')+t('note_model_free'):'');status.classList.add('show')}}catch(error){{status.textContent=error.message;status.classList.add('show','error')}}finally{{button.disabled=false;button.textContent=t('submit_btn')}}}});
 </script></body></html>'''
 
 

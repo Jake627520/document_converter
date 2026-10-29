@@ -47,5 +47,7 @@ def no_text_recovered_message(result: ConversionResult) -> str:
     return (
         f"{name}: no text recovered (engine: {engine}). "
         "The file may be a scan or photo with no text layer, image-only pages, or empty. "
-        "No output file was written. A scanned PDF needs an OCR-capable engine."
+        "No output file was written. A scanned PDF needs an OCR-capable engine; this project ships none. "
+        "Marker or MinerU can be installed separately, under their own terms; "
+        "`document-converter list-engines` shows what is installed."
     )

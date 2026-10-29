@@ -97,6 +97,12 @@ class TestCli(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertNotIn("engine must be", result.output)
 
+    def test_a_scan_with_no_text_names_the_ocr_engines_to_install(self):
+        from document_converter.models import ConversionResult, no_text_recovered_message
+        message = no_text_recovered_message(ConversionResult(source=Path("scan.pdf"), engine="docling-native", markdown=""))
+        for name in ("Marker", "MinerU", "document-converter list-engines"):
+            self.assertIn(name, message)
+
     def test_convert_rejects_an_unknown_engine(self):
         with tempfile.TemporaryDirectory() as temp:
             source = Path(temp) / "notes.md"

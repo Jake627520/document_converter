@@ -97,6 +97,25 @@ class WebAppTests(TestCase):
         self.assertTrue(seen["exists_during_conversion"])
         self.assertFalse(seen["path"].exists())
 
+    def test_a_model_free_conversion_tells_the_page_so(self):
+        # The CLI prints docling-native's quality warning; the page used to
+        # download the file and say nothing about the lost structure.
+        def convert_with(engine):
+            fake = lambda path, engine_name, image_mode: ConversionResult(source=Path(path), engine=engine, markdown="text")
+            with mock.patch.object(web_app, "convert_one", side_effect=fake):
+                response = self.client.post("/convert", data={"target": "md"}, files={"files": ("a.md", b"text", "text/markdown")})
+            self.assertEqual(response.status_code, 200)
+            return response.headers
+        self.assertEqual(convert_with("docling-native").get("x-conversion-notes"), "model-free")
+        self.assertNotIn("x-conversion-notes", convert_with("text_direct"))
+
+    def test_the_page_shows_the_model_free_note_in_every_language(self):
+        page = self.client.get("/").text
+        self.assertIn("x-conversion-notes", page)
+        self.assertIn("note_model_free", page)
+        for locale, words in (("en", "tables"), ("zh-TW", "表格"), ("zh-CN", "表格")):
+            self.assertIn(words, web_app.TRANSLATIONS[locale]["note_model_free"])
+
     @mock.patch.object(web_app, "convert_one", side_effect=RuntimeError("conversion failed"))
     def test_failure_returns_error_and_cleans_temp_upload(self, _convert):
         created = []
@@ -454,6 +473,21 @@ class EmptyResultTests(TestCase):
         full = self.convert(None, "scan.pdf", scan).json()["detail"]
         self.assertIn("OCR", full)
         self.assertIn("引擎", full)
+
+    def test_only_a_source_install_is_told_which_ocr_engines_to_install(self):
+        # A packaged app cannot install an engine, so only a source install
+        # is pointed at Marker, MinerU and list-engines.
+        scan = ConversionResult(source=Path("scan.pdf"), engine="docling-native", markdown="")
+        for locale in ("en", "zh-TW", "zh-CN"):
+            with self.subTest(locale=locale):
+                with mock.patch.object(web_app, "_RELEASE_PROFILE", None):
+                    source = web_app._no_text_recovered(scan, locale)
+                for name in ("Marker", "MinerU", "document-converter list-engines"):
+                    self.assertIn(name, source)
+                with mock.patch.object(web_app, "_RELEASE_PROFILE", web_app.PDF_PROFILE):
+                    release = web_app._no_text_recovered(scan, locale)
+                self.assertNotIn("Marker", release)
+                self.assertNotIn("list-engines", release)
 
     def test_a_caption_beside_an_unreadable_image_still_converts(self):
         # Some text with a picture is a real document, not an empty result.
