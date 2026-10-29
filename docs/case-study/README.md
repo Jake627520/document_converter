@@ -26,10 +26,10 @@ check that had passed: **how much did it actually look at?** —
 
 | | |
 | --- | --- |
-| Pull requests merged | 8 (one more closed as superseded) |
+| Pull requests merged | 14 (one more closed as superseded) |
 | Defects found and fixed | 10 that looked fine, plus the ones that looked broken |
-| Tests | 189, all run in CI (the 9 release runtime tests in their own job, against the pinned versions as Linux builds) — 2,637 lines of tests against 2,197 lines of product code |
-| Coverage | 91% |
+| Tests | 235, all run in CI: 226 in the test suite (the 5 that need Docling in a job that installs it), and the 9 release runtime tests in their own job, against the pinned versions as Linux builds — 3,651 lines of tests against 3,059 lines of product code |
+| Coverage | 87% |
 | Third-party notices shipped in the macOS app | 124, across 60 packages |
 | GPL or AGPL code in the shipped app | none |
 | OCR shipped | none, by design — a scan is reported, never guessed at |

@@ -306,7 +306,7 @@ To run the tests and the checks this project runs on itself:
 
 ```bash
 pip install -e ".[dev,web]"
-python -m pytest                       # 186 tests
+python -m pytest
 document-converter --help
 document-converter list-engines
 python3 scripts/packaging/audit_notices.py --profile pdf   # needs network
