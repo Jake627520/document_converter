@@ -31,9 +31,11 @@ Every HTTP response originating from the local workbench (HTML page, errors, and
 
 ### Locale Representation
 - Supported locales: `en` (English), `zh-TW` (Traditional Chinese), `zh-CN` (Simplified Chinese).
-- Normalized mapping:
-  - `zh-TW`, `zh-HK`, `zh-MO`, `zh-Hant` -> `zh-TW`
-  - `zh-CN`, `zh-SG`, `zh-Hans`, `zh` -> `zh-CN`
+- Normalized mapping, case-insensitive. A script subtag decides before a region subtag, so three-part tags such as `zh-Hant-TW` are covered and `zh-Hans-TW` is Simplified:
+  - `zh` with a `Hant` subtag (e.g. `zh-Hant`, `zh-Hant-TW`, `zh-Hant-HK`) -> `zh-TW`
+  - `zh` with a `Hans` subtag (e.g. `zh-Hans`, `zh-Hans-CN`) -> `zh-CN`
+  - `zh-TW`, `zh-HK`, `zh-MO` -> `zh-TW`
+  - `zh-CN`, `zh-SG`, `zh` -> `zh-CN`
   - `en*` -> `en`
   - All other language tags fall back to `en`.
 

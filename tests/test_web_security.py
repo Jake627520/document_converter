@@ -165,3 +165,18 @@ class CspAndI18nSecurityTests(TestCase):
         self.assertEqual(normalize_locale("ja"), "en")
         self.assertEqual(normalize_locale(""), "en")
         self.assertEqual(normalize_locale(None), "en")
+
+    def test_locale_with_script_and_region_subtags(self):
+        # Browsers send three-part BCP 47 tags; the script subtag decides
+        # before the region, and case does not matter.
+        self.assertEqual(normalize_locale("zh-Hant-TW"), "zh-TW")
+        self.assertEqual(normalize_locale("zh-Hant-HK"), "zh-TW")
+        self.assertEqual(normalize_locale("zh-Hant-MO"), "zh-TW")
+        self.assertEqual(normalize_locale("ZH-HANT-TW"), "zh-TW")
+        self.assertEqual(normalize_locale("zh-Hans-CN"), "zh-CN")
+        self.assertEqual(normalize_locale("zh-Hans-SG"), "zh-CN")
+        self.assertEqual(normalize_locale("zh-Hans-TW"), "zh-CN")
+        self.assertEqual(normalize_locale("zh-Hant-CN"), "zh-TW")
+        self.assertEqual(normalize_locale("zh-hant-tw,en;q=0.8"), "zh-TW")
+        self.assertEqual(normalize_locale("ZH-TW"), "zh-TW")
+        self.assertEqual(normalize_locale("zh-hk"), "zh-TW")
