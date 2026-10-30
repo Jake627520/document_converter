@@ -129,11 +129,15 @@ The workbench MUST provide its interface in `zh-TW`, `zh-CN` and `en` from one t
 - **THEN** the selector is labelled `Language selection` and the preview frame is titled `Document Preview`
 
 ### Requirement: Render the page in the language the request asks for
-The page MUST be rendered in the language given by the `lang` query parameter when one is present. A language tag MUST be normalized to a supported language: `zh-TW`, `zh-HK`, `zh-MO` and `zh-Hant` to `zh-TW`; `zh-CN`, `zh-SG`, `zh-Hans` and `zh` to `zh-CN`; `en` and `en-*` to `en`; any other tag, or an empty one, to `en`. A request that names no language at all MUST be rendered in `zh-TW`, the language the workbench used before this change.
+The page MUST be rendered in the language given by the `lang` query parameter when one is present. A language tag MUST be normalized to a supported language, ignoring case. For a `zh` tag a script subtag MUST decide before a region subtag: a `Hant` subtag gives `zh-TW` and a `Hans` subtag gives `zh-CN`, so `zh-Hant-TW` is `zh-TW` and `zh-Hans-TW` is `zh-CN`; without a script, a `TW`, `HK` or `MO` region gives `zh-TW`, a `CN` or `SG` region gives `zh-CN`, and a bare `zh` gives `zh-CN`. `en` and `en-*` MUST give `en`; any other tag, or an empty one, MUST give `en`. A request that names no language at all MUST be rendered in `zh-TW`, the language the workbench used before this change. The page's own browser-language check MUST apply the same script-before-region order.
 
 #### Scenario: Query parameter names a supported language
 - **WHEN** the page is requested with `?lang=en`, `?lang=zh-CN` or `?lang=zh-TW`
 - **THEN** the page is rendered with that `lang` and that language's text
+
+#### Scenario: A tag carries a script and a region
+- **WHEN** the page is requested with `?lang=zh-Hant-TW`, `?lang=zh-Hant-HK` or `?lang=zh-Hans-TW`
+- **THEN** the first two are rendered in Traditional Chinese and the third in Simplified Chinese
 
 #### Scenario: Query parameter names an unsupported language
 - **WHEN** the page is requested with `?lang=fr-FR`
