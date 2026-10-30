@@ -107,7 +107,7 @@ You do not need Python, Node.js, Docker or VS Code to run the app.
 | ℹ️ Rebuild to update | That candidate predates the plain text and Docling JSON outputs and the download names; a candidate built from this version has them |
 | ⏳ Not yet verified | Installing on a second Mac — [`docs-release/macos-vm-verification.md`](docs-release/macos-vm-verification.md) covers it with a free macOS virtual machine |
 | ❌ Not done | Developer ID signing and Apple notarization; every candidate is marked `distribution_ready: false` |
-| ❌ Not available | Windows — there is no installer and no platform testing |
+| ❌ Not available | A Windows app — there is no installer; running from source on Windows is covered below |
 
 ### Building it
 
@@ -168,8 +168,10 @@ Choose the installation tier that matches your needs:
   pip install -e ".[full]"
   ```
 
-The Windows command sets up the source tree only; it does not mean Windows has
-been tested.
+On Windows, a source install is checked in CI: a job installs it with the web
+extra on `windows-latest` (Python 3.12) and the test suite passes. Converting
+Markdown and plain text, and the browser workbench, work there. Docling and PDF
+conversion have not been checked on Windows.
 
 ### Browser workbench
 
