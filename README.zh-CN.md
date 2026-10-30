@@ -100,7 +100,7 @@ Markdown 和文本文件是直接读取的，而 `text` 版应用完全不包含
 | ℹ️ 需重新构建 | 该候选包早于纯文本、Docling JSON 输出和下载文件名功能；用此版本重新构建的候选包才会具备这些功能 |
 | ⏳ 尚未验证 | 在第二台 Mac 上安装 —— [`docs-release/macos-vm-verification.md`](docs-release/macos-vm-verification.md) 介绍了如何用免费的 macOS 虚拟机进行验证 |
 | ❌ 尚未完成 | Developer ID 签名和 Apple 公证；每个候选包都标记为 `distribution_ready: false` |
-| ❌ 不提供 | Windows —— 没有安装包，也未做过平台测试 |
+| ❌ 不提供 | Windows App —— 没有安装包；在 Windows 上从源代码运行，见下方说明 |
 
 ### 自行构建
 
@@ -160,7 +160,7 @@ uv pip install -e .
   pip install -e ".[full]"
   ```
 
-Windows 的命令仅说明如何配置源代码环境，并不代表 Windows 已经过测试。
+Windows 上的源代码安装已在 CI 验证：CI 在 `windows-latest`（Python 3.12）安装 web extra，整套测试通过。Markdown 与纯文本的转换，以及浏览器工作台，都能在 Windows 上使用。Docling 与 PDF 转换尚未在 Windows 上验证。
 
 ### 浏览器工作台
 

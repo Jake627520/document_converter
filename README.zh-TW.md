@@ -98,7 +98,7 @@ App 會明確告訴你，而不是給你一個空白檔案。兩個版本都不�
 | ℹ️ 需重新建置 | 該候選包早於純文字、Docling JSON 輸出與下載檔名功能；用這個版本重新建置的候選包才會有 |
 | ⏳ 尚未驗證 | 安裝到第二台 Mac —— [`docs-release/macos-vm-verification.md`](docs-release/macos-vm-verification.md) 說明如何用免費的 macOS 虛擬機驗證 |
 | ❌ 尚未完成 | Developer ID 簽章與 Apple 公證；每個候選包都標記為 `distribution_ready: false` |
-| ❌ 不提供 | Windows —— 沒有安裝包，也沒有做過平台測試 |
+| ❌ 不提供 | Windows App —— 沒有安裝包；在 Windows 上從原始碼執行，見下方說明 |
 
 ### 自行建置
 
@@ -158,7 +158,7 @@ uv pip install -e .
   pip install -e ".[full]"
   ```
 
-Windows 的指令只說明如何設定原始碼環境，不代表 Windows 已經過測試。
+Windows 上的原始碼安裝已在 CI 驗證：CI 在 `windows-latest`（Python 3.12）安裝 web extra，整套測試通過。Markdown 與純文字的轉換，以及瀏覽器工作台，都能在 Windows 上使用。Docling 與 PDF 轉換尚未在 Windows 上驗證。
 
 ### 瀏覽器工作台
 
