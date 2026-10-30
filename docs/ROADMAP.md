@@ -22,4 +22,4 @@ PDF text/scanned detection lives in `document_converter/detector.py` and drives 
 
 ## Next
 
-- **Windows verification**: the README states Windows is untested. A minimal Windows test job, or a recorded manual run, should come before any "known to work" list. A GitHub-hosted Windows runner may cost about twice the Linux minutes; check the account's Actions usage before adding one.
+- **Windows verification** (in progress): the `windows` job in `.github/workflows/test.yml` installs from source with the web extra on `windows-latest` (Python 3.12, no Docling), runs the test suite and the `document-converter --help` and `list-engines` checks. The repo is public, so GitHub-hosted runner minutes are free, Windows included; the double rate for Windows applies only to private repos. `scripts/local-ci.sh` cannot run this job, so its result comes from GitHub. The README keeps "untested" until the job passes on `main`; a Windows installer and Docling on Windows stay out of scope.
