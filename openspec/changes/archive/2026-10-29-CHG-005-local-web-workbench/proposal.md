@@ -1,10 +1,10 @@
 # Change Proposal: Local Web Workbench
 
-## Problem
+## Why
 
 The converter is currently operated through a terminal. Users need a clear local browser interface to select or drop a supported document, choose Markdown or HTML, run conversion, and download the result.
 
-## Solution
+## What Changes
 
 Add an optional FastAPI web interface and `document-converter web` launcher. The page uses a responsive, accessible workspace layout with a drop zone, selected-file list, Markdown/HTML selection, progress/status feedback, and a download action. Conversion continues through the existing pipeline adapter.
 
