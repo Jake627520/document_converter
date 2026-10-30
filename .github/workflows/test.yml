@@ -59,8 +59,8 @@ jobs:
 
   windows:
     # The first Windows check: a from-source install with the web extra, the
-    # test suite and the AGENTS.md CLI checks. No Docling (PyTorch makes the
-    # job slow) and no coverage gate; the Linux jobs hold both. The repo is
+    # test suite and the AGENTS.md CLI checks, without Docling: the docling
+    # job runs on Windows too. No coverage gate; the Linux job holds it. The repo is
     # public, so these minutes are free; a private repo pays twice the Linux
     # rate for a Windows runner.
     name: Tests on Windows (Python 3.12, no Docling)
@@ -105,11 +105,18 @@ jobs:
     # dependent on Hugging Face. The model pipeline therefore fails fast and
     # the engine chain falls back to docling-native, as it does on a machine
     # without the models.
-    name: Tests with Docling installed (no model download)
-    runs-on: ubuntu-latest
+    #
+    # It runs on Windows as well, so Docling and PDF conversion are checked
+    # there.
+    name: Tests with Docling installed on ${{ matrix.os }} (no model download)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     # Longer than the other jobs' 15: with a cold pip cache this job downloads
-    # PyTorch. A warm run takes about three minutes.
-    timeout-minutes: 20
+    # PyTorch. A warm Linux run takes about three minutes; Windows is slower.
+    timeout-minutes: 30
     defaults:
       run:
         shell: bash

@@ -170,8 +170,10 @@ Choose the installation tier that matches your needs:
 
 On Windows, a source install is checked in CI: a job installs it with the web
 extra on `windows-latest` (Python 3.12) and the test suite passes. Converting
-Markdown and plain text, and the browser workbench, work there. Docling and PDF
-conversion have not been checked on Windows.
+Markdown and plain text, and the browser workbench, work there. A second job
+adds the `docling` extra and passes with no test skipped, so text-layer PDFs
+convert on Windows too. CI downloads no Docling models, so the model pipeline
+(layout, tables, OCR) has not been checked on Windows.
 
 ### Browser workbench
 
