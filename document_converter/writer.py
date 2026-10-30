@@ -229,7 +229,8 @@ def write_result(
                 continue
         elif fmt == "html" and image_mode == "referenced" and asset_paths:
             value = _rewrite_html_images(value, asset_paths)
-        (output_dir / f"{stem}.{fmt}").write_text(value, encoding="utf-8")
+        # newline="\n": Windows would otherwise write CRLF, unlike every other platform.
+        (output_dir / f"{stem}.{fmt}").write_text(value, encoding="utf-8", newline="\n")
 
     if image_mode == "referenced":
         for relative_path, data in referenced_assets.values():
