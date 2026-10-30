@@ -160,7 +160,7 @@ uv pip install -e .
   pip install -e ".[full]"
   ```
 
-Windows 上的源代码安装已在 CI 验证：CI 在 `windows-latest`（Python 3.12）安装 web extra，整套测试通过。Markdown 与纯文本的转换，以及浏览器工作台，都能在 Windows 上使用。Docling 与 PDF 转换尚未在 Windows 上验证。
+Windows 上的源代码安装已在 CI 验证：CI 在 `windows-latest`（Python 3.12）安装 web extra，整套测试通过。Markdown 与纯文本的转换，以及浏览器工作台，都能在 Windows 上使用。另一个 job 加装 `docling` extra，测试全部通过、没有任何 skip，因此带文字层的 PDF 也能在 Windows 上转换。CI 不下载 Docling 模型，因此模型流程（版面、表格、OCR）尚未在 Windows 上验证。
 
 ### 浏览器工作台
 

@@ -107,7 +107,8 @@ macOS 首次開啟時可能顯示安全性警告。請勿為了開啟它而停�
 驗證紀錄：候選包 frozen release integration 有 10 項測試通過；專案整套測試
 有 111 項通過，覆蓋率 83.56%。這些測試不代表 Finder 雙擊、其他 Mac 安裝或
 Windows 支援已驗證。Windows 沒有安裝包；原始碼安裝已在 CI 的 Windows job
-驗證（Markdown、純文字與網頁工作台），Docling 與 PDF 尚未在 Windows 上驗證。
+驗證（Markdown、純文字、網頁工作台，以及加裝 Docling 後的文字層 PDF）；
+Docling 的模型流程（版面、表格、OCR）尚未在 Windows 上驗證。
 
 ### 維護者驗證指令
 
