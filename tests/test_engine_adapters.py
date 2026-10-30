@@ -1,6 +1,6 @@
 """Adapter contracts using local stubs; no optional engines or models are loaded."""
 import json
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import subprocess
 import sys
 import tempfile
@@ -164,6 +164,18 @@ class DoclingAdapterTests(unittest.TestCase):
         result = self.convert_with_document(document, "referenced")
         self.assertEqual(result.assets, {"assets/md.png": b"markdown image", "assets/html.png": b"html image"})
         self.assertEqual(result.html, '<img src="assets/html.png">')
+
+    def test_asset_names_use_forward_slashes_from_a_windows_path(self):
+        # On Windows, Docling hands back WindowsPath objects; str() would give
+        # assets\md.png, which no Markdown or HTML reference matches.
+        document = SimpleNamespace(
+            export_to_markdown_with_images=lambda mode, directory: (
+                "![image](assets/md.png)", [(PureWindowsPath("assets\\md.png"), b"markdown image")]
+            ),
+            export_to_dict=lambda: {},
+        )
+        result = self.convert_with_document(document, "referenced")
+        self.assertEqual(result.assets, {"assets/md.png": b"markdown image"})
 
     def test_html_entities_from_the_markdown_serializer_are_undone(self):
         """Docling escapes the document's own text when it serializes Markdown.

@@ -1,6 +1,6 @@
 import json
 import re
-from pathlib import Path
+from pathlib import Path, PurePath
 from .base import Engine, EngineError
 from ..models import ConversionResult, ImageMode
 from ..writer import markdown_to_text
@@ -49,11 +49,11 @@ def export_document(doc, image_mode: ImageMode):
         html = None
         assets = {}
         for name, data in md_files:
-            assets[str(name)] = data
+            assets[PurePath(name).as_posix()] = data
         if hasattr(doc, "export_to_html_with_images"):
             html, html_files = doc.export_to_html_with_images("referenced", "assets")
             for name, data in html_files:
-                assets[str(name)] = data
+                assets[PurePath(name).as_posix()] = data
     elif image_mode == "embedded" and hasattr(doc, "export_to_markdown_with_images"):
         md, _ = doc.export_to_markdown_with_images("embedded", "assets")
         html = doc.export_to_html() if hasattr(doc, "export_to_html") else None
