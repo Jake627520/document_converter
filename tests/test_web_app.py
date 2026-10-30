@@ -1,6 +1,8 @@
 """OpenSpec CHG-005: local web workbench behavior and security boundaries."""
 import io
 import json
+import shutil
+import subprocess
 import zipfile
 from pathlib import Path
 from unittest import TestCase, mock
@@ -760,6 +762,38 @@ class InternationalizationTests(TestCase):
         self.assertEqual(res_tw.status_code, 200)
         self.assertIn('lang="zh-TW"', res_tw.text)
         self.assertIn("僅限本機使用", res_tw.text)
+
+    def test_three_part_language_tag_renders_chinese(self):
+        res = self.client.get("/", headers={"accept-language": "zh-Hant-TW,zh;q=0.9"})
+        self.assertIn('lang="zh-TW"', res.text)
+        res = self.client.get("/?lang=zh-Hans-CN")
+        self.assertIn('lang="zh-CN"', res.text)
+
+    def test_page_detects_browser_language_by_script_then_region(self):
+        node = shutil.which("node")
+        self.assertIsNotNone(node, "node is required to run the page's detectLanguage()")
+        page = self.client.get("/").text
+        start = page.index("function detectLanguage()")
+        end = page.index("\n", start)
+        cases = {
+            "zh-Hant-TW": "zh-TW", "zh-Hant-HK": "zh-TW", "ZH-HANT-TW": "zh-TW",
+            "zh-Hans-CN": "zh-CN", "zh-Hans-TW": "zh-CN", "zh-Hans-HK": "zh-CN",
+            "zh-TW": "zh-TW", "zh-HK": "zh-TW", "zh-MO": "zh-TW", "zh-Hant": "zh-TW",
+            "zh-CN": "zh-CN", "zh-SG": "zh-CN", "zh-Hans": "zh-CN", "zh": "zh-CN",
+            "zh_TW": "zh-TW", "en-GB": "en", "fr-FR": "en", "": "en",
+        }
+        script = (
+            "const I18N={};const localStorage={getItem(){return null}};"
+            f"{page[start:end]}\n"
+            f"const cases={json.dumps(cases)};const got={{}};"
+            "for(const tag of Object.keys(cases)){"
+            # Node defines its own read-only navigator, so replace the property.
+            "Object.defineProperty(globalThis,'navigator',"
+            "{value:{languages:[tag],language:tag},configurable:true});got[tag]=detectLanguage()}"
+            "console.log(JSON.stringify(got))"
+        )
+        out = subprocess.run([node, "-e", script], capture_output=True, text=True, check=True)
+        self.assertEqual(json.loads(out.stdout), cases)
 
     def test_unsupported_language_falls_back_to_english(self):
         res = self.client.get("/?lang=fr-FR")

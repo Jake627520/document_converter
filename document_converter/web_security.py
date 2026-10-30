@@ -42,10 +42,18 @@ def normalize_locale(value: str | None) -> str:
     # Take first item in Accept-Language list if multiple
     primary = value.strip().split(",")[0].split(";")[0].strip()
     tag = primary.lower()
-    if tag in ("zh-tw", "zh-hk", "zh-mo", "zh-hant") or tag.startswith("zh-tw") or tag.startswith("zh-hk"):
-        return "zh-TW"
-    if tag in ("zh-cn", "zh-hans", "zh-sg", "zh") or tag.startswith("zh-cn") or tag.startswith("zh-hans"):
-        return "zh-CN"
+    language, *subtags = tag.split("-")
+    if language == "zh":
+        # The script subtag (zh-Hans-TW) says more than the region does.
+        if "hant" in subtags:
+            return "zh-TW"
+        if "hans" in subtags or not subtags:
+            return "zh-CN"
+        if {"tw", "hk", "mo"} & set(subtags):
+            return "zh-TW"
+        if {"cn", "sg"} & set(subtags):
+            return "zh-CN"
+        return "en"
     if tag == "en" or tag.startswith("en-") or tag.startswith("en_"):
         return "en"
     return "en"
