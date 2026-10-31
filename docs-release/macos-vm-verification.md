@@ -189,8 +189,8 @@ xattr -dr com.apple.quarantine "Document Converter.app"
 ## 關於發佈
 
 候選包固定標記 `distribution_ready: false`。虛擬機驗收通過**不等於**可以發佈：
-正式交付仍需確認自有權利與接受者、Developer ID 簽章與 notarization，
-以及在真實的目標機器上安裝驗收。詳見 `docs-release/macos.md` 與 `docs/PRIVATE_DISTRIBUTION.md`。
+正式交付仍需確認自有權利與接受者，以及在真實的目標機器上安裝驗收。
+擁有者已決定（2026-10-29）不申請 Developer ID 簽章與 notarization，維持 ad-hoc 簽章。詳見 `docs-release/macos.md` 與 `docs/PRIVATE_DISTRIBUTION.md`。
 
 **不得**以關閉 Gatekeeper（`spctl --master-disable`）或教使用者習慣性移除隔離標籤
 來取代上述步驟。前者關掉的是全系統防護；後者是在訓練使用者忽略安全警告。
