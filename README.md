@@ -106,7 +106,7 @@ You do not need Python, Node.js, Docker or VS Code to run the app.
 | ✅ Verified on an Apple Silicon Mac (2026-10-12/13) | `pdf` candidate built, signed ad-hoc and zipped; opened like any app and converted a real document; its frozen runtime reported no forbidden module; it carried 124 third-party notice files |
 | ℹ️ Rebuild to update | That candidate predates the plain text and Docling JSON outputs and the download names; a candidate built from this version has them |
 | ⏳ Not yet verified | Installing on a second Mac — [`docs-release/macos-vm-verification.md`](docs-release/macos-vm-verification.md) covers it with a free macOS virtual machine |
-| ❌ Not done | Developer ID signing and Apple notarization; every candidate is marked `distribution_ready: false` |
+| ➖ Not planned | Developer ID signing and Apple notarization — the owner decided on 2026-10-29 to stay with ad-hoc signing, since the app is not sold through the App Store and goes to few people ([ROADMAP](docs/ROADMAP.md)); recipients open it once as described above, and every candidate stays marked `distribution_ready: false` |
 | ❌ Not available | A Windows app — there is no installer; running from source on Windows is covered below |
 
 ### Building it

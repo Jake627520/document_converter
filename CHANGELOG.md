@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Secret Scan Never Ran On A Push**: the TruffleHog step passed the default branch as `base` and `HEAD` as `head`, which are the same commit on a push to `main`, so it stopped with "BASE and HEAD commits are the same" before scanning. It now scans the commits each event adds: a pull request's base against its head, or the range a push advanced.
 
 ### Changed
+- **Developer ID Signing Marked Not Planned**: the READMEs listed Developer ID signing and Apple notarization as "not done", and the VM verification guide listed them as required for delivery. The owner decided on 2026-10-29 to stay with ad-hoc signing (no App Store, few recipients); the READMEs now say "not planned" and link the ROADMAP, and the guide no longer requires them.
 - **Tests Use httpx2 Where Starlette Asks For It**: Starlette 1.x runs its `TestClient` on `httpx2` and warns, deprecating plain `httpx`. The `dev` extra adds `httpx2` (BSD-3-Clause, development only) and keeps `httpx` for older Starlette within the supported FastAPI range.
 - `clean_markdown`, `write_result`, `process_batch` and `DirectoryWatcher` accept `strip_bare_numbers`.
 - `AGENTS.md` validation now runs `document-converter list-engines`; `--list-engines` was never a registered option.

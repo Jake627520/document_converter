@@ -99,7 +99,7 @@ Markdown 和文本文件是直接读取的，而 `text` 版应用完全不包含
 | ✅ 已在 Apple Silicon Mac 上验证（2026-10-12／13） | `pdf` 候选包已完成构建、ad-hoc 签名和压缩；能像普通应用一样打开并转换真实文档；冻结后的运行环境报告未加载任何禁止的模块；包含 124 个第三方许可声明文件 |
 | ℹ️ 需重新构建 | 该候选包早于纯文本、Docling JSON 输出和下载文件名功能；用此版本重新构建的候选包才会具备这些功能 |
 | ⏳ 尚未验证 | 在第二台 Mac 上安装 —— [`docs-release/macos-vm-verification.md`](docs-release/macos-vm-verification.md) 介绍了如何用免费的 macOS 虚拟机进行验证 |
-| ❌ 尚未完成 | Developer ID 签名和 Apple 公证；每个候选包都标记为 `distribution_ready: false` |
+| ➖ 不打算做 | Developer ID 签名和 Apple 公证 —— 所有者于 2026-10-29 决定维持 ad-hoc 签名，因为 App 不上架 App Store，接收者也很少（[ROADMAP](docs/ROADMAP.md)）；接收者按上方步骤打开一次即可，每个候选包仍标记为 `distribution_ready: false` |
 | ❌ 不提供 | Windows App —— 没有安装包；在 Windows 上从源代码运行，见下方说明 |
 
 ### 自行构建
