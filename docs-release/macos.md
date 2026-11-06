@@ -35,9 +35,11 @@ build/private-release/venv-pdf/bin/python -I -m unittest discover -s tests -p te
 
 `--diagnostics` 應顯示 `"profile": "pdf-text"`、`inputs` 含 `.pdf`、`forbidden_loaded` 為空。
 
-**尚未在 Mac 上驗證。** PDF profile 的程式與打包設定已在 Linux 上以等效的 PyInstaller
-凍結建置驗證過（凍結後可轉中文與英文文字層 PDF、掃描檔回報 422、Markdown 正常、docx 被擋、
-多檔輸出 ZIP），但 macOS arm64 的 `.app`、codesign、Finder 雙擊與 ZIP 產出都還沒跑過。
+**Mac 上的驗證紀錄。** 2026-10-12／13 在 Apple Silicon Mac 上建置 `pdf` 候選包，經 Finder 開啟並轉換真實文件。
+2026-11-06 在 macOS 27.2 由 `9daa9a1` 重新建置（`candidate-pdf-2026-11-06`，ZIP SHA-256
+`1b7e9067…86de`，ad-hoc 簽章）：9 項 release 測試通過；`--diagnostics` 顯示 `pdf-text`、`forbidden_loaded` 為空；
+以 `--no-browser` 啟動後，中文檔名的文字層 PDF 轉成純文字與 Docling JSON 並沿用原檔名、兩個檔案以 ZIP 回傳、
+`.docx` 被擋、掃描檔回報沒有文字層。這次沒有經 Finder 雙擊開啟，也還沒裝到第二台 Mac。
 
 ---
 
