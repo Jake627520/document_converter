@@ -15,6 +15,11 @@ on:
       - 'README*.md'
       - 'CHANGELOG.md'
       - '.gitignore'
+  # A CVE published after the last push would otherwise wait for the next
+  # change. The repo is public, so these minutes are free; GitHub disables
+  # the schedule after 60 days without repository activity.
+  schedule:
+    - cron: '17 2 * * 1'
 
 concurrency:
   group: audit-${{ github.workflow }}-${{ github.ref }}
@@ -23,11 +28,13 @@ concurrency:
 jobs:
   secret-scan:
     name: Secret & Credential Scan
+    # A scheduled run brings no new commits to scan, and has no base commit.
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -47,10 +54,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: 'pip'
@@ -72,10 +79,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: 'pip'
