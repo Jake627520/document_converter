@@ -97,7 +97,7 @@ Markdown 和文本文件是直接读取的，而 `text` 版应用完全不包含
 | | |
 |---|---|
 | ✅ 已在 Apple Silicon Mac 上验证（2026-10-12／13） | `pdf` 候选包已完成构建、ad-hoc 签名和压缩；能像普通应用一样打开并转换真实文档；冻结后的运行环境报告未加载任何禁止的模块；包含 124 个第三方许可声明文件 |
-| ✅ 已重新构建并检查（2026-11-06，macOS 27.2） | `pdf` 候选包由 `9daa9a1` 构建，具备纯文本、Docling JSON 输出和下载文件名功能；9 项 release 测试通过；`--diagnostics` 显示 `pdf-text`、没有加载禁用模块；冻结后的应用在不打开浏览器的模式下，把中文文件名的文字层 PDF 转成纯文本和 JSON 并沿用原文件名、两个文件以 ZIP 返回、拒绝 `.docx`、对扫描件说明原因。尚未经 Finder 打开 |
+| ✅ 已重新构建并检查（2026-11-08，macOS 27.2） | `pdf` 候选包由 `ccd843d` 构建，内含 Pillow 13.0.0，具备纯文本、Docling JSON 输出和下载文件名功能；9 项 release 测试通过；`--diagnostics` 显示 `pdf-text`、没有加载禁用模块；`pip-audit` 在固定版本中未发现已知漏洞；冻结后的应用在不打开浏览器的模式下，把中文文件名的文字层 PDF 转成纯文本和 JSON 并沿用原文件名、两个文件以 ZIP 返回、拒绝 `.docx`、对扫描件说明原因。尚未经 Finder 打开 |
 | ⏳ 尚未验证 | 在第二台 Mac 上安装 —— [`docs-release/macos-vm-verification.md`](docs-release/macos-vm-verification.md) 介绍了如何用免费的 macOS 虚拟机进行验证 |
 | ➖ 不打算做 | Developer ID 签名和 Apple 公证 —— 所有者于 2026-10-29 决定维持 ad-hoc 签名，因为 App 不上架 App Store，接收者也很少（[ROADMAP](docs/ROADMAP.md)）；接收者按上方步骤打开一次即可，每个候选包仍标记为 `distribution_ready: false` |
 | ❌ 不提供 | Windows App —— 没有安装包；在 Windows 上从源代码运行，见下方说明 |
