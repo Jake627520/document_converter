@@ -364,6 +364,25 @@ class OutputFormatTests(TestCase):
         self.assertEqual(document["schema_name"], "DoclingDocument")
         self.assertIn("84 lumens & bright", response.content.decode())
 
+    @requires_docling
+    def test_json_carries_the_uploaded_name_not_the_temporary_one(self):
+        client = self.client(web_app.configure_pdf_release)
+        with tempfile.TemporaryDirectory() as temp:
+            sample = write_text_pdf(Path(temp) / "spec.pdf", "Headlamp module")
+            response = client.post("/convert", data={"target": "json"}, files={"files": ("車燈規格.pdf", sample.read_bytes(), "application/pdf")})
+        self.assertEqual(response.status_code, 200)
+        document = json.loads(response.content)
+        self.assertEqual(document["name"], "車燈規格")
+        self.assertEqual(document["origin"]["filename"], "車燈規格.pdf")
+        self.assertNotIn("input-", response.content.decode())
+
+    def test_html_title_is_the_uploaded_name_not_the_temporary_one(self):
+        client = self.client(web_app.configure_text_release)
+        response = client.post("/convert", data={"target": "html"}, files={"files": ("R&D 備忘.md", b"# Note\n", "text/markdown")})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("<title>R&amp;D 備忘</title>", response.text)
+        self.assertNotIn("input-", response.text)
+
 
 
 @unittest.skipIf(TestClient is None, "install the optional web extra to run web tests")

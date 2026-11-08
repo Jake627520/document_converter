@@ -95,7 +95,7 @@ App 會明確告訴你，而不是給你一個空白檔案。兩個版本都不�
 | | |
 |---|---|
 | ✅ 已在 Apple Silicon Mac 上驗證（2026-10-12／13） | `pdf` 候選包已完成建置、ad-hoc 簽章與壓縮；能像一般 App 一樣開啟並轉換真實文件；凍結後的執行環境回報沒有載入任何禁止的模組；內含 124 個第三方授權聲明檔 |
-| ℹ️ 需重新建置 | 該候選包早於純文字、Docling JSON 輸出與下載檔名功能；用這個版本重新建置的候選包才會有 |
+| ✅ 已重新建置並檢查（2026-11-08，macOS 27.2） | `pdf` 候選包由 `ccd843d` 建置，內含 Pillow 13.0.0，具備純文字、Docling JSON 輸出與下載檔名功能；9 項 release 測試通過；`--diagnostics` 顯示 `pdf-text`、沒有載入禁用模組；`pip-audit` 在固定版本中找不到已知漏洞；凍結後的 App 在不開瀏覽器的模式下，把中文檔名的文字層 PDF 轉成純文字與 JSON 並沿用原檔名、兩個檔案以 ZIP 回傳、拒絕 `.docx`、對掃描檔說明原因。尚未經 Finder 開啟 |
 | ⏳ 尚未驗證 | 安裝到第二台 Mac —— [`docs-release/macos-vm-verification.md`](docs-release/macos-vm-verification.md) 說明如何用免費的 macOS 虛擬機驗證 |
 | ➖ 不打算做 | Developer ID 簽章與 Apple 公證 —— 擁有者於 2026-10-29 決定維持 ad-hoc 簽章，因為 App 不上架 App Store，收件者也很少（[ROADMAP](docs/ROADMAP.md)）；收件者依上方步驟開啟一次即可，每個候選包仍標記為 `distribution_ready: false` |
 | ❌ 不提供 | Windows App —— 沒有安裝包；在 Windows 上從原始碼執行，見下方說明 |
