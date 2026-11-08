@@ -151,16 +151,21 @@ class WebAppTests(TestCase):
 
 
 def _native_pdf_available():
+    # docling-slim installed for Office alone (the office extra) has the PDF
+    # pipeline but not docling-parse, which reads the PDF for it.
     try:
         import docling.pipeline.native_pdf_pipeline  # noqa: F401
+        import docling_parse  # noqa: F401
     except Exception:
         return False
     return True
 
 
 def _docling_available() -> bool:
+    """Can Docling convert a PDF here? Importing docling alone does not show it."""
     try:
         import docling  # noqa: F401
+        import docling_parse  # noqa: F401
         return True
     except Exception:
         return False
@@ -168,7 +173,7 @@ def _docling_available() -> bool:
 
 requires_docling = unittest.skipUnless(
     _docling_available(),
-    "docling not installed; install with: pip install -e '.[docling]'",
+    "Docling cannot read PDFs here; install with: pip install -e '.[docling]'",
 )
 
 

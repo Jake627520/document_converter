@@ -4,6 +4,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+# Loaded at collection, before tests/test_apple_vision.py swaps stand-ins into
+# sys.modules: PyObjC cannot be imported a second time in one process.
+import objc  # noqa: F401
+import Vision  # noqa: F401
+
 from document_converter.engines.apple_vision_engine import AppleVisionOcrEngine
 from document_converter.engines.base import EngineError
 from document_converter.pipeline import convert_one

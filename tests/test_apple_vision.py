@@ -13,9 +13,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import pypdfium2  # noqa: F401 - loaded before the tests pretend to be macOS, which changes how it finds PDFium
 from PIL import Image
 
+from document_converter.engines import apple_vision_engine
 from document_converter.engines.apple_vision_engine import (
     LANGUAGES,
     NO_TEXT_WARNING,
@@ -26,6 +26,15 @@ from document_converter.engines.apple_vision_engine import (
 )
 from document_converter.engines.base import EngineError
 from document_converter.models import no_text_recovered_message
+
+
+def on_platform(name):
+    """Make only the adapter believe it runs on this platform.
+
+    Patching sys.platform itself would mislead every library that loads native
+    code during the test, pypdfium2 among them.
+    """
+    return patch.object(apple_vision_engine, "sys", SimpleNamespace(platform=name))
 
 
 def observation(text, top, height=0.02):
@@ -112,8 +121,11 @@ class AdapterTests(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp())
 
     def convert(self, path, vision):
+        # The stand-ins are handed to the adapter directly. Swapping them into
+        # sys.modules would drop whatever the conversion imports meanwhile -
+        # pypdfium2 among them - and loading a native library twice is not safe.
         objc = SimpleNamespace(autorelease_pool=contextlib.nullcontext)
-        with patch.dict(sys.modules, {"objc": objc, "Vision": vision}), patch.object(sys, "platform", "darwin"):
+        with patch.object(apple_vision_engine, "_vision", return_value=(objc, vision)):
             return AppleVisionOcrEngine().convert(path, "none")
 
     def test_reads_an_image(self):
@@ -198,11 +210,14 @@ class AdapterTests(unittest.TestCase):
             AppleVisionOcrEngine().convert(Path("notes.docx"), "none")
 
     def test_outside_macos_it_says_so_before_reading_anything(self):
-        with patch.object(sys, "platform", "linux"), self.assertRaisesRegex(EngineError, "only on macOS"):
+        with on_platform("linux"), self.assertRaisesRegex(EngineError, "only on macOS"):
             AppleVisionOcrEngine().convert(self.tmp / "missing.png", "none")
 
     def test_without_pyobjc_it_names_the_package_to_install(self):
-        with patch.dict(sys.modules, {"Vision": None}), patch.object(sys, "platform", "darwin"):
+        # objc is stubbed too: importing the real one inside patch.dict would
+        # leave it half-unloaded on exit, and PyObjC refuses to load twice.
+        objc = SimpleNamespace(autorelease_pool=contextlib.nullcontext)
+        with patch.dict(sys.modules, {"objc": objc, "Vision": None}), on_platform("darwin"):
             with self.assertRaisesRegex(EngineError, "pyobjc-framework-Vision"):
                 AppleVisionOcrEngine().convert(self.tmp / "missing.png", "none")
 
