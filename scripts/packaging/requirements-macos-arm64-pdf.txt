@@ -7,10 +7,10 @@ certifi==2026.10.18
 charset-normalizer==3.5.2
 click==8.5.0
 defusedxml==0.7.1
-doclang==0.7.3
-docling-core==2.101.1
-docling-parse==7.22.2
-docling-slim==2.137.0
+doclang==0.8.0
+docling-core==2.104.0
+docling-parse==7.22.4
+docling-slim==2.142.0
 fastapi==0.143.0
 filetype==1.2.0
 h11==0.16.0
@@ -33,7 +33,7 @@ numpy==2.5.3
 opentelemetry-api==1.45.1
 packaging==26.3
 pandas==3.0.6
-pillow==12.3.0
+pillow==13.0.0
 pluggy==1.6.0
 pydantic-core==2.50.0
 pydantic-settings==2.15.0
