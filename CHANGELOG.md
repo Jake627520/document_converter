@@ -65,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - **Dependency Vulnerabilities (2026-11-06 pip-audit)**: `pypdf` now requires `>=6.21.4`, which fixes ten denial-of-service CVEs reachable through `detector.py`, which opens user PDFs with `PdfReader`. The release locks move `certifi` to 2026.10.18 (PYSEC-2026-4320) and `setuptools` to 84.1.0 (GHSA-xmj3-9gf7-h52w). `pillow` stays at 12.3.0 in the `pdf` profile: the pinned `docling-core` 2.101.1, `docling-parse` 7.22.2 and `docling-slim` 2.137.0 all require `pillow<13`, so its 39 advisories remain until a Docling upgrade lifts that cap. `audit_notices.py` passes for both profiles.
+- **Pillow 13 In The `pdf` Profile (2026-11-08 pip-audit)**: `pillow` moves from 12.3.0 to 13.0.0, clearing the 39 advisories noted above. It needs the first Docling releases that accept it: `docling-core` 2.104.0, `docling-parse` 7.22.4 and `docling-slim` 2.142.0, and `doclang` 0.8.0, which that `docling-core` requires. Nothing else moves. `pip-audit` on the `pdf` lock goes from 39 findings to 0, and `audit_notices.py` passes for both profiles; every changed package keeps its license. A before-and-after run of `docling-native` over 24 sample PDFs in all three image modes returned byte-identical Markdown, HTML, text and Docling JSON.
 
 ## [0.2.0] - 2026-10-08
 
