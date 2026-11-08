@@ -63,6 +63,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - **Python 3.10 Support**: `requires-python` is now `>=3.11,<3.15` and the CI matrix tests 3.11 and 3.12. `tests/test_security_baseline.py` imports `tomllib`, which entered the standard library in 3.11, so the suite has never been collectable on 3.10 and the job aborted before any test ran. The README already recommended 3.11 or 3.12.
 
+### Security
+- **Dependency Vulnerabilities (2026-11-06 pip-audit)**: `pypdf` now requires `>=6.21.4`, which fixes ten denial-of-service CVEs reachable through `detector.py`, which opens user PDFs with `PdfReader`. The release locks move `certifi` to 2026.10.18 (PYSEC-2026-4320) and `setuptools` to 84.1.0 (GHSA-xmj3-9gf7-h52w). `pillow` stays at 12.3.0 in the `pdf` profile: the pinned `docling-core` 2.101.1, `docling-parse` 7.22.2 and `docling-slim` 2.137.0 all require `pillow<13`, so its 39 advisories remain until a Docling upgrade lifts that cap. `audit_notices.py` passes for both profiles.
+
 ## [0.2.0] - 2026-10-08
 
 ### Added
