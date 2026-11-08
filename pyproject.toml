@@ -18,6 +18,17 @@ dependencies = [
 docling = [
   "docling>=2.97,<3",
 ]
+# Word, PowerPoint and Excel through Docling's readers: no model, no PyTorch.
+office = [
+  "docling-slim[convert-core,format-office]>=2.137,<3",
+]
+# OCR for scanned PDFs and photos with the text recognition macOS ships
+# (Apple's Vision framework): nothing to download. It installs on macOS only.
+apple-vision = [
+  "pyobjc-framework-Vision>=10; sys_platform == 'darwin'",
+  "pypdfium2>=4.30,<6",
+  "pillow>=10",
+]
 marker = [
   "marker-pdf>=2,<3",
 ]

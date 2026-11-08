@@ -1,3 +1,4 @@
+import sys
 import os
 import unittest
 import tempfile
@@ -86,6 +87,23 @@ class TestCli(unittest.TestCase):
         result = self.runner.invoke(app, ["list-engines"])
         self.assertEqual(result.exit_code, 0)
         self.assertIn("docling-native", result.output)
+
+    def test_list_engines_reports_the_office_reader_and_macos_ocr(self):
+        result = self.runner.invoke(app, ["list-engines"])
+        self.assertEqual(result.exit_code, 0)
+        lines = {line.split()[0]: line for line in result.output.splitlines() if line.strip()}
+        self.assertIn("format-office", lines["docling-office"])
+        self.assertIn("pyobjc-framework-Vision", lines["apple-vision"])
+        if sys.platform != "darwin":
+            self.assertIn("not detected", lines["apple-vision"])
+
+    def test_convert_accepts_the_new_engine_names(self):
+        for engine in ("docling-office", "apple-vision"):
+            with self.subTest(engine=engine), tempfile.TemporaryDirectory() as temp:
+                source = Path(temp) / "notes.md"
+                source.write_text("# Title\n", encoding="utf-8")
+                result = self.runner.invoke(app, ["convert", str(source), "--engine", engine, "-o", str(Path(temp) / "out")])
+                self.assertNotIn("engine must be", result.output)
 
     def test_convert_accepts_the_model_free_pdf_engine(self):
         with tempfile.TemporaryDirectory() as temp:

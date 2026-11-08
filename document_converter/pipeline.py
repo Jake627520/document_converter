@@ -4,6 +4,8 @@ from pathlib import Path
 from .engines.base import EngineError
 from .engines.docling_engine import DoclingEngine
 from .engines.docling_native_engine import DoclingNativePdfEngine
+from .engines.docling_office_engine import DoclingOfficeEngine, OFFICE_SUFFIXES
+from .engines.apple_vision_engine import AppleVisionOcrEngine
 from .engines.command_engine import MarkerEngine, MinerUEngine
 from .engines.text_direct_engine import TextDirectEngine
 from .models import ConversionResult, ImageMode, no_text_recovered_message
@@ -29,6 +31,8 @@ def choose_engine(name: str, path: Path, profile: PdfProfile | None = None):
         "text_direct": TextDirectEngine(),
         "docling": DoclingEngine(),
         "docling-native": DoclingNativePdfEngine(),
+        "docling-office": DoclingOfficeEngine(),
+        "apple-vision": AppleVisionOcrEngine(),
         "marker": MarkerEngine(),
         "mineru": MinerUEngine(),
     }
@@ -52,14 +56,22 @@ def choose_engine(name: str, path: Path, profile: PdfProfile | None = None):
         return [engines["text_direct"]]
     if is_pdf and profile and profile.is_scanned:
         # Scanned PDF without text layer: prioritize engines with dedicated OCR/VLM
-        # capabilities, then fall back to the model-free reader as a last resort.
-        return [engines["docling"], engines["mineru"], engines["marker"], engines["docling-native"]]
+        # capabilities, then macOS's built-in OCR, which needs no model download,
+        # then the model-free reader as a last resort.
+        return [
+            engines["docling"], engines["mineru"], engines["marker"],
+            engines["apple-vision"], engines["docling-native"],
+        ]
     elif is_pdf:
         # The model-free PDF reader runs last: it needs no model weights, so it keeps
         # conversion working where the model-based engines are unavailable.
         return [engines["docling"], engines["marker"], engines["mineru"], engines["docling-native"]]
     elif is_image:
-        return [engines["docling"], engines["marker"], engines["mineru"]]
+        return [engines["docling"], engines["marker"], engines["mineru"], engines["apple-vision"]]
+    elif suffix in OFFICE_SUFFIXES:
+        # Docling's default converter reads these without models too; the
+        # restricted adapter is the fallback where only docling-slim is installed.
+        return [engines["docling"], engines["docling-office"]]
     else:
         return [engines["docling"]]
 

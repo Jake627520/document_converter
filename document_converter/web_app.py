@@ -622,13 +622,23 @@ def _no_text_recovered(result: ConversionResult, locale: str = DEFAULT_LOCALE) -
                 "取出文字需要可讀取的文字層或具備 OCR 的引擎。"
             )
 
+    if result.engine == "apple-vision":
+        if locale == "en":
+            return "No text was recognized. OCR ran, but the pages may be blank, pictures without text, or too faint to read."
+        elif locale == "zh-CN":
+            return "没有识别出任何文字。OCR 已运行，但页面可能是空白的、只有不含文字的图片，或字迹太淡无法辨认。"
+        else:
+            return "沒有辨識出任何文字。OCR 已經跑過，但頁面可能是空白的、只有不含文字的圖片，或字太淡認不出來。"
+
     if locale == "en":
         remedy = (
             "This release does not include OCR text recognition."
             if _RELEASE_PROFILE is not None
             else (
                 f"Scanned files require an OCR-capable engine (used: {result.engine}). "
-                "This project ships none; Marker or MinerU can be installed separately, under their own terms. "
+                "This project bundles none. On a Mac, apple-vision uses the system's own text recognition "
+                "(pip install pyobjc-framework-Vision pypdfium2); Docling's full install, Marker or MinerU "
+                "can be installed separately, under their own terms. "
                 "`document-converter list-engines` shows what is installed."
             )
         )
@@ -642,7 +652,9 @@ def _no_text_recovered(result: ConversionResult, locale: str = DEFAULT_LOCALE) -
             if _RELEASE_PROFILE is not None
             else (
                 f"扫描件需要具备 OCR 的引擎才能提取文本（本次使用的引擎：{result.engine}）。"
-                "本项目不附带 OCR；可另行安装 Marker 或 MinerU，并按其各自的条款使用。"
+                "本项目不附带 OCR。在 Mac 上，apple-vision 使用系统自带的文字识别"
+                "（pip install pyobjc-framework-Vision pypdfium2）；也可另行安装 Docling 完整版、Marker 或 MinerU，"
+                "并按其各自的条款使用。"
                 "`document-converter list-engines` 会列出已安装的引擎。"
             )
         )
@@ -656,7 +668,9 @@ def _no_text_recovered(result: ConversionResult, locale: str = DEFAULT_LOCALE) -
             if _RELEASE_PROFILE is not None
             else (
                 f"掃描檔需要具備 OCR 的引擎才能取出文字（這次使用的引擎：{result.engine}）。"
-                "本專案不附 OCR；可另行安裝 Marker 或 MinerU，並依其各自的條款使用。"
+                "本專案不附 OCR。在 Mac 上，apple-vision 使用系統內建的文字辨識"
+                "（pip install pyobjc-framework-Vision pypdfium2）；也可另行安裝 Docling 完整版、Marker 或 MinerU，"
+                "並依其各自的條款使用。"
                 "`document-converter list-engines` 會列出已安裝的引擎。"
             )
         )

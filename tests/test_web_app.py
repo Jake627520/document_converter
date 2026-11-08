@@ -491,6 +491,22 @@ class EmptyResultTests(TestCase):
                 self.assertNotIn("Marker", release)
                 self.assertNotIn("list-engines", release)
 
+    def test_a_source_install_is_pointed_at_the_macos_built_in_ocr(self):
+        scan = ConversionResult(source=Path("scan.pdf"), engine="docling-native", markdown="")
+        for locale in ("en", "zh-TW", "zh-CN"):
+            with self.subTest(locale=locale), mock.patch.object(web_app, "_RELEASE_PROFILE", None):
+                message = web_app._no_text_recovered(scan, locale)
+                self.assertIn("apple-vision", message)
+                self.assertIn("pyobjc-framework-Vision", message)
+
+    def test_when_ocr_ran_and_found_nothing_it_does_not_ask_for_ocr(self):
+        blank = ConversionResult(source=Path("blank.png"), engine="apple-vision", markdown="")
+        for locale, ran in (("en", "OCR ran"), ("zh-TW", "OCR 已經跑過"), ("zh-CN", "OCR 已运行")):
+            with self.subTest(locale=locale), mock.patch.object(web_app, "_RELEASE_PROFILE", None):
+                message = web_app._no_text_recovered(blank, locale)
+                self.assertIn(ran, message)
+                self.assertNotIn("Marker", message)
+
     def test_a_caption_beside_an_unreadable_image_still_converts(self):
         # Some text with a picture is a real document, not an empty result.
         result = ConversionResult(source=Path("fig.pdf"), engine="mock", markdown="圖 1：配光曲線\n\n<!-- image -->\n")
