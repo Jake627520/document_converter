@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -257,6 +258,32 @@ class TestWriter(unittest.TestCase):
 
             self.assertEqual((root / "out" / "paper.md").read_text(), md)
             self.assertFalse((root / "out" / "paper_assets").exists())
+
+
+class SourceNameTests(unittest.TestCase):
+    """The web page converts a generated path; the output names the real document."""
+
+    STAND_IN = Path("input-abc123.pdf")
+
+    def write(self, fmt, source_name, **values):
+        result = ConversionResult(source=self.STAND_IN, engine="test", **values)
+        with tempfile.TemporaryDirectory() as temp:
+            write_result(result, Path(temp), [fmt], source_name=source_name)
+            return (Path(temp) / f"input-abc123.{fmt}").read_text(encoding="utf-8")
+
+    def test_a_quote_in_the_name_keeps_the_json_valid(self):
+        written = self.write("json", 'a"b.pdf', json_text='{"name": "input-abc123", "origin": {"filename": "input-abc123.pdf"}}')
+        document = json.loads(written)
+        self.assertEqual(document["name"], 'a"b')
+        self.assertEqual(document["origin"]["filename"], 'a"b.pdf')
+
+    def test_a_tag_in_the_name_is_escaped_in_engine_html(self):
+        written = self.write("html", "<b>.pdf", html="<title>input-abc123</title>")
+        self.assertEqual(written, "<title>&lt;b&gt;</title>")
+
+    def test_without_a_source_name_the_output_is_left_alone(self):
+        text = '{"name": "input-abc123"}'
+        self.assertEqual(self.write("json", None, json_text=text), text)
 
 
 class CleanOptionTests(unittest.TestCase):

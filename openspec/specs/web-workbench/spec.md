@@ -77,7 +77,7 @@ The workbench MUST write each upload under a generated name (`input-<random hex>
 - **THEN** the workbench answers HTTP 422 and the request's temporary directory no longer exists
 
 ### Requirement: Name the download after the uploaded document without trusting it
-A single converted file MUST be returned as an attachment whose name is the last path segment of the uploaded name with its final suffix dropped, with header-breaking and path characters replaced, capped at `DOWNLOAD_STEM_LIMIT` (120) characters, and replaced by `document` if nothing usable is left. The `Content-Disposition` header MUST carry the real name percent-encoded in `filename*` and MUST put an ASCII name in `filename`, using `converted-document` when the name is not ASCII. Several files MUST be returned as one `converted-documents.zip` whose entries keep their names and do not overwrite each other. The response MUST use the media type of the target, such as `text/plain; charset=utf-8` for `txt` and `application/json; charset=utf-8` for `json`.
+A single converted file MUST be returned as an attachment whose name is the last path segment of the uploaded name with its final suffix dropped, with header-breaking and path characters replaced, capped at `DOWNLOAD_STEM_LIMIT` (120) characters, and replaced by `document` if nothing usable is left. The `Content-Disposition` header MUST carry the real name percent-encoded in `filename*` and MUST put an ASCII name in `filename`, using `converted-document` when the name is not ASCII. Several files MUST be returned as one `converted-documents.zip` whose entries keep their names and do not overwrite each other. The response MUST use the media type of the target, such as `text/plain; charset=utf-8` for `txt` and `application/json; charset=utf-8` for `json`. A name recorded inside the output, such as the HTML title or the `name` and `origin.filename` of Docling JSON, MUST be that sanitized document name, escaped for the format, and MUST NOT be the generated upload name.
 
 #### Scenario: Traversal in the uploaded name
 - **WHEN** `../../private name.md` is converted to Markdown
@@ -90,6 +90,10 @@ A single converted file MUST be returned as an attachment whose name is the last
 #### Scenario: Several files share a name
 - **WHEN** `headlamp.md`, `headlamp.md` and `面板備忘.md` are converted together
 - **THEN** the zip holds `headlamp.md`, `headlamp-2.md` and `面板備忘.md`
+
+#### Scenario: The output records the document's name
+- **WHEN** `車燈規格.pdf` is converted to Docling JSON, or `R&D 備忘.md` to HTML
+- **THEN** the JSON's `name` is `車燈規格` and its `origin.filename` is `車燈規格.pdf`, the HTML title is `R&amp;D 備忘`, and neither holds the generated `input-` name
 
 #### Scenario: Name holds only a suffix
 - **WHEN** `.md` is converted

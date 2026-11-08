@@ -1,3 +1,5 @@
+from html import escape
+import json
 import re
 from pathlib import Path, PurePosixPath
 from urllib.parse import quote, unquote, urlsplit, urlunsplit
@@ -168,6 +170,21 @@ def plain_text_of(content: str, suffix: str) -> str:
     return content if suffix.lower() == ".txt" else markdown_to_text(content)
 
 
+def _named_after_document(value: str, fmt: str, source: Path, source_name: str) -> str:
+    """Put the document's own name where a generated upload name was recorded.
+
+    The generated name is unique, so replacing it cannot touch document text;
+    the document's name comes from the client, so it is escaped for the format.
+    """
+    stem = PurePosixPath(source_name).stem
+    if fmt == "json":
+        value = value.replace(json.dumps(source.name), json.dumps(source_name, ensure_ascii=False))
+        return value.replace(json.dumps(source.stem), json.dumps(stem, ensure_ascii=False))
+    if fmt == "html":
+        return value.replace(source.stem, escape(stem))
+    return value
+
+
 def write_result(
     result: ConversionResult,
     output_dir: Path,
@@ -177,6 +194,7 @@ def write_result(
     output_stem: str | None = None,
     image_mode: str = "none",
     strip_bare_numbers: bool = False,
+    source_name: str | None = None,
 ):
     output_dir.mkdir(parents=True, exist_ok=True)
     stem = output_stem or result.source.stem
@@ -229,6 +247,8 @@ def write_result(
                 continue
         elif fmt == "html" and image_mode == "referenced" and asset_paths:
             value = _rewrite_html_images(value, asset_paths)
+        if source_name:
+            value = _named_after_document(value, fmt, result.source, source_name)
         # newline="\n": Windows would otherwise write CRLF, unlike every other platform.
         (output_dir / f"{stem}.{fmt}").write_text(value, encoding="utf-8", newline="\n")
 
