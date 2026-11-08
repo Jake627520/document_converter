@@ -36,9 +36,9 @@ build/private-release/venv-pdf/bin/python -I -m unittest discover -s tests -p te
 `--diagnostics` 應顯示 `"profile": "pdf-text"`、`inputs` 含 `.pdf`、`forbidden_loaded` 為空。
 
 **Mac 上的驗證紀錄。** 2026-10-12／13 在 Apple Silicon Mac 上建置 `pdf` 候選包，經 Finder 開啟並轉換真實文件。
-2026-11-06 在 macOS 27.2 由 `9daa9a1` 重新建置（`candidate-pdf-2026-11-06`，ZIP SHA-256
-`1b7e9067…86de`，ad-hoc 簽章）：9 項 release 測試通過；`--diagnostics` 顯示 `pdf-text`、`forbidden_loaded` 為空；
-以 `--no-browser` 啟動後，中文檔名的文字層 PDF 轉成純文字與 Docling JSON 並沿用原檔名、兩個檔案以 ZIP 回傳、
+2026-11-08 在 macOS 27.2 由 `ccd843d` 重新建置（`candidate-pdf-ccd843d`，Pillow 13.0.0，ZIP SHA-256
+`2ed5658938ff3967cd7a505d7e831e01cc9643c4502f5a07e956cf60c8a54e5c`，ad-hoc 簽章）：`pip-audit` 在兩個 profile 的固定版本中都找不到已知漏洞；9 項 release 測試通過；`--diagnostics` 顯示 `pdf-text`、`forbidden_loaded` 為空；
+以 `--no-browser` 啟動後，中文檔名的文字層 PDF 轉成純文字與 Docling JSON 並沿用原檔名（JSON 內的 `name` 與 HTML 標題也是原檔名）、兩個檔案以 ZIP 回傳、
 `.docx` 被擋、掃描檔回報沒有文字層。這次沒有經 Finder 雙擊開啟，也還沒裝到第二台 Mac。
 
 ---
