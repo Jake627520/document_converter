@@ -10,6 +10,7 @@ page, so this adapter rebuilds paragraphs from the gaps between lines and
 nothing more: no heading levels, no tables, no reading order across columns
 beyond what Vision reports. It runs only on macOS.
 """
+import contextlib
 import io
 import re
 import statistics
@@ -132,14 +133,24 @@ def page_images(path: Path):
     if path.suffix.lower() == ".pdf":
         import pypdfium2
 
+        # PDFium is not thread-safe, and a pypdfium2 object left to the garbage
+        # collector is closed whenever and on whichever thread collection runs,
+        # possibly while Docling's parser is using PDFium. So each bitmap is
+        # copied out and closed before its page, and the caller closes this
+        # generator rather than leaving the document to the collector.
         document = pypdfium2.PdfDocument(str(path))
         try:
             for index in range(len(document)):
                 page = document[index]
                 try:
-                    yield page.render(scale=RENDER_SCALE).to_pil().convert("RGB")
+                    bitmap = page.render(scale=RENDER_SCALE)
+                    try:
+                        image = bitmap.to_pil().convert("RGB")
+                    finally:
+                        bitmap.close()
                 finally:
                     page.close()
+                yield image
         finally:
             document.close()
     else:
@@ -162,8 +173,9 @@ class AppleVisionOcrEngine(Engine):
         objc, Vision = _vision()
         try:
             found = []
-            for image in page_images(path):
-                found.extend(paragraphs(recognize(image, objc, Vision)))
+            with contextlib.closing(page_images(path)) as images:
+                for image in images:
+                    found.extend(paragraphs(recognize(image, objc, Vision)))
         except EngineError:
             raise
         except Exception as e:

@@ -196,6 +196,41 @@ class AdapterTests(unittest.TestCase):
         with self.assertRaisesRegex(EngineError, "decode failed"):
             self.convert(source, vision)
 
+    def test_pdfium_objects_are_closed_at_once_even_when_recognition_fails(self):
+        # PDFium is not thread-safe: a bitmap, page or document left to the
+        # garbage collector is closed on whatever thread collects it, possibly
+        # while Docling's parser is inside PDFium.
+        import pypdfium2
+
+        source = self.tmp / "two-pages.pdf"
+        Image.new("RGB", (100, 100), "white").save(source, save_all=True, append_images=[Image.new("RGB", (100, 100))])
+        closed = []
+        real_render = pypdfium2.PdfPage.render
+
+        class Document(pypdfium2.PdfDocument):
+            def close(self):
+                closed.append("document")
+                super().close()
+
+        def render(page, **kwargs):
+            bitmap = real_render(page, **kwargs)
+            real_close = bitmap.close
+            bitmap.close = lambda: (closed.append("bitmap"), real_close())
+            return bitmap
+
+        vision = FakeVision([[]])
+        vision.VNImageRequestHandler = SimpleNamespace(
+            alloc=lambda: SimpleNamespace(
+                initWithData_options_=lambda data, options: SimpleNamespace(
+                    performRequests_error_=lambda requests, error: (False, "decode failed")
+                )
+            )
+        )
+        with patch.object(pypdfium2, "PdfDocument", Document), patch.object(pypdfium2.PdfPage, "render", render):
+            with self.assertRaises(EngineError):
+                self.convert(source, vision)
+        self.assertEqual(closed, ["bitmap", "document"])
+
     def test_an_unreadable_file_is_an_engine_error(self):
         source = self.tmp / "not-really.png"
         source.write_bytes(b"not an image")
