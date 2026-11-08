@@ -53,6 +53,10 @@ dev = [
   "httpx2>=2,<3",
   "pip-audit>=2.7,<3",
   "pip-licenses>=5.0,<6",
+  # The apple-vision adapter's tests draw images and render PDF pages on any
+  # platform, with a stand-in for the Vision framework.
+  "pillow>=10",
+  "pypdfium2>=4.30,<6",
 ]
 
 [project.scripts]

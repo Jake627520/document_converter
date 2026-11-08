@@ -37,6 +37,43 @@ model-based engines so it serves as the fallback that keeps PDF conversion worki
 - **WHEN** the model-free adapter is selected for input that is not a PDF
 - **THEN** it reports that it cannot handle the input
 
+### Requirement: Convert Office documents without model weights
+A model-free Office adapter MUST convert `.docx`, `.pptx` and `.xlsx` input with
+the converter restricted to those formats, so it cannot reach a pipeline that
+loads model weights or a deep-learning runtime. Automatic engine selection MUST
+place it after the full Docling engine.
+
+#### Scenario: A Word, PowerPoint or Excel file is converted
+- **WHEN** the Office adapter converts one of its three formats
+- **THEN** headings, lists and tables the file declares are kept, and no model
+  runtime is loaded
+
+#### Scenario: Another format reaches the Office adapter
+- **WHEN** it is selected for `.doc`, `.ppt`, `.xls` or any other input
+- **THEN** it reports that it cannot handle the input
+
+### Requirement: Recognize text with the OCR macOS ships
+An OCR adapter MAY use Apple's Vision framework, which is part of macOS, to read
+scanned PDFs and images without downloading a model. It MUST report that the
+text was recognized and carries no heading levels or tables, and MUST say so
+before reading anything when it runs outside macOS or without the binding.
+Automatic engine selection MUST try it after the model-based OCR engines and
+MUST NOT use it for a PDF that has a text layer.
+
+#### Scenario: A scanned PDF or photo is converted on a Mac
+- **WHEN** no model-based OCR engine can run and the adapter reads the input
+- **THEN** each page is recognized, paragraphs are rebuilt from the gaps
+  between lines, and a warning says the text was recognized
+
+#### Scenario: OCR recognizes nothing
+- **WHEN** the adapter recognizes no text
+- **THEN** the caller says OCR ran and found nothing, rather than asking for an
+  OCR engine
+
+#### Scenario: Not on macOS
+- **WHEN** the adapter is selected on another platform
+- **THEN** it reports that it runs only on macOS
+
 ### Requirement: Keep optional engines optional
 Marker and MinerU MUST remain outside the default dependency set and MUST be invoked through their adapters as local command-line tools.
 

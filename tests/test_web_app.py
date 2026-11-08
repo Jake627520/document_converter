@@ -109,7 +109,15 @@ class WebAppTests(TestCase):
             self.assertEqual(response.status_code, 200)
             return response.headers
         self.assertEqual(convert_with("docling-native").get("x-conversion-notes"), "model-free")
+        self.assertEqual(convert_with("apple-vision").get("x-conversion-notes"), "ocr")
         self.assertNotIn("x-conversion-notes", convert_with("text_direct"))
+
+    def test_the_page_says_recognized_text_should_be_checked_in_every_language(self):
+        page = self.client.get("/").text
+        self.assertIn("notes.includes('ocr')", page)
+        for locale, words in (("en", "Check it"), ("zh-TW", "使用前請核對"), ("zh-CN", "使用前请核对")):
+            with self.subTest(locale=locale):
+                self.assertIn(words, web_app.TRANSLATIONS[locale]["note_ocr"])
 
     def test_the_page_shows_the_model_free_note_in_every_language(self):
         page = self.client.get("/").text

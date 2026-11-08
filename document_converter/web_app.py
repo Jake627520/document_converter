@@ -123,6 +123,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "status_processing": "文件正在這台電腦上處理。",
         "status_done": "轉換完成，下載已開始。",
         "note_model_free": "這次用的是不跑模型的 PDF 讀取方式（docling-native）：只取出文字，不還原標題層級、表格與閱讀順序。",
+        "note_ocr": "這次的文字是用 macOS 內建的文字辨識（apple-vision）認出來的：只有段落，沒有標題層級與表格，也可能認錯，使用前請核對。",
         "status_failed": "轉換失敗。請確認文件格式及本機引擎。",
     },
     "zh-CN": {
@@ -163,6 +164,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "status_processing": "文件正在这台电脑上处理。",
         "status_done": "转换完成，下载已开始。",
         "note_model_free": "这次使用的是不运行模型的 PDF 读取方式（docling-native）：只提取文本，不还原标题层级、表格和阅读顺序。",
+        "note_ocr": "这次的文字是用 macOS 自带的文字识别（apple-vision）识别出来的：只有段落，没有标题层级和表格，也可能识别错误，使用前请核对。",
         "status_failed": "转换失败。请检查文件格式及本地引擎。",
     },
     "en": {
@@ -203,6 +205,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "status_processing": "Processing document locally on this computer.",
         "status_done": "Conversion complete. Download has started.",
         "note_model_free": "This used the model-free PDF reader (docling-native): it extracts the text but does not rebuild heading levels, tables or reading order.",
+        "note_ocr": "This text was recognized by macOS's built-in OCR (apple-vision): paragraphs only, no heading levels or tables, and it can be wrong. Check it before relying on it.",
         "status_failed": "Conversion failed. Please verify the document format and local engines.",
     },
 }
@@ -510,6 +513,8 @@ async def convert_upload(
                 produced.append((safe_output_stem(original_name), output_path.read_bytes()))
                 if result.engine == "docling-native":
                     notes.add("model-free")
+                elif result.engine == "apple-vision":
+                    notes.add("ocr")
             except HTTPException:
                 raise
             except Exception as exc:
@@ -903,7 +908,7 @@ function updateLanguage(lang,persist=true){{if(!I18N[lang])lang='en';currentLang
 if(langSelect)langSelect.addEventListener('change',e=>updateLanguage(e.target.value));
 const detected=detectLanguage();if(detected&&detected!==currentLang&&!location.search.includes('lang='))updateLanguage(detected,false);
 if(copyBtn)copyBtn.addEventListener('click',async()=>{{if(!currentPreviewText)return;try{{await navigator.clipboard.writeText(currentPreviewText);copyBtn.textContent=t('copied_btn');setTimeout(()=>{{copyBtn.textContent=t('copy_btn')}},2000)}}catch(err){{}}}});
-form.addEventListener('submit',async e=>{{e.preventDefault();status.className='status';if(!selected.length){{status.textContent=t('status_need_file');status.classList.add('show','error');return}}if(selected.some(f=>f.size>24*1048576)){{status.textContent=t('status_single_limit');status.classList.add('show','error');return}}if(selected.reduce((n,f)=>n+f.size,0)>24*1048576){{status.textContent=t('status_total_limit');status.classList.add('show','error');return}}button.disabled=true;button.textContent=t('submitting_btn');status.textContent=t('status_processing');status.classList.add('show');try{{const data=new FormData();selected.forEach(file=>data.append('files',file));const targetVal=form.querySelector('[name=target]:checked').value;data.append('target',targetVal);data.append('lang',currentLang);const response=await fetch('/convert',{{method:'POST',headers:{{'Accept-Language':currentLang}},body:data}});if(!response.ok){{let detail=t('status_failed');try{{detail=(await response.json()).detail||detail}}catch{{}}throw new Error(detail)}}const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;const disposition=response.headers.get('content-disposition')||'';const encoded=disposition.match(/UTF-8''([^;]+)/i);const plain=disposition.match(/filename="([^"]+)"/);a.download=encoded?decodeURIComponent(encoded[1]):(plain?plain[1]:'converted-document');a.click();URL.revokeObjectURL(url);if(selected.length===1&&previewSection){{try{{const text=await blob.text();currentPreviewText=text;previewSection.style.display='block';if(targetVal==='html'){{previewFrameWrap.style.display='block';previewRawWrap.style.display='none';previewFrame.srcdoc=text}}else{{previewFrameWrap.style.display='none';previewRawWrap.style.display='block';previewCode.textContent=text}}}}catch(err){{}}}}const notes=(response.headers.get('x-conversion-notes')||'').split(',');status.textContent=t('status_done')+(notes.includes('model-free')?(currentLang==='en'?' ':'')+t('note_model_free'):'');status.classList.add('show')}}catch(error){{status.textContent=error.message;status.classList.add('show','error')}}finally{{button.disabled=false;button.textContent=t('submit_btn')}}}});
+form.addEventListener('submit',async e=>{{e.preventDefault();status.className='status';if(!selected.length){{status.textContent=t('status_need_file');status.classList.add('show','error');return}}if(selected.some(f=>f.size>24*1048576)){{status.textContent=t('status_single_limit');status.classList.add('show','error');return}}if(selected.reduce((n,f)=>n+f.size,0)>24*1048576){{status.textContent=t('status_total_limit');status.classList.add('show','error');return}}button.disabled=true;button.textContent=t('submitting_btn');status.textContent=t('status_processing');status.classList.add('show');try{{const data=new FormData();selected.forEach(file=>data.append('files',file));const targetVal=form.querySelector('[name=target]:checked').value;data.append('target',targetVal);data.append('lang',currentLang);const response=await fetch('/convert',{{method:'POST',headers:{{'Accept-Language':currentLang}},body:data}});if(!response.ok){{let detail=t('status_failed');try{{detail=(await response.json()).detail||detail}}catch{{}}throw new Error(detail)}}const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;const disposition=response.headers.get('content-disposition')||'';const encoded=disposition.match(/UTF-8''([^;]+)/i);const plain=disposition.match(/filename="([^"]+)"/);a.download=encoded?decodeURIComponent(encoded[1]):(plain?plain[1]:'converted-document');a.click();URL.revokeObjectURL(url);if(selected.length===1&&previewSection){{try{{const text=await blob.text();currentPreviewText=text;previewSection.style.display='block';if(targetVal==='html'){{previewFrameWrap.style.display='block';previewRawWrap.style.display='none';previewFrame.srcdoc=text}}else{{previewFrameWrap.style.display='none';previewRawWrap.style.display='block';previewCode.textContent=text}}}}catch(err){{}}}}const notes=(response.headers.get('x-conversion-notes')||'').split(',');const sep=currentLang==='en'?' ':'';status.textContent=t('status_done')+(notes.includes('model-free')?sep+t('note_model_free'):'')+(notes.includes('ocr')?sep+t('note_ocr'):'');status.classList.add('show')}}catch(error){{status.textContent=error.message;status.classList.add('show','error')}}finally{{button.disabled=false;button.textContent=t('submit_btn')}}}});
 </script></body></html>'''
 
 
