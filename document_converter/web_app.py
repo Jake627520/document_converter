@@ -503,7 +503,7 @@ async def convert_upload(
                 result: ConversionResult = convert_one(safe_input, "auto", "none")
                 _reject_text_free_result(result, locale)
                 output_dir = root / f"output-{uuid.uuid4().hex}"
-                write_result(result, output_dir, [target])
+                write_result(result, output_dir, [target], source_name=f"{safe_output_stem(original_name)}{suffix}")
                 output_path = output_dir / f"{safe_input.stem}.{target}"
                 if not output_path.is_file():
                     raise HTTPException(422, _unavailable_target(target, result, locale))
