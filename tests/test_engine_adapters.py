@@ -221,6 +221,15 @@ class DoclingAdapterTests(unittest.TestCase):
         self.assertIs(caught.exception.__cause__, failure)
 
 
+def _native_pdf_reader_available():
+    try:
+        import docling.pipeline.native_pdf_pipeline  # noqa: F401
+        import docling_parse  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
 class DoclingNativePdfAdapterTests(unittest.TestCase):
     """The model-free PDF adapter must not need PyTorch or downloaded weights."""
 
@@ -242,6 +251,80 @@ class DoclingNativePdfAdapterTests(unittest.TestCase):
             result = DoclingNativePdfEngine().convert(source, "none")
         converter.convert.assert_called_once_with(str(source))
         return result
+
+    def stub_modules(self, backend_options=None):
+        converter = Mock()
+        converter.convert.return_value = SimpleNamespace(
+            document=SimpleNamespace(export_to_markdown=lambda: "text", export_to_dict=lambda: {})
+        )
+        format_option, pipeline_options = Mock(), Mock()
+        modules = {
+            "docling": SimpleNamespace(),
+            "docling.datamodel": SimpleNamespace(),
+            "docling.datamodel.base_models": SimpleNamespace(InputFormat=SimpleNamespace(PDF="pdf")),
+            "docling.datamodel.pipeline_options": SimpleNamespace(NativePdfPipelineOptions=pipeline_options),
+            "docling.document_converter": SimpleNamespace(
+                DocumentConverter=Mock(return_value=converter), PdfFormatOption=format_option
+            ),
+            "docling.pipeline": SimpleNamespace(),
+            "docling.pipeline.native_pdf_pipeline": SimpleNamespace(NativePdfPipeline=object),
+        }
+        # None makes the import fail, as in a Docling without the threaded
+        # backend, even where the real module was loaded by an earlier test.
+        modules["docling.datamodel.backend_options"] = (
+            None if backend_options is None else SimpleNamespace(ThreadedDoclingParseBackendOptions=backend_options)
+        )
+        return modules, format_option, pipeline_options
+
+    def convert_on(self, platform, modules):
+        from document_converter.engines import docling_native_engine
+
+        # Only the adapter is told the platform: patching sys.platform itself
+        # would mislead every library that loads native code meanwhile.
+        with patch.dict(sys.modules, modules), patch.object(
+            docling_native_engine, "sys", SimpleNamespace(platform=platform)
+        ):
+            DoclingNativePdfEngine().convert(Path("paper.pdf"), "none")
+
+    def test_on_windows_pages_are_not_rendered(self):
+        """Docling's threaded renderer corrupts the heap on Windows (docling-parse #357)."""
+        backend_options = Mock()
+        modules, format_option, pipeline_options = self.stub_modules(backend_options)
+        self.convert_on("win32", modules)
+        backend_options.assert_called_once_with(render_pages=False)
+        pipeline_options.assert_called_once_with(generate_page_images=False)
+        self.assertIs(format_option.call_args.kwargs["backend_options"], backend_options.return_value)
+
+    def test_elsewhere_the_output_is_left_as_it_was(self):
+        for platform in ("darwin", "linux"):
+            with self.subTest(platform=platform):
+                backend_options = Mock()
+                modules, format_option, pipeline_options = self.stub_modules(backend_options)
+                self.convert_on(platform, modules)
+                backend_options.assert_not_called()
+                pipeline_options.assert_called_once_with()
+                self.assertNotIn("backend_options", format_option.call_args.kwargs)
+
+    def test_on_windows_a_docling_without_the_threaded_backend_still_converts(self):
+        modules, format_option, pipeline_options = self.stub_modules()
+        self.convert_on("win32", modules)
+        pipeline_options.assert_called_once_with()
+        self.assertNotIn("backend_options", format_option.call_args.kwargs)
+
+    @unittest.skipUnless(_native_pdf_reader_available(), "install docling-slim[convert-core,format-pdf]")
+    def test_windows_settings_convert_a_real_pdf_to_the_same_text(self):
+        from pdf_samples import write_text_pdf
+        from document_converter.engines import docling_native_engine
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = write_text_pdf(Path(tmp) / "sample.pdf")
+            here = DoclingNativePdfEngine().convert(source, "none")
+            with patch.object(docling_native_engine, "sys", SimpleNamespace(platform="win32")):
+                windows = DoclingNativePdfEngine().convert(source, "none")
+        self.assertEqual(windows.markdown, here.markdown)
+        self.assertIn("readable text stream", windows.markdown)
+        # The Docling JSON carries no page image there.
+        self.assertNotIn("image", json.loads(windows.json_text)["pages"]["1"])
 
     def test_only_pdf_input_is_accepted(self):
         engine = DoclingNativePdfEngine()
