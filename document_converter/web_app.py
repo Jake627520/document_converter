@@ -812,66 +812,78 @@ def _reject_text_free_result(result: ConversionResult, locale: str = DEFAULT_LOC
         raise HTTPException(422, _no_text_recovered(result, locale))
 
 
-def pdf_release_page(locale: str = DEFAULT_LOCALE) -> str:
-    """Keep the shared interface truthful about this release's inputs and limits."""
-    page = base_page(locale)
-    page = page.replace(
-        'accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm,.epub,.md,.markdown,.txt,.png,.jpg,.jpeg,.webp,.csv,.rtf,.odt,.ods,.odp"',
-        'accept=".pdf,.md,.markdown,.txt"',
-    )
-    if locale == "en":
+SOURCE_ACCEPT = (
+    'accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm,.epub,.md,.markdown,.txt,'
+    '.png,.jpg,.jpeg,.webp,.csv,.rtf,.odt,.ods,.odp"'
+)
+
+
+def _release_page(locale: str, accept: str, texts: dict[str, dict[str, str]], offer_json: bool = True) -> str:
+    """The shared page, saying what one release accepts and does instead.
+
+    Each text is replaced by its key in every language, not only the page's:
+    the page carries all three translations and switches between them without
+    asking the server again, and a key cannot drift from the text it replaces
+    the way a copied sentence did.
+    """
+    page = base_page(locale).replace(SOURCE_ACCEPT, f'accept="{accept}"')
+    if not offer_json:
+        t = TRANSLATIONS.get(locale, TRANSLATIONS[DEFAULT_LOCALE])
         page = page.replace(
-            "Supports PDF, Office, images, Markdown, text, and other document formats.",
-            "Supports PDF (with text layer), Markdown, and UTF-8 text.",
+            '<label class="format"><input type="radio" name="target" value="json"><span>'
+            f'<span class="ext" id="fmt_json_ext">{t["fmt_json_ext"]}</span>'
+            f'<span class="desc" id="fmt_json_desc">{t["fmt_json_desc"]}</span></span></label>',
+            "",
         )
-        page = page.replace(
-            "PDF, Word, PowerPoint, Excel, HTML, EPUB, Markdown, text, image, CSV, RTF, OpenDocument.",
-            "PDF (text layer only), Markdown (.md, .markdown), UTF-8 text (.txt). "
-            "Extracts existing text from PDF without OCR. Office and image formats are not supported in this release.",
-        )
-        page = page.replace(".json · Document structure, requires engine", ".json · Document structure, PDF only")
-        page = page.replace(
-            "Engine or model network activity depends on installation and configuration.",
-            "This release uses a model-free local PDF reader only and never downloads any models.",
-        )
-    elif locale == "zh-CN":
-        page = page.replace(
-            "支持 PDF、Office、图片、Markdown、文本与其他文档格式。",
-            "支持 PDF（需有文本层）、Markdown 与 UTF-8 文本。",
-        )
-        page = page.replace(
-            "PDF、Word、PowerPoint、Excel、HTML、EPUB、Markdown、文本、图片、CSV、RTF、OpenDocument。",
-            "PDF（仅限已有文本层者）、Markdown（.md、.markdown）、UTF-8 文本（.txt）。"
-            "PDF 会提取文件内既有的文本，不重建标题层级与表格；扫描件没有文本层，"
-            "此版本不含 OCR，转出来会是空的。此版本不提供 Office 与图片格式。",
-        )
-        page = page.replace(".json · 文档结构，需引擎解析", ".json · 文档结构，仅 PDF 可输出")
-        page = page.replace(
-            "引擎或模型的网络行为取决于其安装与设置。",
-            "此版本只使用不需模型的本地 PDF 读取器，不下载任何模型。",
-        )
-    else:
-        page = page.replace(
-            "支援 PDF、Office、圖片、Markdown、文字與其他文件格式。",
-            "支援 PDF（需有文字層）、Markdown 與 UTF-8 文字。",
-        )
-        page = page.replace(
-            "PDF、Word、PowerPoint、Excel、HTML、EPUB、Markdown、文字、圖片、CSV、RTF、OpenDocument。",
-            "PDF（僅限已有文字層者）、Markdown（.md、.markdown）、UTF-8 文字（.txt）。"
-            "PDF 會抽取檔案內既有的文字，不重建標題階層與表格；掃描檔沒有文字層，"
-            "此版本不含 OCR，轉出來會是空的。此版本不提供 Office 與圖片格式。",
-        )
-        page = page.replace(".json · 文件結構，需引擎解析", ".json · 文件結構，僅 PDF 可輸出")
-        page = page.replace(
-            "引擎或模型的網路行為取決於其安裝與設定。",
-            "此版本只使用不需模型的本機 PDF 讀取器，不下載任何模型。",
-        )
+    for language, replacements in texts.items():
+        for key, text in replacements.items():
+            page = page.replace(TRANSLATIONS[language][key], text)
     return page
 
 
+PDF_TEXT = {
+    "zh-TW": {
+        "file_hint": "支援 PDF（需有文字層）、Markdown 與 UTF-8 文字。",
+        "footer_text": (
+            "<strong>支援格式</strong>\u3000PDF（僅限已有文字層者）、Markdown（.md、.markdown）、UTF-8 文字（.txt）。"
+            "PDF 會抽取檔案內既有的文字，不重建標題階層與表格；掃描檔沒有文字層，此版本不含 OCR，會說明原因而不轉出空檔。"
+            "此版本不提供 Office 與圖片格式。"
+        ),
+        "privacy_note": "文件由本機服務處理，轉換後會立即清除暫存檔。<br>此版本只使用不需模型的本機 PDF 讀取器，不下載任何模型。",
+        "fmt_json_desc": ".json · 文件結構，僅 PDF 可輸出",
+    },
+    "zh-CN": {
+        "file_hint": "支持 PDF（需有文本层）、Markdown 与 UTF-8 文本。",
+        "footer_text": (
+            "<strong>支持格式</strong>\u3000PDF（仅限已有文本层者）、Markdown（.md、.markdown）、UTF-8 文本（.txt）。"
+            "PDF 会提取文件内既有的文本，不重建标题层级与表格；扫描件没有文本层，此版本不含 OCR，会说明原因而不输出空文件。"
+            "此版本不提供 Office 与图片格式。"
+        ),
+        "privacy_note": "文件由本地服务处理，转换后立即清理临时文件。<br>此版本只使用不需模型的本地 PDF 读取器，不下载任何模型。",
+        "fmt_json_desc": ".json · 文档结构，仅 PDF 可输出",
+    },
+    "en": {
+        "file_hint": "Supports PDF (with a text layer), Markdown, and UTF-8 text.",
+        "footer_text": (
+            "<strong>Supported formats:</strong> PDF (text layer only), Markdown (.md, .markdown), UTF-8 text (.txt). "
+            "Extracts the text a PDF already holds, without heading levels or tables; a scan has no text layer and this "
+            "release has no OCR, so it says why instead of returning an empty file. Office and image formats are not supported."
+        ),
+        "privacy_note": (
+            "Documents processed locally; temporary files cleared immediately after conversion.<br>"
+            "This release uses a model-free local PDF reader only and never downloads any models."
+        ),
+        "fmt_json_desc": ".json · Document structure, PDF only",
+    },
+}
+
+
+def pdf_release_page(locale: str = DEFAULT_LOCALE) -> str:
+    """Keep the shared interface truthful about this release's inputs and limits."""
+    return _release_page(locale, ".pdf,.md,.markdown,.txt", PDF_TEXT)
+
+
 # What the Office-and-OCR release says instead of the source install's text.
-# Every language is replaced, not only the page's: the page carries all three
-# translations and switches between them without asking the server again.
 OFFICE_OCR_TEXT = {
     "zh-TW": {
         "file_hint": "支援 PDF、Word、PowerPoint、Excel、圖片、Markdown 與 UTF-8 文字。",
@@ -911,76 +923,38 @@ OFFICE_OCR_TEXT = {
 
 def office_ocr_release_page(locale: str = DEFAULT_LOCALE) -> str:
     """Say what the Office-and-OCR release reads, and how it reads a scan."""
-    page = base_page(locale)
-    page = page.replace(
-        'accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm,.epub,.md,.markdown,.txt,.png,.jpg,.jpeg,.webp,.csv,.rtf,.odt,.ods,.odp"',
-        'accept=".pdf,.docx,.pptx,.xlsx,.png,.jpg,.jpeg,.webp,.md,.markdown,.txt"',
-    )
-    for language, texts in OFFICE_OCR_TEXT.items():
-        for key, text in texts.items():
-            page = page.replace(TRANSLATIONS[language][key], text)
-    return page
+    return _release_page(locale, ".pdf,.docx,.pptx,.xlsx,.png,.jpg,.jpeg,.webp,.md,.markdown,.txt", OFFICE_OCR_TEXT)
+
+
+TEXT_ONLY_TEXT = {
+    "zh-TW": {
+        "file_hint": "支援 Markdown 與 UTF-8 文字。",
+        "footer_text": "<strong>支援格式</strong>\u3000Markdown（.md、.markdown）、UTF-8 文字（.txt）。此版本不提供 PDF、Office、圖片或 OCR。",
+        "privacy_note": "文件由本機服務處理，轉換後會立即清除暫存檔。<br>此版本不包含文件引擎或模型，不需要下載模型。",
+    },
+    "zh-CN": {
+        "file_hint": "支持 Markdown 与 UTF-8 文本。",
+        "footer_text": "<strong>支持格式</strong>\u3000Markdown（.md、.markdown）、UTF-8 文本（.txt）。此版本不提供 PDF、Office、图片或 OCR。",
+        "privacy_note": "文件由本地服务处理，转换后立即清理临时文件。<br>此版本不包含文档引擎或模型，不需要下载模型。",
+    },
+    "en": {
+        "file_hint": "Supports Markdown and UTF-8 text.",
+        "footer_text": (
+            "<strong>Supported formats:</strong> Markdown (.md, .markdown), UTF-8 text (.txt). "
+            "This release does not provide PDF, Office, images, or OCR."
+        ),
+        "privacy_note": (
+            "Documents processed locally; temporary files cleared immediately after conversion.<br>"
+            "This release contains no document engines or models and does not download models."
+        ),
+    },
+}
 
 
 def text_release_page(locale: str = DEFAULT_LOCALE) -> str:
     """Keep the shared interface truthful about the bundled input formats."""
-    page = base_page(locale)
-    page = page.replace(
-        'accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm,.epub,.md,.markdown,.txt,.png,.jpg,.jpeg,.webp,.csv,.rtf,.odt,.ods,.odp"',
-        'accept=".md,.markdown,.txt"',
-    )
-    if locale == "en":
-        page = page.replace(
-            "Supports PDF, Office, images, Markdown, text, and other document formats.",
-            "Supports Markdown and UTF-8 text.",
-        )
-        page = page.replace(
-            "PDF, Word, PowerPoint, Excel, HTML, EPUB, Markdown, text, image, CSV, RTF, OpenDocument.",
-            "Markdown (.md, .markdown), UTF-8 text (.txt). This release does not provide PDF, Office, images, or OCR.",
-        )
-        page = page.replace(
-            '<label class="format"><input type="radio" name="target" value="json"><span><span class="ext" id="fmt_json_ext">Docling JSON</span><span class="desc" id="fmt_json_desc">.json · Document structure, requires engine</span></span></label>',
-            "",
-        )
-        page = page.replace(
-            "Engine or model network activity depends on installation and configuration.",
-            "This release contains no document engines or models and does not download models.",
-        )
-    elif locale == "zh-CN":
-        page = page.replace(
-            "支持 PDF、Office、图片、Markdown、文本与其他文档格式。",
-            "支持 Markdown 与 UTF-8 文本。",
-        )
-        page = page.replace(
-            "PDF、Word、PowerPoint、Excel、HTML、EPUB、Markdown、文本、图片、CSV、RTF、OpenDocument。",
-            "Markdown（.md、.markdown）、UTF-8 文本（.txt）。此版本不提供 PDF、Office、图片或 OCR。",
-        )
-        page = page.replace(
-            '<label class="format"><input type="radio" name="target" value="json"><span><span class="ext" id="fmt_json_ext">Docling JSON</span><span class="desc" id="fmt_json_desc">.json · 文档结构，需引擎解析</span></span></label>',
-            "",
-        )
-        page = page.replace(
-            "引擎或模型的网络行为取决于其安装与设置。",
-            "此版本不包含文档引擎或模型，不需要下载模型。",
-        )
-    else:
-        page = page.replace(
-            "支援 PDF、Office、圖片、Markdown、文字與其他文件格式。",
-            "支援 Markdown 與 UTF-8 文字。",
-        )
-        page = page.replace(
-            "PDF、Word、PowerPoint、Excel、HTML、EPUB、Markdown、文字、圖片、CSV、RTF、OpenDocument。",
-            "Markdown（.md、.markdown）、UTF-8 文字（.txt）。此版本不提供 PDF、Office、圖片或 OCR。",
-        )
-        page = page.replace(
-            '<label class="format"><input type="radio" name="target" value="json"><span><span class="ext" id="fmt_json_ext">Docling JSON</span><span class="desc" id="fmt_json_desc">.json · 文件結構，需引擎解析</span></span></label>',
-            "",
-        )
-        page = page.replace(
-            "引擎或模型的網路行為取決於其安裝與設定。",
-            "此版本不包含文件引擎或模型，不需要下載模型。",
-        )
-    return page
+    # It runs no engine, so it has no Docling JSON to offer.
+    return _release_page(locale, ".md,.markdown,.txt", TEXT_ONLY_TEXT, offer_json=False)
 
 
 def base_page(locale: str = DEFAULT_LOCALE) -> str:

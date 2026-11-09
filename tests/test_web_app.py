@@ -207,6 +207,35 @@ class ReleaseProfileTests(TestCase):
         self.assertIn("此版本不含 OCR", page)
         self.assertIn("不下載任何模型", page)
 
+    def test_every_release_page_replaces_the_source_install_text_in_every_language(self):
+        """The pdf and text pages kept the source install's text in English and Simplified Chinese.
+
+        Each replacement copied a sentence that no longer matched the page, so it
+        did nothing. They are now replaced by key, in all three languages, since
+        the page switches between its translations itself.
+        """
+        releases = (
+            (web_app.TEXT_PROFILE, web_app.TEXT_ONLY_TEXT),
+            (web_app.PDF_PROFILE, web_app.PDF_TEXT),
+            (web_app.OFFICE_OCR_PROFILE, web_app.OFFICE_OCR_TEXT),
+        )
+        for profile, texts in releases:
+            client = self.client_for(profile)
+            for locale in ("zh-TW", "zh-CN", "en"):
+                with self.subTest(profile=profile, locale=locale):
+                    page = client.get("/", params={"lang": locale}).text
+                    self.assertNotIn("EPUB", page)
+                    for language, replacements in texts.items():
+                        for key, text in replacements.items():
+                            self.assertNotIn(web_app.TRANSLATIONS[language][key], page, (language, key))
+                            self.assertIn(text, page)
+
+    def test_text_release_offers_no_json_in_any_language(self):
+        client = self.client_for(web_app.TEXT_PROFILE)
+        for locale in ("zh-TW", "zh-CN", "en"):
+            with self.subTest(locale=locale):
+                self.assertNotIn('value="json"', client.get("/", params={"lang": locale}).text)
+
     def test_pdf_release_still_rejects_office_and_image_input(self):
         client = self.client_for(web_app.PDF_PROFILE)
         for filename in ("report.docx", "deck.pptx", "sheet.xlsx", "scan.png"):
