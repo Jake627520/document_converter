@@ -1,4 +1,5 @@
 from pathlib import Path
+import sys
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -14,7 +15,7 @@ def convert(
     source: Path = typer.Argument(..., exists=True, readable=True),
     to: list[str] = typer.Option(["md"], "--to", help="Outputs: md html json txt. Repeat --to."),
     output: Path = typer.Option(Path("./converted"), "--output", "-o"),
-    engine: str = typer.Option("auto", "--engine", help="auto, docling, docling-native, marker, mineru"),
+    engine: str = typer.Option("auto", "--engine", help="auto, docling, docling-native, docling-office, apple-vision, marker, mineru"),
     images: str = typer.Option("none", "--images", help="none, referenced, embedded"),
     clean: bool = typer.Option(False, "--clean", help="Clean up markdown formatting and page artifacts"),
     strip_page_numbers: bool = typer.Option(
@@ -42,8 +43,10 @@ def convert(
     bad = set(to) - valid
     if bad:
         raise typer.BadParameter(f"Unsupported output(s): {', '.join(sorted(bad))}")
-    if engine not in {"auto", "text_direct", "docling", "docling-native", "marker", "mineru"}:
-        raise typer.BadParameter("engine must be auto, text_direct, docling, docling-native, marker, or mineru")
+    if engine not in {"auto", "text_direct", "docling", "docling-native", "docling-office", "apple-vision", "marker", "mineru"}:
+        raise typer.BadParameter(
+            "engine must be auto, text_direct, docling, docling-native, docling-office, apple-vision, marker, or mineru"
+        )
     if images not in {"none", "referenced", "embedded"}:
         raise typer.BadParameter("images must be none, referenced, or embedded")
     if parallel < 1:
@@ -156,6 +159,8 @@ def list_engines():
         ("text_direct", "built-in (always available)", "UTF-8 Markdown / plain text"),
         ("docling", "pip install docling", "primary/local"),
         ("docling-native", "pip install docling-slim", "model-free PDF text reader"),
+        ("docling-office", 'pip install "docling-slim[convert-core,format-office]"', "model-free Office reader"),
+        ("apple-vision", "pip install pyobjc-framework-Vision pypdfium2", "macOS built-in OCR"),
         ("marker", "pip install marker-pdf", "optional PDF fallback"),
         ("mineru", "pip install 'mineru>=4,<5'", "optional PDF/OCR fallback"),
     ]
@@ -166,11 +171,15 @@ def list_engines():
             found = "installed" if (
                 (name == "docling" and _importable("docling")) or
                 (name == "docling-native" and _importable("docling.pipeline.native_pdf_pipeline")) or
+                (name == "docling-office" and all(map(_importable, ("docling", "docx", "pptx", "openpyxl")))) or
+                (name == "apple-vision" and sys.platform == "darwin" and _importable("Vision")) or
                 (name == "marker" and shutil.which("marker_single")) or
                 (name == "mineru" and shutil.which("mineru-kit"))
             ) else "not detected"
         # soft_wrap: an install command broken across lines reads as two commands.
-        console.print(f"{name:14} {found:12} {role:26} {install}", soft_wrap=True)
+        # markup=False: Rich would otherwise swallow an extras list such as
+        # [convert-core,format-office] as a style tag.
+        console.print(f"{name:14} {found:12} {role:26} {install}", soft_wrap=True, markup=False)
 
 @app.command("web")
 def web(

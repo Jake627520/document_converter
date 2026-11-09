@@ -44,10 +44,16 @@ def no_text_recovered_message(result: ConversionResult) -> str:
             f"{name}: no text recovered. The file is empty or contains only whitespace. "
             "No output file was written."
         )
+    if engine == "apple-vision":
+        return (
+            f"{name}: no text recognized (engine: apple-vision). OCR ran, but the pages may be blank, "
+            "pictures without text, or too faint to read. No output file was written."
+        )
     return (
         f"{name}: no text recovered (engine: {engine}). "
         "The file may be a scan or photo with no text layer, image-only pages, or empty. "
-        "No output file was written. A scanned PDF needs an OCR-capable engine; this project ships none. "
-        "Marker or MinerU can be installed separately, under their own terms; "
+        "No output file was written. A scanned PDF needs an OCR-capable engine; this project bundles none. "
+        "On a Mac, apple-vision uses the system's own (pip install pyobjc-framework-Vision pypdfium2); "
+        "Docling's full install, Marker or MinerU can be installed separately, under their own terms; "
         "`document-converter list-engines` shows what is installed."
     )

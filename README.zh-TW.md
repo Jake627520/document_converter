@@ -20,10 +20,10 @@
 | Markdown `.md` `.markdown` | ✅ | ✅ | ✅ |
 | UTF-8 文字 `.txt` | ✅ | ✅ | ✅ |
 | **有文字層的** PDF | ✅ | ❌ | ✅ |
-| **掃描或拍照的** PDF | ⚠️ 需另外安裝具 OCR 的引擎 | ❌ | ❌ |
-| Office `.docx` `.pptx` `.xlsx` 及舊格式 | ✅ | ❌ | ❌ |
+| **掃描或拍照的** PDF | ✅ 需 OCR：Docling 的模型（第一次使用時下載），或在 Mac 上裝 `apple-vision` extra | ❌ | ❌ |
+| Office `.docx` `.pptx` `.xlsx` 及舊格式 | ✅（`.docx` `.pptx` `.xlsx` 只裝 `office` extra 也行，不需 PyTorch） | ❌ | ❌ |
 | `.html` `.htm` `.epub` `.csv` `.rtf` OpenDocument | ✅ | ❌ | ❌ |
-| 圖片 `.png` `.jpg` `.jpeg` `.webp` | ⚠️ 需 Docling 的模型流程（PyTorch） | ❌ | ❌ |
+| 圖片 `.png` `.jpg` `.jpeg` `.webp` | ✅ 需 OCR，與掃描檔相同 | ❌ | ❌ |
 
 不支援的檔案會在轉換開始前就被拒絕，而且訊息會告訴你**哪些格式可以**。
 例如在 `pdf` 版 App 上傳 Word 檔，你會看到：
@@ -158,6 +158,16 @@ uv pip install -e .
   pip install -e ".[full]"
   ```
 
+- **不需 PyTorch 的 Office 轉換**（透過 Docling 的讀取器轉 `.docx`、`.pptx`、`.xlsx`，約 0.4 GB，不用模型）：
+  ```bash
+  pip install -e ".[office]"
+  ```
+
+- **Mac 上不用下載任何東西的 OCR**（用 macOS 內建的文字辨識讀掃描 PDF 與照片）：
+  ```bash
+  pip install -e ".[apple-vision]"
+  ```
+
 Windows 上的原始碼安裝已在 CI 驗證：CI 在 `windows-latest`（Python 3.12）安裝 web extra，整套測試通過。Markdown 與純文字的轉換，以及瀏覽器工作台，都能在 Windows 上使用。另一個 job 加裝 `docling` extra，測試全數通過、沒有任何 skip，所以有文字層的 PDF 也能在 Windows 上轉換。CI 不下載 Docling 模型，所以模型流程（版面、表格、OCR）尚未在 Windows 上驗證。
 
 ### 瀏覽器工作台
@@ -184,6 +194,8 @@ document-converter list-engines
 ```bash
 document-converter convert paper.pdf --engine docling --to md
 document-converter convert paper.pdf --engine docling-native --to md   # no PyTorch, no model download
+document-converter convert report.docx --engine docling-office --to md  # Word/PowerPoint/Excel，不用模型
+document-converter convert scan.pdf --engine apple-vision --to md       # macOS 內建 OCR
 document-converter convert paper.pdf --engine marker --to md
 document-converter convert paper.pdf --engine mineru --to md
 ```
@@ -223,6 +235,30 @@ pip install -e . --no-deps
 這樣安裝約 0.4 GB。它只轉換 PDF，不重建文件結構、不做 OCR，每次轉換都會以警告記錄這項限制。
 `auto` 會把它排在最後，所以有安裝模型版引擎時會優先使用模型版。
 
+### 不需 PyTorch 的 Office 轉換（`docling-office`）
+
+Word、PowerPoint、Excel 檔案完全不需要模型：Docling 用 python-docx、python-pptx 與
+openpyxl 讀取，保留標題、清單與表格。`docling-office` 把 Docling 限定在這三種格式，
+所以絕不會走到需要模型權重的流程。用 `pip install -e ".[office]"` 安裝；沒有裝完整版
+Docling 時，`auto` 會用它。文件裡的圖片仍保留為圖片，不會讀出圖中的文字。
+
+### OCR（文字辨識）
+
+掃描檔和照片裡沒有可以直接取出的文字，必須「辨識」出來。支援兩種方式，`auto` 會用已安裝的那一種：
+
+| | Docling 的模型 | `apple-vision` |
+|---|---|---|
+| 安裝 | `pip install -e ".[docling]"` | `pip install -e ".[apple-vision]"` |
+| 可用平台 | macOS、Linux、Windows | 只有 macOS |
+| 需要下載 | 第一次使用時下載版面模型（Hugging Face）與 OCR 模型（RapidOCR） | 不用：辨識器是 macOS 內建的 |
+| 輸出 | 標題、表格與閱讀順序 | 只有段落 |
+| 語言 | RapidOCR 的中英文模型 | 繁體中文、簡體中文、英文 |
+
+`apple-vision` 使用 Apple 的 Vision 框架，也就是「照片」App 能選取圖中文字的那套辨識器。
+它把 PDF 每一頁以 300 dpi 轉成圖片後辨識，再依行與行之間的距離組回段落。
+每次轉換都會附上警告，提醒文字是辨識出來的、使用前請核對。CI 兩種都驗證：
+一頁畫上英文與繁體中文的頁面，分別由 Linux 上的 Docling 模型與 Apple Silicon Mac 上的 Vision 讀回。
+
 ### 選用引擎
 
 ```bash
@@ -256,11 +292,15 @@ HTML 轉譯器，以及打包流程。**實際的文件解析由下列元件完�
 | 掃描檔偵測 | **pypdf**，沒有時改用內建的串流分析器 | BSD-3-Clause | ✅ 兩版 |
 | 打包成 App | **PyInstaller** | GPL-2.0-or-later，**附 Bootloader 例外條款** | ✅ 僅啟動器 |
 | 含版面與表格模型的 PDF 流程 | Docling 的模型流程，需 **PyTorch** 並下載模型權重 | 程式碼 MIT，模型條款另計 | ❌ |
+| Office 讀取（不跑模型） | 透過 Docling 使用 **python-docx**、**python-pptx**、**openpyxl** | MIT | ❌ |
+| Docling 模型流程中的 OCR | **RapidOCR** 與 PaddleOCR 模型，由 **ONNX Runtime** 執行 | Apache-2.0 / MIT | ❌ |
+| macOS 上的 OCR | Apple 的 **Vision** 框架，透過 **PyObjC** 呼叫 | macOS 內建 / MIT | ❌ |
 | 其他 PDF／OCR 引擎 | **Marker**、**MinerU** | 程式碼 Apache-2.0；模型與附加條款另計 | ❌ |
 
-**OCR：本專案沒有使用任何 OCR。** 兩個 macOS 版本都不含任何 OCR 引擎或廠商，
-掃描檔會被明確回報為「沒有文字層」，而不是硬猜內容。
-只有你自己安裝 Marker 或 MinerU 時才會有 OCR，並受它們自己的條款約束 ——
+**OCR：本專案沒有附帶任何 OCR。** 兩個 macOS 版本都不含任何 OCR 引擎或模型，
+App 會把掃描檔明確回報為「沒有文字層」，而不是硬猜內容。
+從原始碼安裝時，OCR 來自 Docling 的模型流程、`apple-vision`（使用 macOS 本來就有的辨識器），
+或你自己安裝的 Marker、MinerU（受它們自己的條款約束）——
 查證紀錄見 [`docs/LICENSE_AUDIT.md`](docs/LICENSE_AUDIT.md)。
 
 ### Fork 自己跑：SOP

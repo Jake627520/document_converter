@@ -1,6 +1,6 @@
 # License and third-party review status
 
-Updated: 2026-10-16.
+Updated: 2026-11-08.
 
 The source repository is public. Visibility is an access setting, not a license or a compliance finding: the original Software stays under the proprietary `LICENSE`, which a public repository neither relaxes nor replaces, and third-party terms apply the same either way. This document records evidence and release requirements; it does not establish that every combination or jurisdiction has been legally cleared.
 
@@ -56,6 +56,19 @@ The `mineru` 4.0.12 wheel was downloaded from PyPI by version and read without b
 - Upstream installs it as `pip install "mineru>=4.0,<5"`, and its base requirements include PyTorch, `huggingface-hub` and `modelscope` for its model files.
 
 Consequences in this repository: the adapter runs only `mineru-kit parse`, with no remote option; `list-engines` detects MinerU by `mineru-kit`; and the `mineru` extra installs `mineru>=4,<5` instead of the AGPL-3.0 `magic-pdf`. MinerU stays outside both release profiles. Its model artifacts were not reviewed, and MinerU itself was not run in the review environment.
+
+## Office reader and OCR engines (2026-11-08)
+
+Added to the source install as the `office` and `apple-vision` extras, and as the OCR that Docling's own `docling` extra already brought. None is in either release profile. Package metadata was read from PyPI on 2026-11-08, and the macOS arm64 wheels for CPython 3.12 were downloaded and listed without being installed:
+
+| Component | Evidence | Consequence |
+|---|---|---|
+| python-docx 1.2.0, python-pptx 1.0.2, openpyxl 3.1.5, et-xmlfile 2.0.0 | PyPI records MIT for each; each wheel ships its license file (`LICENSE`, or `LICENCE.rst` for openpyxl) | Docling's Office readers, installed by `docling-slim[format-office]`. Converting a generated `.docx`, `.pptx` and `.xlsx` with only that extra loaded no PyTorch, ONNX Runtime, OCR or Docling model module and opened no network connection |
+| XlsxWriter 3.3.1 | PyPI records BSD-2-Clause | Pulled in by the same extra |
+| PyObjC 13.0: `pyobjc-core`, `pyobjc-framework-Vision`, `-CoreML`, `-Quartz`, `-Cocoa` | PyPI records MIT for each. The `-Quartz` and `-Cocoa` wheels ship `LICENSE.txt`; the `pyobjc-core`, `-Vision` and `-CoreML` wheels ship none (12.1, 11.1 and 10.3 do not either), while each one's source distribution carries `License.txt` | Lets Python call Apple's Vision framework, which is part of macOS and is not redistributed. A release that bundles these wheels cannot take their notice from the wheel as `collect_notices.py` requires; it would need the source distribution's text, recorded with its hash |
+| `ocrmac` 1.0.1 | MIT, license file in the wheel | Not used: the adapter calls Vision through PyObjC itself, which avoids this package's optional matplotlib and AppKit imports |
+| RapidOCR 3.10.0, ONNX Runtime | PyPI records Apache-2.0 and MIT | Brought by the `docling` extra; Docling's automatic OCR selects RapidOCR on Linux and Windows. RapidOCR downloads its recognition models (converted from PaddleOCR) on first use; their terms were not read |
+| Apple Vision | Part of macOS; used through its public API on the user's own machine | Nothing is downloaded or redistributed |
 
 ## Review rules for every artifact
 

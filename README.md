@@ -21,10 +21,10 @@ the [case study](docs/case-study/README.md), also in [繁體中文](docs/case-st
 | Markdown `.md` `.markdown` | ✅ | ✅ | ✅ |
 | UTF-8 text `.txt` | ✅ | ✅ | ✅ |
 | PDF **with a text layer** | ✅ | ❌ | ✅ |
-| PDF that is a **scan or photo** | ⚠️ needs an OCR engine installed separately | ❌ | ❌ |
-| Office `.docx` `.pptx` `.xlsx` and older | ✅ | ❌ | ❌ |
+| PDF that is a **scan or photo** | ✅ with OCR: Docling's models (downloaded on first use), or on a Mac the `apple-vision` extra | ❌ | ❌ |
+| Office `.docx` `.pptx` `.xlsx` and older | ✅ (`.docx` `.pptx` `.xlsx` also with just the `office` extra, no PyTorch) | ❌ | ❌ |
 | `.html` `.htm` `.epub` `.csv` `.rtf` OpenDocument | ✅ | ❌ | ❌ |
-| Images `.png` `.jpg` `.jpeg` `.webp` | ⚠️ needs Docling's model pipeline (PyTorch) | ❌ | ❌ |
+| Images `.png` `.jpg` `.jpeg` `.webp` | ✅ with OCR, as for a scan | ❌ | ❌ |
 
 A file the install does not accept is refused before any conversion starts, and
 the message names the formats that would work — for example, from the `pdf`
@@ -168,6 +168,18 @@ Choose the installation tier that matches your needs:
   pip install -e ".[full]"
   ```
 
+- **Office without PyTorch** (`.docx`, `.pptx`, `.xlsx` through Docling's
+  readers, about 0.4 GB, no model):
+  ```bash
+  pip install -e ".[office]"
+  ```
+
+- **OCR on a Mac with nothing to download** (scanned PDFs and photos, read by
+  the text recognition built into macOS):
+  ```bash
+  pip install -e ".[apple-vision]"
+  ```
+
 On Windows, a source install is checked in CI: a job installs it with the web
 extra on `windows-latest` (Python 3.12) and the test suite passes. Converting
 Markdown and plain text, and the browser workbench, work there. A second job
@@ -200,6 +212,8 @@ Choose an engine explicitly:
 ```bash
 document-converter convert paper.pdf --engine docling --to md
 document-converter convert paper.pdf --engine docling-native --to md   # no PyTorch, no model download
+document-converter convert report.docx --engine docling-office --to md  # Word/PowerPoint/Excel, no model
+document-converter convert scan.pdf --engine apple-vision --to md       # macOS built-in OCR
 document-converter convert paper.pdf --engine marker --to md
 document-converter convert paper.pdf --engine mineru --to md
 ```
@@ -244,6 +258,35 @@ no OCR, and records that limitation as a warning on every conversion. `auto`
 tries it last, so model-based engines are preferred wherever they are
 installed.
 
+### Office without PyTorch (`docling-office`)
+
+Word, PowerPoint and Excel files need no model at all: Docling reads them with
+python-docx, python-pptx and openpyxl and keeps their headings, lists and
+tables. `docling-office` restricts Docling to those three formats, so it never
+reaches a pipeline that wants model weights. `pip install -e ".[office]"`
+installs it; `auto` uses it when the full Docling is not installed. Pictures
+inside a document stay pictures: their text is not read.
+
+### OCR
+
+A scan or a photo has no text to extract; it has to be recognized. Two ways
+are supported, and `auto` picks whichever is installed:
+
+| | Docling's models | `apple-vision` |
+|---|---|---|
+| Install | `pip install -e ".[docling]"` | `pip install -e ".[apple-vision]"` |
+| Runs on | macOS, Linux, Windows | macOS only |
+| Downloads | Layout model from Hugging Face, OCR model (RapidOCR) on first use | Nothing: the recognizer is part of macOS |
+| Gives back | Headings, tables and reading order | Paragraphs only |
+| Languages | RapidOCR's Chinese and English model | Traditional Chinese, Simplified Chinese, English |
+
+`apple-vision` uses Apple's Vision framework, the same recognizer that lets
+Photos select text in a picture. It renders each PDF page at 300 dpi, reads
+it, and rebuilds paragraphs from the gaps between lines. Every conversion
+carries a warning that the text was recognized and should be checked. CI
+checks both: a page drawn with English and Traditional Chinese is read back by
+Docling's models on Linux and by Vision on an Apple Silicon Mac.
+
 ### Optional engines
 
 ```bash
@@ -281,13 +324,18 @@ itself is done by these:
 | Scanned-PDF detection | **pypdf**, or a built-in stream reader when it is absent | BSD-3-Clause | ✅ both |
 | Packaging into an app | **PyInstaller** | GPL-2.0-or-later **with its Bootloader exception** | ✅ bootloader only |
 | PDF with layout and table models | Docling's model pipeline, needing **PyTorch** and downloaded weights | MIT code, model terms separate | ❌ |
+| Office reading, no model | **python-docx**, **python-pptx**, **openpyxl** through Docling | MIT | ❌ |
+| OCR in Docling's model pipeline | **RapidOCR** with PaddleOCR models, run by **ONNX Runtime** | Apache-2.0 / MIT | ❌ |
+| OCR on macOS | Apple's **Vision** framework, reached through **PyObjC** | Part of macOS / MIT | ❌ |
 | Alternative PDF/OCR engines | **Marker**, **MinerU** | Apache-2.0 code; separate model and additional terms | ❌ |
 
-**OCR: this project ships none.** No OCR engine or vendor is included in either
-macOS profile, and a scan is reported as having no text layer rather than
-guessed at. OCR exists only if you install Marker or MinerU yourself, under
-their own terms — see [`docs/LICENSE_AUDIT.md`](docs/LICENSE_AUDIT.md), which
-records what was checked and when.
+**OCR: this project bundles none.** No OCR engine or model is included in
+either macOS profile, and the app reports a scan as having no text layer
+rather than guessing at it. From source, OCR comes from Docling's model
+pipeline, from `apple-vision` (which uses the recognizer macOS already has),
+or from Marker or MinerU under their own terms — see
+[`docs/LICENSE_AUDIT.md`](docs/LICENSE_AUDIT.md), which records what was
+checked and when.
 
 ### Fork it and run your own
 

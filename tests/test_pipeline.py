@@ -59,6 +59,23 @@ class TestPipeline(unittest.TestCase):
         self.assertIn("mineru", engine_names)
         self.assertIn("marker", engine_names)
 
+    def test_choose_engine_auto_ocr_falls_back_to_macos_built_in_ocr(self):
+        """Without a model engine installed, a Mac still reads scans and photos."""
+        profile = PdfProfile(path=Path("scanned.pdf"), has_text_layer=False, is_scanned=True)
+        scanned = [e.name for e in choose_engine("auto", Path("scanned.pdf"), profile=profile)]
+        self.assertEqual(scanned[-2:], ["apple-vision", "docling-native"])
+        self.assertEqual([e.name for e in choose_engine("auto", Path("photo.JPG"))][-1], "apple-vision")
+        # A PDF with a text layer is read from that layer, never re-recognized.
+        text = PdfProfile(path=Path("sample.pdf"), has_text_layer=True, is_scanned=False)
+        self.assertNotIn("apple-vision", [e.name for e in choose_engine("auto", Path("sample.pdf"), profile=text)])
+
+    def test_choose_engine_auto_office_falls_back_to_the_model_free_reader(self):
+        for name in ("report.docx", "deck.PPTX", "sheet.xlsx"):
+            with self.subTest(name=name):
+                engines = [e.name for e in choose_engine("auto", Path(name))]
+                self.assertEqual(engines, ["docling", "docling-office"])
+        self.assertEqual([e.name for e in choose_engine("auto", Path("old.doc"))], ["docling"])
+
     def test_engine_chain_failure_keeps_each_engines_exception(self):
         """A caller must be able to ask why each engine failed, not parse the text.
 

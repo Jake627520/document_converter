@@ -12,6 +12,7 @@ from document_converter.engines.base import EngineError
 from document_converter.engines.command_engine import MarkerEngine, MinerUEngine
 from document_converter.engines.docling_engine import DoclingEngine
 from document_converter.engines.docling_native_engine import DoclingNativePdfEngine
+from document_converter.engines.docling_office_engine import DoclingOfficeEngine
 
 
 class CommandAdapterTests(unittest.TestCase):
@@ -277,6 +278,74 @@ class DoclingNativePdfAdapterTests(unittest.TestCase):
         with self.assertRaisesRegex(EngineError, "docling-native failed for paper.pdf") as caught:
             self.convert_with_document(document)
         self.assertIs(caught.exception.__cause__, failure)
+
+
+def _office_reader_available():
+    try:
+        import docling.document_converter  # noqa: F401
+        import docx  # noqa: F401
+        import openpyxl  # noqa: F401
+        import pptx  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+class DoclingOfficeTests(unittest.TestCase):
+    def test_accepts_only_the_office_formats_it_reads_without_models(self):
+        engine = DoclingOfficeEngine()
+        for name in ("report.docx", "deck.PPTX", "sheet.xlsx"):
+            self.assertTrue(engine.can_handle(Path(name)), name)
+        for name in ("old.doc", "old.ppt", "old.xls", "scan.pdf", "photo.png"):
+            self.assertFalse(engine.can_handle(Path(name)), name)
+        with self.assertRaisesRegex(EngineError, "only converts .docx, .pptx and .xlsx"):
+            engine.convert(Path("old.doc"), "none")
+
+    def test_missing_docling_is_reported(self):
+        with patch.dict(sys.modules, {"docling.document_converter": None}):
+            with self.assertRaisesRegex(EngineError, "Office reader is unavailable"):
+                DoclingOfficeEngine().convert(Path("report.docx"), "none")
+
+    @unittest.skipUnless(_office_reader_available(), "install docling-slim[convert-core,format-office]")
+    def test_converts_word_powerpoint_and_excel_with_structure_and_no_models(self):
+        import docx
+        import openpyxl
+        import pptx
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            document = docx.Document()
+            document.add_heading("季度報告", 1)
+            document.add_paragraph("營收 & 毛利")
+            table = document.add_table(rows=2, cols=2)
+            for (row, col), text in {(0, 0): "項目", (0, 1): "數值", (1, 0): "A", (1, 1): "12"}.items():
+                table.cell(row, col).text = text
+            document.save(tmp / "report.docx")
+            deck = pptx.Presentation()
+            slide = deck.slides.add_slide(deck.slide_layouts[1])
+            slide.shapes.title.text = "簡報標題"
+            slide.placeholders[1].text = "第一點\n第二點"
+            deck.save(tmp / "deck.pptx")
+            book = openpyxl.Workbook()
+            book.active.append(["名稱", "數量"])
+            book.active.append(["蘋果", 3])
+            book.save(tmp / "sheet.xlsx")
+
+            before = set(sys.modules)
+            word = DoclingOfficeEngine().convert(tmp / "report.docx", "none")
+            slides = DoclingOfficeEngine().convert(tmp / "deck.pptx", "none")
+            sheet = DoclingOfficeEngine().convert(tmp / "sheet.xlsx", "none")
+            loaded = {name.split(".")[0] for name in set(sys.modules) - before}
+
+        self.assertEqual(word.engine, "docling-office")
+        self.assertIn("## 季度報告", word.markdown)
+        self.assertIn("營收 & 毛利", word.markdown)
+        self.assertRegex(word.markdown, r"\| 項目 +\| +數值 \|")
+        self.assertIn("# 簡報標題", slides.markdown)
+        self.assertIn("- 第二點", slides.markdown)
+        self.assertRegex(sheet.markdown, r"\| 蘋果 +\| +3 \|")
+        self.assertTrue(json.loads(sheet.json_text))
+        self.assertFalse(loaded & {"torch", "transformers", "onnxruntime", "easyocr", "rapidocr", "docling_ibm_models"})
 
 
 if __name__ == "__main__":

@@ -109,7 +109,15 @@ class WebAppTests(TestCase):
             self.assertEqual(response.status_code, 200)
             return response.headers
         self.assertEqual(convert_with("docling-native").get("x-conversion-notes"), "model-free")
+        self.assertEqual(convert_with("apple-vision").get("x-conversion-notes"), "ocr")
         self.assertNotIn("x-conversion-notes", convert_with("text_direct"))
+
+    def test_the_page_says_recognized_text_should_be_checked_in_every_language(self):
+        page = self.client.get("/").text
+        self.assertIn("notes.includes('ocr')", page)
+        for locale, words in (("en", "Check it"), ("zh-TW", "使用前請核對"), ("zh-CN", "使用前请核对")):
+            with self.subTest(locale=locale):
+                self.assertIn(words, web_app.TRANSLATIONS[locale]["note_ocr"])
 
     def test_the_page_shows_the_model_free_note_in_every_language(self):
         page = self.client.get("/").text
@@ -143,16 +151,21 @@ class WebAppTests(TestCase):
 
 
 def _native_pdf_available():
+    # docling-slim installed for Office alone (the office extra) has the PDF
+    # pipeline but not docling-parse, which reads the PDF for it.
     try:
         import docling.pipeline.native_pdf_pipeline  # noqa: F401
+        import docling_parse  # noqa: F401
     except Exception:
         return False
     return True
 
 
 def _docling_available() -> bool:
+    """Can Docling convert a PDF here? Importing docling alone does not show it."""
     try:
         import docling  # noqa: F401
+        import docling_parse  # noqa: F401
         return True
     except Exception:
         return False
@@ -160,7 +173,7 @@ def _docling_available() -> bool:
 
 requires_docling = unittest.skipUnless(
     _docling_available(),
-    "docling not installed; install with: pip install -e '.[docling]'",
+    "Docling cannot read PDFs here; install with: pip install -e '.[docling]'",
 )
 
 
@@ -509,6 +522,22 @@ class EmptyResultTests(TestCase):
                     release = web_app._no_text_recovered(scan, locale)
                 self.assertNotIn("Marker", release)
                 self.assertNotIn("list-engines", release)
+
+    def test_a_source_install_is_pointed_at_the_macos_built_in_ocr(self):
+        scan = ConversionResult(source=Path("scan.pdf"), engine="docling-native", markdown="")
+        for locale in ("en", "zh-TW", "zh-CN"):
+            with self.subTest(locale=locale), mock.patch.object(web_app, "_RELEASE_PROFILE", None):
+                message = web_app._no_text_recovered(scan, locale)
+                self.assertIn("apple-vision", message)
+                self.assertIn("pyobjc-framework-Vision", message)
+
+    def test_when_ocr_ran_and_found_nothing_it_does_not_ask_for_ocr(self):
+        blank = ConversionResult(source=Path("blank.png"), engine="apple-vision", markdown="")
+        for locale, ran in (("en", "OCR ran"), ("zh-TW", "OCR 已經跑過"), ("zh-CN", "OCR 已运行")):
+            with self.subTest(locale=locale), mock.patch.object(web_app, "_RELEASE_PROFILE", None):
+                message = web_app._no_text_recovered(blank, locale)
+                self.assertIn(ran, message)
+                self.assertNotIn("Marker", message)
 
     def test_a_caption_beside_an_unreadable_image_still_converts(self):
         # Some text with a picture is a real document, not an empty result.
