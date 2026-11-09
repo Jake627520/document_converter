@@ -1,0 +1,4 @@
+# License texts copied byte for byte from upstream source archives. Their
+# SHA-256 is recorded beside them, so a checkout must not rewrite their line
+# endings (Git on Windows turns LF into CRLF by default).
+scripts/packaging/sdist-notices/** -text
