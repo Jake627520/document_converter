@@ -1,6 +1,6 @@
 # License and third-party review status
 
-Updated: 2026-11-08.
+Updated: 2026-11-09.
 
 The source repository is public. Visibility is an access setting, not a license or a compliance finding: the original Software stays under the proprietary `LICENSE`, which a public repository neither relaxes nor replaces, and third-party terms apply the same either way. This document records evidence and release requirements; it does not establish that every combination or jurisdiction has been legally cleared.
 
@@ -65,10 +65,21 @@ Added to the source install as the `office` and `apple-vision` extras, and as th
 |---|---|---|
 | python-docx 1.2.0, python-pptx 1.0.2, openpyxl 3.1.5, et-xmlfile 2.0.0 | PyPI records MIT for each; each wheel ships its license file (`LICENSE`, or `LICENCE.rst` for openpyxl) | Docling's Office readers, installed by `docling-slim[format-office]`. Converting a generated `.docx`, `.pptx` and `.xlsx` with only that extra loaded no PyTorch, ONNX Runtime, OCR or Docling model module and opened no network connection |
 | XlsxWriter 3.3.1 | PyPI records BSD-2-Clause | Pulled in by the same extra |
-| PyObjC 13.0: `pyobjc-core`, `pyobjc-framework-Vision`, `-CoreML`, `-Quartz`, `-Cocoa` | PyPI records MIT for each. The `-Quartz` and `-Cocoa` wheels ship `LICENSE.txt`; the `pyobjc-core`, `-Vision` and `-CoreML` wheels ship none (12.1, 11.1 and 10.3 do not either), while each one's source distribution carries `License.txt` | Lets Python call Apple's Vision framework, which is part of macOS and is not redistributed. A release that bundles these wheels cannot take their notice from the wheel as `collect_notices.py` requires; it would need the source distribution's text, recorded with its hash |
+| PyObjC 13.0: `pyobjc-core`, `pyobjc-framework-Vision`, `-CoreML`, `-Quartz`, `-Cocoa` | PyPI records MIT for each. The `-Quartz` and `-Cocoa` wheels ship `LICENSE.txt`; the `pyobjc-core`, `-Vision` and `-CoreML` wheels ship none (12.1, 11.1 and 10.3 do not either), while each one's source distribution carries `License.txt` | Lets Python call Apple's Vision framework, which is part of macOS and is not redistributed. A release that bundles these wheels cannot take their notice from the wheel; resolved for the `office-ocr` profile on 2026-11-09, below |
 | `ocrmac` 1.0.1 | MIT, license file in the wheel | Not used: the adapter calls Vision through PyObjC itself, which avoids this package's optional matplotlib and AppKit imports |
 | RapidOCR 3.10.0, ONNX Runtime | PyPI records Apache-2.0 and MIT | Brought by the `docling` extra; Docling's automatic OCR selects RapidOCR on Linux and Windows. RapidOCR downloads its recognition models (converted from PaddleOCR) on first use; their terms were not read |
 | Apple Vision | Part of macOS; used through its public API on the user's own machine | Nothing is downloaded or redistributed |
+
+## `office-ocr` profile evidence (2026-11-09)
+
+A third reviewed profile, chosen by the owner on 2026-11-08, adds Word, PowerPoint and Excel through `docling-office` and scanned PDFs and images through `apple-vision`. The `text` and `pdf` profiles are unchanged.
+
+- **Inventory.** The profile pins 71 distributions (`scripts/packaging/requirements-macos-arm64-office-ocr.txt` and its hash lock): the `pdf` profile's 60 at the same versions, plus python-docx 1.2.0, python-pptx 1.0.2, openpyxl 3.1.5, et-xmlfile 2.0.0, XlsxWriter 3.3.1, pylatexenc 2.11, and PyObjC 13.0 (`pyobjc-core`, `pyobjc-framework-Vision`, `-CoreML`, `-Quartz`, `-Cocoa`). Resolved for CPython 3.12 on macOS 14 arm64 from PyPI on 2026-11-09; each new hash names the wheel pip selects there (pure Python, or PyObjC's universal2 build).
+- **Licenses.** Every added distribution records MIT in its metadata except XlsxWriter, BSD-2-Clause. No GPL- or AGPL-licensed runtime code is added.
+- **No OCR engine or model.** RapidOCR, ONNX Runtime, EasyOCR, OpenCV, `ocrmac` and `huggingface-hub` are forbidden distributions, and the launcher refuses to start if any of their modules loads. Text recognition is Apple's Vision framework, part of macOS; nothing of it is copied into the application.
+- **PyObjC notices from source distributions.** `pyobjc-core`, `pyobjc-framework-Vision` and `pyobjc-framework-CoreML` 13.0 ship no license file in their wheels (nor did 12.1, 11.1 or 10.3); each source distribution carries `License.txt`, the same MIT text in all three. That text is kept in `scripts/packaging/sdist-notices/<distribution>/13.0/` with a `SOURCE.json` naming the archive, its SHA-256 and the member read. The build uses it only for a wheel without a notice and only for that exact version, copies it to `legal/third-party/<distribution>/sdist/`, and records the archive and its hash in the inventory. `audit_notices.py --profile office-ocr` re-downloads each source distribution, checks its SHA-256 and compares the text. The text names libffi-src as a separate product; the 13.0 wheel and source distribution contain no libffi copy, and the extension uses the system's.
+- **Notice matching tightened.** The collector had matched notices by file name alone outside `<dist-info>/licenses/`, so `pyobjc-core`'s test extension `PyObjCTest/copying.cpython-312-darwin.so` and its debug symbols counted as three notices, hiding that the wheel has no license file. Compiled code, source files and `.dSYM` bundles are no longer notices outside that directory. The `text` and `pdf` audits still pass: every pinned wheel carries its own notice.
+- **Not yet done.** No `office-ocr` candidate has been built: freezing needs the audited Python build on the owner's Mac. CI installs the lock on an Apple Silicon runner and runs the release unfrozen with the real Vision framework.
 
 ## Review rules for every artifact
 

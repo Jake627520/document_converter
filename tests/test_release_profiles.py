@@ -70,6 +70,29 @@ class ProfileDefinitionTests(unittest.TestCase):
         self.assertIn("document_converter.engines.docling_native_engine", pdf.hidden_imports)
         self.assertIn("engines/docling_native_engine.py", pdf.sources)
 
+    def test_office_ocr_profile_adds_office_and_macos_ocr_but_no_model(self):
+        office = profiles.OFFICE_OCR
+        self.assertEqual(office.manifest_profile, "office-ocr")
+        # The pdf profile's restrictions, every one of them.
+        self.assertEqual(office.excludes, profiles.PDF.excludes)
+        self.assertEqual(office.forbidden, profiles.PDF.forbidden)
+        self.assertLessEqual(profiles.PDF.forbidden_distributions, office.forbidden_distributions)
+        # OCR comes from macOS, so no OCR engine or model may be pinned.
+        for distribution in ("rapidocr", "onnxruntime", "easyocr", "ocrmac", "huggingface-hub"):
+            self.assertIn(distribution, office.forbidden_distributions)
+        for module in (
+            "document_converter.engines.docling_office_engine",
+            "document_converter.engines.apple_vision_engine",
+            "docling.backend.msword_backend",
+            "Vision",
+            "objc",
+        ):
+            self.assertIn(module, office.hidden_imports)
+        for package in ("docx", "pptx", "openpyxl", "Vision", "Quartz", "CoreML"):
+            self.assertIn(package, office.collect_all)
+        for source in ("engines/docling_office_engine.py", "engines/apple_vision_engine.py"):
+            self.assertIn(source, office.sources)
+
     def test_profiles_use_separate_candidates_and_identifiers(self):
         names = {profile.candidate_name for profile in profiles.PROFILES.values()}
         identifiers = {profile.bundle_identifier for profile in profiles.PROFILES.values()}
@@ -98,6 +121,16 @@ class PinnedRequirementTests(unittest.TestCase):
         for distribution in ("docling-slim", "docling-core", "docling-parse", "fastapi", "uvicorn", "pyinstaller"):
             self.assertIn(distribution, pins)
         for distribution in ("torch", "torchvision", "transformers", "docling-ibm-models", "accelerate"):
+            self.assertNotIn(distribution, pins)
+
+    def test_office_ocr_profile_pins_the_office_readers_and_the_vision_bridge(self):
+        pins = pinned(profiles.OFFICE_OCR.requirements_stem)
+        pdf = pinned(profiles.PDF.requirements_stem)
+        # Everything the pdf profile pins, at the same versions.
+        self.assertEqual({name: pins[name] for name in pdf}, pdf)
+        for distribution in ("python-docx", "python-pptx", "openpyxl", "pyobjc-core", "pyobjc-framework-vision"):
+            self.assertIn(distribution, pins)
+        for distribution in ("torch", "rapidocr", "onnxruntime", "ocrmac", "docling-ibm-models"):
             self.assertNotIn(distribution, pins)
 
     def test_each_lock_hashes_exactly_its_pinned_distributions(self):
@@ -174,6 +207,10 @@ class LauncherProfileTests(unittest.TestCase):
         self.assertIn("torch", self.launcher.FORBIDDEN_MODULES["pdf"])
         self.assertIn("docling", self.launcher.FORBIDDEN_MODULES["text"])
         self.assertNotIn("docling", self.launcher.FORBIDDEN_MODULES["pdf"])
+        office = self.launcher.FORBIDDEN_MODULES["office-ocr"]
+        self.assertLessEqual(set(self.launcher.FORBIDDEN_MODULES["pdf"]), set(office))
+        for module in ("torch", "rapidocr", "onnxruntime", "ocrmac"):
+            self.assertIn(module, office)
 
 
 class NoticeCollectionTests(unittest.TestCase):
@@ -221,6 +258,52 @@ class NoticeCollectionTests(unittest.TestCase):
         ):
             with self.subTest(path=item):
                 self.assertFalse(self.collect_notices.is_notice(item))
+
+    def test_code_named_like_a_notice_is_not_one(self):
+        """pyobjc-core ships a test extension called `copying`.
+
+        Read as notices, it and its debug symbols made a wheel with no license
+        file look as if it had three.
+        """
+        for item in (
+            "PyObjCTest/copying.cpython-312-darwin.so",
+            "PyObjCTest/copying.cpython-312-darwin.so.dSYM/Contents/Info.plist",
+            "PyObjCTest/copying.cpython-312-darwin.so.dSYM/Contents/Resources/DWARF/copying.cpython-312-darwin.so",
+            "somepkg/license.py",
+        ):
+            with self.subTest(path=item):
+                self.assertFalse(self.collect_notices.is_notice(item))
+        # Under dist-info/licenses everything is license material, whatever its suffix.
+        self.assertTrue(self.collect_notices.is_notice("numpy-2.5.3.dist-info/licenses/vendored/LICENSE.h"))
+
+    def test_every_source_distribution_notice_is_reviewed_and_pinned(self):
+        """A wheel without a notice may use its sdist's, for the reviewed release only."""
+        reviewed = sorted((PACKAGING / "sdist-notices").glob("*/*/SOURCE.json"))
+        self.assertTrue(reviewed)
+        pins = {}
+        for profile in profiles.PROFILES.values():
+            for name, version in pinned(profile.requirements_stem).items():
+                pins.setdefault(name, set()).add(version)
+        for source in reviewed:
+            with self.subTest(notice=source.parent.relative_to(PACKAGING).as_posix()):
+                name, version = source.parent.parent.name, source.parent.name
+                self.assertIn(version, pins.get(name, set()), "notice for a release no profile pins")
+                notice, record = self.collect_notices.sdist_notice(name, version)
+                self.assertRegex(record["sdist_sha256"], r"^[0-9a-f]{64}$")
+                self.assertTrue(record["member"].endswith("/" + notice.name))
+                self.assertIn("MIT", notice.read_text(encoding="utf-8"))
+
+    def test_a_tampered_source_distribution_notice_is_refused(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp) / "pyobjc-core" / "13.0"
+            folder.mkdir(parents=True)
+            original = PACKAGING / "sdist-notices/pyobjc-core/13.0"
+            (folder / "SOURCE.json").write_text((original / "SOURCE.json").read_text())
+            (folder / "License.txt").write_text("edited\n")
+            with unittest.mock.patch.object(self.collect_notices, "SDIST_NOTICES", Path(temp)):
+                with self.assertRaisesRegex(RuntimeError, "does not match"):
+                    self.collect_notices.sdist_notice("pyobjc-core", "13.0")
+                self.assertIsNone(self.collect_notices.sdist_notice("pyobjc-core", "14.0"))
 
     def test_pdf_profile_avoids_latex2mathml_releases_that_ship_no_notice(self):
         """3.81.0 and 3.81.1 ship no license file in the wheel or the sdist.

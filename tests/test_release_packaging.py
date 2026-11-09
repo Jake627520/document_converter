@@ -2,8 +2,9 @@
 
 Each reviewed profile runs the real launcher from its own isolated build
 environment: `text` from build/private-release/venv, `pdf` from
-build/private-release/venv-pdf. A profile whose environment is absent is
-skipped, so this file is safe to run from a plain checkout.
+build/private-release/venv-pdf, `office-ocr` from
+build/private-release/venv-office-ocr. A profile whose environment is absent
+is skipped, so this file is safe to run from a plain checkout.
 """
 from __future__ import annotations
 
@@ -18,11 +19,13 @@ import unittest
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from office_samples import write_docx
 from pdf_samples import write_scanned_pdf, write_text_pdf
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD_PYTHON = ROOT / "build/private-release/venv/bin/python"
 PDF_BUILD_PYTHON = ROOT / "build/private-release/venv-pdf/bin/python"
+OFFICE_OCR_BUILD_PYTHON = ROOT / "build/private-release/venv-office-ocr/bin/python"
 LAUNCHER = ROOT / "scripts/packaging/release_launcher.py"
 
 
@@ -86,7 +89,7 @@ class ReleaseRuntimeMixin:
         result = subprocess.run(self.launcher_command("--diagnostics"), check=True, capture_output=True, text=True)
         return json.loads(result.stdout)
 
-    def assert_shared_behavior(self):
+    def assert_shared_behavior(self, accepts_office=False):
         """Checks every profile must pass."""
         data = "# Release smoke\n\n**本機文件**\n".encode()
         self.assertEqual(self.request_conversion("notes.md", data), (200, data))
@@ -104,7 +107,10 @@ class ReleaseRuntimeMixin:
         plain = "#1 優先\n- 5 件\n".encode()
         self.assertEqual(self.request_conversion("plain.txt", plain, "txt"), (200, plain))
         self.assertEqual(self.request_conversion("spec.md", "## 規格\n\n- 84 流明\n".encode(), "txt"), (200, "規格\n\n84 流明\n".encode()))
-        self.assertEqual(self.request_conversion("report.docx", b"stub")[0], 400)
+        # A release that takes Word tries to read the stub and fails; one that
+        # does not refuses it before reading.
+        self.assertEqual(self.request_conversion("report.docx", b"stub")[0], 422 if accepts_office else 400)
+        self.assertEqual(self.request_conversion("old.doc", b"stub")[0], 400)
         self.assertEqual(self.request_conversion("notes.md", b"hello", headers={"Origin": "https://attacker.example"})[0], 403)
         try:
             urlopen(Request(self.base, headers={"Host": "attacker.example"}))
@@ -191,6 +197,82 @@ class PdfReleaseRuntimeTests(ReleaseRuntimeMixin, unittest.TestCase):
         diagnostic = self.assert_shared_behavior()
         self.assertEqual(diagnostic["profile"], "pdf-text")
         self.assertEqual(diagnostic["inputs"], [".markdown", ".md", ".pdf", ".txt"])
+        self.assertEqual(diagnostic["outputs"], ["html", "json", "md", "txt"])
+
+
+@unittest.skipUnless(OFFICE_OCR_BUILD_PYTHON.is_file(), "prepare the isolated office-ocr release environment first")
+class OfficeOcrReleaseRuntimeTests(ReleaseRuntimeMixin, unittest.TestCase):
+    """The office-ocr release from its pinned environment.
+
+    On Linux, where CI runs this, the environment is built without PyObjC and
+    macOS's OCR is absent, so a scan or an image is accepted and then refused
+    with the reason. On a Mac the same requests reach Vision.
+    """
+
+    build_python = OFFICE_OCR_BUILD_PYTHON
+    launch_arguments = ("--profile", "office-ocr")
+
+    def test_page_offers_office_and_images(self):
+        with urlopen(self.base) as response:
+            page = response.read().decode()
+        self.assertIn('accept=".pdf,.docx,.pptx,.xlsx,.png,.jpg,.jpeg,.webp,.md,.markdown,.txt"', page)
+        self.assertIn("macOS 內建的文字辨識", page)
+
+    def test_word_converts_with_the_pinned_readers(self):
+        with tempfile.TemporaryDirectory() as temp:
+            sample = write_docx(Path(temp) / "report.docx", ["季度報告 & 營收", "第二段"]).read_bytes()
+        status, markdown = self.request_conversion("report.docx", sample)
+        self.assertEqual(status, 200)
+        self.assertEqual(markdown.decode().split(), ["季度報告", "&", "營收", "第二段"])
+        status, body = self.request_conversion("report.docx", sample, "json")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["schema_name"], "DoclingDocument")
+
+    def test_text_layer_pdf_converts(self):
+        with tempfile.TemporaryDirectory() as temp:
+            sample = write_text_pdf(Path(temp) / "sample.pdf").read_bytes()
+        status, markdown = self.request_conversion("sample.pdf", sample)
+        self.assertEqual(status, 200)
+        self.assertIn(b"readable text stream", markdown)
+
+    def test_scans_and_images_are_accepted_for_ocr(self):
+        with tempfile.TemporaryDirectory() as temp:
+            scan = write_scanned_pdf(Path(temp) / "scan.pdf").read_bytes()
+        for name, data in (("scan.pdf", scan), ("photo.png", b"\x89PNG\r\n\x1a\n")):
+            with self.subTest(name=name):
+                status, body = self.request_conversion(name, data)
+                # Accepted, then refused with the reason: there is nothing to
+                # read, or no OCR off macOS. Never refused as an unsupported
+                # format, never an empty file.
+                self.assertEqual(status, 422)
+                self.assertNotIn("不支援", body.decode())
+
+    def test_a_photo_of_text_is_read_back_on_a_mac(self):
+        """Elsewhere PyObjC is absent, and the release says OCR needs macOS."""
+        if sys.platform != "darwin":
+            status, body = self.request_conversion("photo.png", b"\x89PNG\r\n\x1a\n")
+            self.assertEqual(status, 422)
+            self.assertIn("macOS", body.decode())
+            return
+        import io
+
+        from ocr_samples import CHINESE, ENGLISH, page, squeezed
+
+        image = io.BytesIO()
+        page().save(image, format="PNG")
+        status, body = self.request_conversion("page.png", image.getvalue())
+        self.assertEqual(status, 200)
+        text = squeezed(body.decode())
+        self.assertIn(squeezed(ENGLISH).lower(), text.lower())
+        self.assertIn(CHINESE, text)
+
+    def test_shared_conversion_and_security_behavior(self):
+        diagnostic = self.assert_shared_behavior(accepts_office=True)
+        self.assertEqual(diagnostic["profile"], "office-ocr")
+        self.assertEqual(
+            diagnostic["inputs"],
+            [".docx", ".jpeg", ".jpg", ".markdown", ".md", ".pdf", ".png", ".pptx", ".txt", ".webp", ".xlsx"],
+        )
         self.assertEqual(diagnostic["outputs"], ["html", "json", "md", "txt"])
 
 

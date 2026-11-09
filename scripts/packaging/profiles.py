@@ -9,7 +9,12 @@ Docling's model-free reader, so the app contains no deep-learning runtime and
 downloads no model weights. It drops only the entries that would block the
 model-free engine, and keeps every other restriction.
 
-Both profiles share the launcher, the FastAPI app, the request limits and the
+``office-ocr`` additionally accepts Word, PowerPoint and Excel through Docling's
+readers, and scanned PDFs and images through the OCR macOS ships (Apple's Vision
+framework, reached through PyObjC). It still bundles no model and no
+deep-learning runtime: the recognizer is part of the operating system.
+
+All profiles share the launcher, the FastAPI app, the request limits and the
 writer. They differ in what the build may freeze, which Python distributions are
 pinned, and the source files recorded in the manifest.
 """
@@ -211,7 +216,53 @@ PDF = Profile(
     ),
 )
 
-PROFILES = {profile.name: profile for profile in (TEXT, PDF)}
+# PyObjC loads the bridges Vision depends on lazily, by name, so analysis
+# cannot see them; every one of them is collected whole.
+PYOBJC_PACKAGES = ["objc", "Foundation", "CoreFoundation", "AppKit", "Quartz", "CoreML", "Vision"]
+
+OFFICE_OCR = Profile(
+    name="office-ocr",
+    manifest_profile="office-ocr",
+    requirements_stem="requirements-macos-arm64-office-ocr",
+    bundle_identifier="local.documentconverter.officeocr",
+    candidate_name="Document-Converter-macos-arm64-office-ocr-local-candidate",
+    # The pdf profile's lists unchanged: Office and macOS's OCR need no entry
+    # removed, so every model runtime stays excluded and forbidden.
+    excludes=list(PDF_EXCLUDES),
+    forbidden=list(PDF_EXCLUDES[:16]),
+    # OCR comes from the operating system; no OCR engine or model is pinned.
+    forbidden_distributions=PDF.forbidden_distributions
+    | {"ocrmac", "rapidocr", "onnxruntime", "easyocr", "opencv-python", "opencv-python-headless", "huggingface-hub"},
+    hidden_imports=[
+        *PDF.hidden_imports,
+        "document_converter.engines.docling_office_engine",
+        "document_converter.engines.apple_vision_engine",
+        "docling.pipeline.simple_pipeline",
+        "docling.backend.msword_backend",
+        "docling.backend.mspowerpoint_backend",
+        "docling.backend.msexcel_backend",
+        *PYOBJC_PACKAGES,
+    ],
+    # python-docx and python-pptx read their default templates at runtime.
+    collect_all=[*PDF.collect_all, "docx", "pptx", "openpyxl", *PYOBJC_PACKAGES],
+    copy_metadata=list(PDF.copy_metadata),
+    sources=[
+        *PDF.sources,
+        "engines/docling_office_engine.py",
+        "engines/apple_vision_engine.py",
+    ],
+    candidate_notice=(
+        "Local test candidate only. Word, PowerPoint and Excel (.docx .pptx .xlsx), PDF, images\n"
+        "(.png .jpg .jpeg .webp), Markdown and UTF-8 text to Markdown/HTML/text.\n"
+        "Apple Silicon macOS only. Scanned PDFs and images are read with the OCR built into macOS\n"
+        "(Apple's Vision framework): paragraphs only, no heading levels or tables, and it can be wrong.\n"
+        "No model weights, no model downloads, no deep-learning runtime.\n"
+        "No Developer ID signing or notarization; no distribution approval.\n"
+        "Closing the browser does not stop the app; quit Document Converter in Activity Monitor.\n"
+    ),
+)
+
+PROFILES = {profile.name: profile for profile in (TEXT, PDF, OFFICE_OCR)}
 
 
 def get(name: str) -> Profile:

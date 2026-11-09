@@ -48,6 +48,29 @@ The `pdf-text` profile MUST accept text-layer PDFs in addition to Markdown and U
 - **WHEN** the profile's requirement files or frozen inventory would include a deep-learning runtime or an optional engine
 - **THEN** the build fails before producing a candidate
 
+### Requirement: Office and OCR release reads with the operating system's OCR
+The `office-ocr` profile MUST accept Word, PowerPoint and Excel (`.docx`, `.pptx`, `.xlsx`), PDFs, images (`.png`, `.jpg`, `.jpeg`, `.webp`), Markdown and UTF-8 text. It MUST read Office files with the model-free Office adapter, MUST read a PDF's text layer first and use OCR only when none is found, and MUST recognize text with the OCR built into macOS. It MUST NOT bundle or load an OCR engine, a deep-learning runtime, the optional engines or any model weights, and MUST keep every restriction of the `pdf-text` profile.
+
+#### Scenario: A Word, PowerPoint or Excel file is uploaded
+- **WHEN** a `.docx`, `.pptx` or `.xlsx` file is uploaded
+- **THEN** the release returns its conversion, read without OCR
+
+#### Scenario: A scanned PDF or an image is uploaded
+- **WHEN** a PDF without a text layer, or an image, is uploaded on macOS
+- **THEN** the release recognizes its text with the operating system's OCR and says the text was recognized
+
+#### Scenario: A PDF with a text layer is uploaded
+- **WHEN** a PDF carries a text layer
+- **THEN** the release reads that layer and does not run OCR
+
+#### Scenario: Legacy Office or another format is uploaded
+- **WHEN** a `.doc`, `.ppt`, `.xls` or other unlisted file is uploaded
+- **THEN** the request is rejected as an unsupported input type
+
+#### Scenario: An OCR engine or model runtime is pinned or loaded
+- **WHEN** the profile's requirement files or frozen inventory would include an OCR engine, a model runtime or an optional engine, or one of their modules loads at launch
+- **THEN** the build fails, or the launcher refuses to start
+
 ### Requirement: Offer only the outputs a release can produce
 Every release MUST offer Markdown, HTML and plain text. A release MUST offer Docling JSON only when it runs an engine that produces one, and MUST explain, rather than fail without reason, when a given input yields none.
 
@@ -74,5 +97,13 @@ A candidate build MUST copy each pinned distribution's own license material out 
 - **THEN** the build collects every one of them into the candidate's third-party notices and records each path with its SHA-256
 
 #### Scenario: Wheel ships no license material
-- **WHEN** a pinned wheel carries no license file in any recognised form
+- **WHEN** a pinned wheel carries no license file in any recognised form, and no reviewed source-distribution notice exists for that exact release
 - **THEN** the build fails and names that distribution, and the profile pins a release that does ship its notice
+
+#### Scenario: Wheel ships none but its source distribution does
+- **WHEN** a reviewed notice taken from the release's source distribution is recorded with that archive's SHA-256 and the member read
+- **THEN** the build collects that notice, records its source and hash in the inventory, and the notice audit re-reads it from the source distribution
+
+#### Scenario: Code is named like a notice
+- **WHEN** a compiled extension, source file or debug-symbol bundle outside `<dist-info>/licenses/` has a name such as `copying`
+- **THEN** it is not counted as license material
