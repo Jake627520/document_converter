@@ -10,23 +10,29 @@ installing it, and applies the build's own `is_notice` rule.
 
     python3 scripts/packaging/audit_notices.py --profile pdf
 
+A wheel without a notice passes only if `scripts/packaging/sdist-notices/`
+holds a reviewed notice for that exact release, and the source distribution
+on PyPI still carries the same text (see collect_notices.py).
+
 A non-zero exit names each distribution that ships no notice. Re-run it after
 changing a pinned version, and record the outcome with the change.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import json
 import re
 import sys
+import tarfile
 import urllib.request
 import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import profiles
-from collect_notices import is_notice, normalized
+from collect_notices import is_notice, normalized, sdist_notice
 
 PYPI = "https://pypi.org/pypi/{name}/{version}/json"
 
@@ -65,6 +71,22 @@ def notices_in(url: str) -> list[str]:
     return [item for item in archive.namelist() if not item.endswith("/") and is_notice(item)]
 
 
+def sdist_matches(name: str, entry: dict, record: dict) -> bool:
+    """Does the released source distribution still carry the reviewed notice?"""
+    with urllib.request.urlopen(PYPI.format(name=name, version=entry["version"]), timeout=60) as response:
+        released = json.load(response)["urls"]
+    for artifact in released:
+        if artifact["packagetype"] == "sdist" and artifact["digests"]["sha256"] == record["sdist_sha256"]:
+            with urllib.request.urlopen(artifact["url"], timeout=300) as response:
+                data = response.read()
+            if hashlib.sha256(data).hexdigest() != record["sdist_sha256"]:
+                return False
+            with tarfile.open(fileobj=io.BytesIO(data)) as archive:
+                member = archive.extractfile(record["member"])
+                return member is not None and hashlib.sha256(member.read()).hexdigest() == record["notice_sha256"]
+    return False
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--profile", choices=sorted(profiles.PROFILES), default="pdf")
@@ -75,6 +97,11 @@ def main(argv: list[str] | None = None) -> int:
     for name, entry in sorted(pinned(profile).items()):
         artifact = wheel_for(name, entry)
         found = notices_in(artifact["url"])
+        if not found:
+            reviewed = sdist_notice(name, entry["version"])
+            if reviewed and sdist_matches(name, entry, reviewed[1]):
+                print(f"{name:30} {entry['version']:12}   1 notice file, from {reviewed[1]['sdist']}")
+                continue
         print(f"{name:30} {entry['version']:12} {len(found):3} notice file(s)")
         if not found:
             missing.append(f"{name}=={entry['version']} ({artifact['filename']})")
@@ -82,7 +109,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\n{len(missing)} pinned wheel(s) ship no license notice:", file=sys.stderr)
         for item in missing:
             print(f"  {item}", file=sys.stderr)
-        print("\nThe build will refuse these. Pin a release that ships its notice.", file=sys.stderr)
+        print(
+            "\nThe build will refuse these. Pin a release that ships its notice, or review the notice in its "
+            "source distribution into scripts/packaging/sdist-notices/.",
+            file=sys.stderr,
+        )
         return 1
     print(f"\nEvery pinned wheel of the {args.profile} profile carries its own notice.")
     return 0

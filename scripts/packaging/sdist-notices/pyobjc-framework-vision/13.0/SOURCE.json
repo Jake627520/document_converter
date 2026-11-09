@@ -1,0 +1,10 @@
+{
+  "distribution": "pyobjc-framework-vision",
+  "version": "13.0",
+  "sdist": "pyobjc_framework_vision-13.0.tar.gz",
+  "sdist_sha256": "e9197f267528bf345ccae3f949d4acf6330b69658b9b02dd03088e6e1f4395bb",
+  "member": "pyobjc_framework_vision-13.0/License.txt",
+  "notice": "License.txt",
+  "notice_sha256": "0ca04b07928d4872b9d9bb22187ca0426dd8bfab08f26eada0999a71dc81aaff",
+  "reason": "The released wheel ships no license file; its source distribution does."
+}

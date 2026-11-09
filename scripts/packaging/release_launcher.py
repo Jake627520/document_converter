@@ -1,10 +1,11 @@
 """Shared web workbench launcher for the fixed local macOS release candidates.
 
-Two reviewed profiles exist. ``text`` is the original candidate: Markdown and
+Three reviewed profiles exist. ``text`` is the original candidate: Markdown and
 UTF-8 text only, with no engine code frozen into the app. ``pdf`` additionally
 accepts PDFs that already carry a text layer, converted by Docling's model-free
 reader, so the app still contains no deep-learning runtime and downloads no
-model weights. A frozen app carries its profile in ``release_profile.txt``
+model weights. ``office-ocr`` adds Word, PowerPoint and Excel through Docling's
+readers, and scanned PDFs and images through the OCR macOS ships. A frozen app carries its profile in ``release_profile.txt``
 beside the bundled resources; ``--profile`` overrides it for validation.
 """
 from __future__ import annotations
@@ -53,7 +54,22 @@ FORBIDDEN_MODULES = {
     ),
 }
 
-CONFIGURE = {"text": web_app.configure_text_release, "pdf": web_app.configure_pdf_release}
+# Office and OCR add Docling's Office readers and PyObjC's bridge to the OCR
+# macOS ships; no OCR engine or model of its own may load.
+FORBIDDEN_MODULES["office-ocr"] = FORBIDDEN_MODULES["pdf"] + (
+    "rapidocr",
+    "onnxruntime",
+    "easyocr",
+    "cv2",
+    "huggingface_hub",
+    "ocrmac",
+)
+
+CONFIGURE = {
+    "text": web_app.configure_text_release,
+    "pdf": web_app.configure_pdf_release,
+    "office-ocr": web_app.configure_office_ocr_release,
+}
 
 
 def frozen_profile() -> str | None:
@@ -79,7 +95,10 @@ def main(argv: list[str] | None = None):
         "--profile",
         choices=sorted(CONFIGURE),
         default=default_profile,
-        help="Reviewed release profile: text accepts Markdown and UTF-8 text; pdf also accepts text-layer PDFs",
+        help=(
+            "Reviewed release profile: text accepts Markdown and UTF-8 text; pdf also accepts text-layer PDFs; "
+            "office-ocr also accepts Word, PowerPoint, Excel, scanned PDFs and images, read with macOS's OCR"
+        ),
     )
     args = parser.parse_args(argv)
     if not 0 <= args.port <= 65535:

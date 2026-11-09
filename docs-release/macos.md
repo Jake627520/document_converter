@@ -1,15 +1,20 @@
-# macOS 候選包（文字版／PDF 版）
+# macOS 候選包（文字版／PDF 版／Office＋OCR 版）
 
-本專案有兩個已審查的發行設定檔（profile）：
+本專案有三個已審查的發行設定檔（profile）：
 
 | profile | 接受的輸入 | 打包內容 | 約略大小 |
 |---|---|---|---|
 | `text`（原本的版本） | `.md`、`.markdown`、`.txt` | 不含任何文件引擎或模型 | 數十 MB |
-| `pdf`（新增） | 上述再加上**有文字層的 `.pdf`** | 另含 Docling 不跑模型的 PDF 讀取器 | 數百 MB |
+| `pdf` | 上述再加上**有文字層的 `.pdf`** | 另含 Docling 不跑模型的 PDF 讀取器 | 數百 MB |
+| `office-ocr`（2026-11-09 新增） | 上述再加上 `.docx`、`.pptx`、`.xlsx`、**掃描的 PDF**、圖片 `.png`、`.jpg`、`.jpeg`、`.webp` | 另含 Docling 的 Office 讀取器（python-docx、python-pptx、openpyxl）與 PyObjC（呼叫 macOS 內建文字辨識的橋接套件） | 尚未建置 |
 
 `pdf` profile 的 PDF 轉檔只抽取 PDF 內既有的文字：**沒有 OCR、不重建標題階層與表格**，
 掃描檔會明確回報「沒有文字層」而不是給你一個空檔案。它不含 PyTorch，也不下載模型。
-Office 與圖片格式兩個 profile 都不接受。
+Office 與圖片格式 `text`、`pdf` 都不接受。
+
+`office-ocr` 的掃描檔與圖片用 **macOS 內建的文字辨識**（Apple 的 Vision 框架）讀取：
+辨識器屬於作業系統，App 不打包任何 OCR 引擎或模型，也不下載任何東西。PDF 先試讀文字層，
+讀不到文字才交給 OCR。辨識結果只有段落，不還原標題階層與表格；舊版 `.doc`、`.ppt`、`.xls` 不接受。
 
 ```sh
 # 文字版（預設，與原本相同）
@@ -19,6 +24,10 @@ BUILD_PYTHON="$HOME/.local/bin/python3.12" sh scripts/packaging/bootstrap_macos.
 # PDF 版
 RELEASE_PROFILE=pdf BUILD_PYTHON="$HOME/.local/bin/python3.12" sh scripts/packaging/bootstrap_macos.sh \
     --output-dir build/private-release/candidate-pdf
+
+# Office＋OCR 版
+RELEASE_PROFILE=office-ocr BUILD_PYTHON="$HOME/.local/bin/python3.12" sh scripts/packaging/bootstrap_macos.sh \
+    --output-dir build/private-release/candidate-office-ocr
 ```
 
 `RELEASE_PROFILE=pdf` 會建立獨立的 `build/private-release/venv-pdf`，並從
@@ -34,6 +43,25 @@ build/private-release/venv-pdf/bin/python -I -m unittest discover -s tests -p te
 ```
 
 `--diagnostics` 應顯示 `"profile": "pdf-text"`、`inputs` 含 `.pdf`、`forbidden_loaded` 為空。
+
+`RELEASE_PROFILE=office-ocr` 建立 `build/private-release/venv-office-ocr`，從
+`scripts/packaging/requirements-macos-arm64-office-ocr.lock` 安裝 71 個 hash 鎖定的 wheel
+（`pdf` 的 60 個，版本不變，再加上 Office 讀取器 6 個與 PyObjC 5 個）。驗收：
+
+```sh
+build/private-release/venv-office-ocr/bin/python -I -m unittest discover -s tests -p test_release_packaging.py -k OfficeOcr -v
+"build/private-release/candidate-office-ocr/Document-Converter-macos-arm64-office-ocr-local-candidate/Document Converter.app/Contents/MacOS/Document Converter" --diagnostics
+```
+
+`--diagnostics` 應顯示 `"profile": "office-ocr"`、`inputs` 含 `.docx` 與 `.png`、`forbidden_loaded` 為空。
+接著以 `--no-browser` 啟動已建置的 App，各上傳一份 Word 檔、一份掃描 PDF 與一張含中文字的照片，
+確認都轉出文字。
+
+**驗證狀態。** CI 的 `macos` 工作在 Apple Silicon runner 上依這個 lock 安裝（含 hash 檢查），
+以未凍結的方式啟動 `office-ocr` release，並用真正的 Vision 讀回一張含英文與繁體中文的圖片。
+**以 PyInstaller 凍結成 App 這一步尚未執行**：它需要上面固定的 Python build，只能在擁有者的 Mac 上做。
+PyObjC 按名稱延遲載入 Vision 依賴的 Foundation、Quartz、CoreML 等橋接模組，profile 已把它們整包收入；
+凍結後是否齊全，要由 `--diagnostics` 與上面的實際轉換確認。
 
 **Mac 上的驗證紀錄。** 2026-10-12／13 在 Apple Silicon Mac 上建置 `pdf` 候選包，經 Finder 開啟並轉換真實文件。
 2026-11-08 在 macOS 27.2 由 `ccd843d` 重新建置（`candidate-pdf-ccd843d`，Pillow 13.0.0，ZIP SHA-256
@@ -74,7 +102,8 @@ build/private-release/venv/bin/python -I scripts/packaging/build_macos.py --outp
 - 自有授權與發行政策文件；第三方權利由原始條款控制。
 - `THIRD_PARTY_INVENTORY.json`：exact installed distribution name/version、runtime/build-tool role、metadata/RECORD SHA-256、授權原文路徑與 SHA-256。
 - `third-party/<package>/`：wheel 所附原始 LICENSE/COPYING/NOTICE，保留巢狀路徑，含 build tool notices。依檔名（含 `LICENCE` 英式拼法）與 PEP 639 標準位置 `<dist-info>/licenses/` 兩種方式辨識；後者的檔名由上游決定而非慣例，例如 pypdfium2 以 `LICENSES/BSD-3-Clause.txt`、`BUILD_LICENSES/freetype.txt` 攜帶 PDFium 內含元件的授權。任一 wheel 完全未附授權即中止建置。
-- 升級任何 pinned 版本後，先執行 `python3 scripts/packaging/audit_notices.py --profile pdf`（或 `--profile text`）。它不需安裝即可依 lock 的 hash 取得對應 wheel 並套用建置本身的判定規則，可在非 macOS 機器上先行確認，避免在 Mac 上才發現上游移除授權檔。
+- PyObjC 的 `pyobjc-core`、`pyobjc-framework-Vision`、`pyobjc-framework-CoreML` 每個版本的 wheel 都沒附授權檔，原始碼包（sdist）則有。這三者的授權原文改從 sdist 取出，放在 `scripts/packaging/sdist-notices/<套件>/<版本>/`，旁邊的 `SOURCE.json` 記錄 sdist 檔名、SHA-256 與讀取的成員路徑。建置時只對 wheel 沒附授權、且有該**確切版本**紀錄的套件使用它，複製到 `third-party/<package>/sdist/` 並在 inventory 標明來源；升級版本會因找不到紀錄而中止，必須重新審查。
+- 升級任何 pinned 版本後，先執行 `python3 scripts/packaging/audit_notices.py --profile pdf`（或 `--profile text`、`--profile office-ocr`）。對使用 sdist 授權的套件，它會從 PyPI 重新下載 sdist、核對 SHA-256 與授權原文。它不需安裝即可依 lock 的 hash 取得對應 wheel 並套用建置本身的判定規則，可在非 macOS 機器上先行確認，避免在 Mac 上才發現上游移除授權檔。
 - `third-party/python-runtime/`：同版本官方完整 artifact 的原始 `PYTHON.json`、native notices、CPython installed LICENSE、取得來源與 artifact hash。
 - `requirements-macos-arm64.txt` 與 hash lock；實際 frozen module／binary source inventory。
 

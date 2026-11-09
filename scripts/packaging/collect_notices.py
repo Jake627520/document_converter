@@ -27,6 +27,14 @@ TOOLS = {"altgraph", "macholib", "packaging", "pyinstaller", "pyinstaller-hooks-
 # on the file name alone dropped every one of those without a word.
 NOTICE_NAME = re.compile(r"(?i)^(licen[cs]e|copying|copyright|notice)(?:[._-].*)?$")
 NOTICE_LOCATION = re.compile(r"(?i)(?:^|/)[^/]+\.dist-info/licenses/.+")
+# A few released wheels ship no license file although their source
+# distribution does: PyObjC's pyobjc-core, pyobjc-framework-Vision and
+# pyobjc-framework-CoreML, in every release checked. For those alone the notice
+# is taken from the source distribution and kept here, one folder per exact
+# version, beside a SOURCE.json naming the archive, its sha256 and the member
+# read. A new version has no folder, so the build refuses it until the notice
+# is reviewed again; audit_notices.py re-reads each one from PyPI.
+SDIST_NOTICES = Path(__file__).resolve().parent / "sdist-notices"
 LEGAL_SOURCES = {"LICENSE": "LICENSE", "THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md", "LICENSE_AUDIT.md": "docs/LICENSE_AUDIT.md", "PRIVATE_DISTRIBUTION.md": "docs/PRIVATE_DISTRIBUTION.md"}
 
 
@@ -38,10 +46,35 @@ def normalized(name):
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
+# A name alone also matches code: pyobjc-core ships a test extension called
+# `copying`, so `PyObjCTest/copying.cpython-312-darwin.so` and the debug
+# symbols beside it read as notices, and the wheel, which carries no license
+# file, looked as if it had three. Outside dist-info/licenses, where everything
+# is license material by definition, compiled code, source and debug-symbol
+# bundles are never a notice, whatever they are called.
+CODE_SUFFIXES = {".so", ".dylib", ".pyd", ".dll", ".py", ".pyc", ".pyi", ".c", ".h", ".m", ".yml"}
+
+
 def is_notice(item) -> bool:
     """Is this installed file part of a distribution's license material?"""
     posix = Path(str(item)).as_posix()
-    return bool(NOTICE_NAME.match(Path(posix).name) or NOTICE_LOCATION.search(posix))
+    if NOTICE_LOCATION.search(posix):
+        return True
+    if ".dSYM/" in posix or Path(posix).suffix.lower() in CODE_SUFFIXES:
+        return False
+    return bool(NOTICE_NAME.match(Path(posix).name))
+
+
+def sdist_notice(name, version):
+    """The reviewed source-distribution notice for this exact release, if any."""
+    source = SDIST_NOTICES / name / version / "SOURCE.json"
+    if not source.is_file():
+        return None
+    record = json.loads(source.read_text())
+    notice = source.parent / record["notice"]
+    if (record["distribution"], record["version"]) != (name, version) or digest(notice) != record["notice_sha256"]:
+        raise RuntimeError(f"Source-distribution notice for {name}=={version} does not match its SOURCE.json")
+    return notice, record
 
 
 def exact_dependencies(profile):
@@ -122,7 +155,15 @@ def collect(destination, profile=None):
                 shutil.copyfile(source, output)
                 notices.append({"path": relative.as_posix(), "sha256": digest(output)})
         if not notices:
-            raise RuntimeError(f"No original license/notice in installed wheel: {name}")
+            reviewed = sdist_notice(name, expected[name])
+            if reviewed is None:
+                raise RuntimeError(f"No original license/notice in installed wheel: {name}")
+            notice, record = reviewed
+            relative = Path("third-party") / name / "sdist" / notice.name
+            output = destination / relative
+            output.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(notice, output)
+            notices.append({"path": relative.as_posix(), "sha256": digest(output), "from_sdist": record["sdist"], "sdist_sha256": record["sdist_sha256"], "sdist_member": record["member"]})
         license_name = dist.metadata.get("License-Expression") or dist.metadata.get("License")
         packages.append({"name": name, "version": expected[name], "role": "build-tool" if name in TOOLS else "runtime", "license_metadata": license_name, "license_classifiers": [c for c in dist.metadata.get_all("Classifier", []) if c.startswith("License ::")], "metadata_sha256": hashlib.sha256(dist.read_text("METADATA").encode()).hexdigest(), "record_sha256": hashlib.sha256((dist.read_text("RECORD") or "").encode()).hexdigest(), "notices": notices})
     native = ROOT / "scripts/packaging/python-runtime"

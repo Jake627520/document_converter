@@ -15,15 +15,15 @@
 
 **輸入格式。** 一個安裝能接受什麼，取決於它裝了哪些引擎。
 
-| 輸入 | 從原始碼執行（已裝 Docling） | macOS App `text` 版 | macOS App `pdf` 版 |
-|---|---|---|---|
-| Markdown `.md` `.markdown` | ✅ | ✅ | ✅ |
-| UTF-8 文字 `.txt` | ✅ | ✅ | ✅ |
-| **有文字層的** PDF | ✅ | ❌ | ✅ |
-| **掃描或拍照的** PDF | ✅ 需 OCR：Docling 的模型（第一次使用時下載），或在 Mac 上裝 `apple-vision` extra | ❌ | ❌ |
-| Office `.docx` `.pptx` `.xlsx` 及舊格式 | ✅（`.docx` `.pptx` `.xlsx` 只裝 `office` extra 也行，不需 PyTorch） | ❌ | ❌ |
-| `.html` `.htm` `.epub` `.csv` `.rtf` OpenDocument | ✅ | ❌ | ❌ |
-| 圖片 `.png` `.jpg` `.jpeg` `.webp` | ✅ 需 OCR，與掃描檔相同 | ❌ | ❌ |
+| 輸入 | 從原始碼執行（已裝 Docling） | macOS App `text` 版 | macOS App `pdf` 版 | macOS App `office-ocr` 版 |
+|---|---|---|---|---|
+| Markdown `.md` `.markdown` | ✅ | ✅ | ✅ | ✅ |
+| UTF-8 文字 `.txt` | ✅ | ✅ | ✅ | ✅ |
+| **有文字層的** PDF | ✅ | ❌ | ✅ | ✅ |
+| **掃描或拍照的** PDF | ✅ 需 OCR：Docling 的模型（第一次使用時下載），或在 Mac 上裝 `apple-vision` extra | ❌ | ❌ | ✅ macOS 內建 OCR |
+| Office `.docx` `.pptx` `.xlsx` 及舊格式 | ✅（`.docx` `.pptx` `.xlsx` 只裝 `office` extra 也行，不需 PyTorch） | ❌ | ❌ | ✅ 僅 `.docx` `.pptx` `.xlsx` |
+| `.html` `.htm` `.epub` `.csv` `.rtf` OpenDocument | ✅ | ❌ | ❌ | ❌ |
+| 圖片 `.png` `.jpg` `.jpeg` `.webp` | ✅ 需 OCR，與掃描檔相同 | ❌ | ❌ | ✅ macOS 內建 OCR |
 
 不支援的檔案會在轉換開始前就被拒絕，而且訊息會告訴你**哪些格式可以**。
 例如在 `pdf` 版 App 上傳 Word 檔，你會看到：
@@ -45,27 +45,33 @@
 
 **輸出格式。**
 
-| 輸出 | 從原始碼執行（CLI 與瀏覽器） | macOS App `text` 版 | macOS App `pdf` 版 |
-|---|---|---|---|
-| Markdown（`.md`） | ✅ | ✅ | ✅ |
-| HTML（`.html`） | ✅ | ✅ | ✅ |
-| 純文字（`.txt`） | ✅ | ✅ | ✅ |
-| Docling JSON（`.json`） | ✅ 檔案經 Docling 引擎解析時 | — | ✅ 僅限 PDF 輸入 |
+| 輸出 | 從原始碼執行（CLI 與瀏覽器） | macOS App `text` 版 | macOS App `pdf` 版 | macOS App `office-ocr` 版 |
+|---|---|---|---|---|
+| Markdown（`.md`） | ✅ | ✅ | ✅ | ✅ |
+| HTML（`.html`） | ✅ | ✅ | ✅ | ✅ |
+| 純文字（`.txt`） | ✅ | ✅ | ✅ | ✅ |
+| Docling JSON（`.json`） | ✅ 檔案經 Docling 引擎解析時 | — | ✅ 僅限 PDF 輸入 | ✅ Office 檔與有文字層的 PDF |
 
 Docling JSON 是引擎對文件結構的解析結果，所以只有經過引擎讀取的檔案才有。
 Markdown 與文字檔是直接讀取的，而 `text` 版 App 完全不含引擎。
 
 ## 2. macOS App
 
-只支援 Apple Silicon（M 系列晶片）的 Mac。共有兩個已審查的設定檔：
+只支援 Apple Silicon（M 系列晶片）的 Mac。共有三個已審查的設定檔：
 
 | 設定檔 | 接受的檔案 | 內含 |
 |---|---|---|
 | `text` | UTF-8 編碼的 `.md`、`.markdown`、`.txt` | 不含任何文件引擎與模型 |
 | `pdf` | 上述格式，再加上**已有文字層的 PDF** | Docling 不需模型的 PDF 讀取器 —— 沒有 OCR、沒有 AI 模型、沒有 PyTorch，也不會下載任何東西 |
+| `office-ocr` | 上述格式，再加上 Word、PowerPoint、Excel（`.docx`、`.pptx`、`.xlsx`）、**掃描的 PDF** 與圖片（`.png`、`.jpg`、`.jpeg`、`.webp`） | `pdf` 版的內容，加上 Docling 的 Office 讀取器與 PyObjC（用來呼叫 macOS 內建的文字辨識）—— 沒有 OCR 引擎、沒有 AI 模型、沒有 PyTorch，也不會下載任何東西 |
 
 `pdf` 版只抽取 PDF 裡原本就有的文字，不會重建標題階層或表格。掃描的 PDF 沒有文字層，
-App 會明確告訴你，而不是給你一個空白檔案。兩個版本都不接受 Office 文件與圖片。
+App 會明確告訴你，而不是給你一個空白檔案。`text` 與 `pdf` 版都不接受 Office 文件與圖片。
+
+`office-ocr` 版會先讀 PDF 的文字層；只有圖片的 PDF 與圖片檔，交給 macOS 內建的文字辨識
+（Apple 的 Vision 框架，也就是「照片」App 能選取圖中文字的那套辨識器）。辨識結果只有段落，
+不還原標題階層與表格，網頁也會提醒你核對。同一份 PDF 若有文字頁也有掃描頁，只會讀文字層，掃描頁不會被辨識。Word、PowerPoint、Excel 會保留標題、清單與表格。
+舊版 `.doc`、`.ppt`、`.xls` 不接受。
 
 ### 開啟 App
 
@@ -96,6 +102,7 @@ App 會明確告訴你，而不是給你一個空白檔案。兩個版本都不�
 |---|---|
 | ✅ 已在 Apple Silicon Mac 上驗證（2026-10-12／13） | `pdf` 候選包已完成建置、ad-hoc 簽章與壓縮；能像一般 App 一樣開啟並轉換真實文件；凍結後的執行環境回報沒有載入任何禁止的模組；內含 124 個第三方授權聲明檔 |
 | ✅ 已重新建置並檢查（2026-11-08，macOS 27.2） | `pdf` 候選包由 `ccd843d` 建置，內含 Pillow 13.0.0，具備純文字、Docling JSON 輸出與下載檔名功能；9 項 release 測試通過；`--diagnostics` 顯示 `pdf-text`、沒有載入禁用模組；`pip-audit` 在固定版本中找不到已知漏洞；凍結後的 App 在不開瀏覽器的模式下，把中文檔名的文字層 PDF 轉成純文字與 JSON 並沿用原檔名、兩個檔案以 ZIP 回傳、拒絕 `.docx`、對掃描檔說明原因。尚未經 Finder 開啟 |
+| ⏳ 尚未建置 | `office-ocr` 候選包。CI 在 Apple Silicon runner 上安裝它鎖定的 macOS 套件，以未凍結的方式執行，並用真正的 Vision 讀回一張含英文與繁體中文的圖片；凍結成 App 需要固定的 Python build，要在擁有者的 Mac 上做 |
 | ⏳ 尚未驗證 | 安裝到第二台 Mac —— [`docs-release/macos-vm-verification.md`](docs-release/macos-vm-verification.md) 說明如何用免費的 macOS 虛擬機驗證 |
 | ➖ 不打算做 | Developer ID 簽章與 Apple 公證 —— 擁有者於 2026-10-29 決定維持 ad-hoc 簽章，因為 App 不上架 App Store，收件者也很少（[ROADMAP](docs/ROADMAP.md)）；收件者依上方步驟開啟一次即可，每個候選包仍標記為 `distribution_ready: false` |
 | ❌ 不提供 | Windows App —— 沒有安裝包；在 Windows 上從原始碼執行，見下方說明 |
@@ -107,7 +114,7 @@ RELEASE_PROFILE=pdf BUILD_PYTHON="$HOME/.local/bin/python3.12" \
   sh scripts/packaging/bootstrap_macos.sh --output-dir build/private-release/candidate-pdf
 ```
 
-拿掉 `RELEASE_PROFILE=pdf` 就是建置 `text` 版。完整的建置與驗收流程請見
+改成 `RELEASE_PROFILE=office-ocr`（並換一個輸出目錄）就是建置 `office-ocr` 版；拿掉 `RELEASE_PROFILE` 就是建置 `text` 版。完整的建置與驗收流程請見
 [`docs-release/macos.md`](docs-release/macos.md)。
 
 ## 3. 從原始碼執行（開發者）
@@ -285,20 +292,21 @@ HTML 轉譯器，以及打包流程。**實際的文件解析由下列元件完�
 
 | 用途 | 元件 | 授權 | 是否打包進 macOS App |
 |---|---|---|---|
-| PDF 讀取（不跑模型） | **Docling** `docling-slim`、`docling-core`、`docling-parse` | MIT | ✅ `pdf` 版 |
-| Docling 底層的 PDF 解析 | **pypdfium2** 與 Google 的 **PDFium** | BSD-3-Clause / Apache-2.0 | ✅ `pdf` 版 |
-| 瀏覽器介面 | **FastAPI**、**Starlette**、**Uvicorn** | MIT / BSD | ✅ 兩版 |
-| 命令列介面 | **Typer**、**Rich** | MIT | ✅ 兩版 |
-| 掃描檔偵測 | **pypdf**，沒有時改用內建的串流分析器 | BSD-3-Clause | ✅ 兩版 |
+| PDF 讀取（不跑模型） | **Docling** `docling-slim`、`docling-core`、`docling-parse` | MIT | ✅ `pdf`、`office-ocr` 版 |
+| Docling 底層的 PDF 解析 | **pypdfium2** 與 Google 的 **PDFium** | BSD-3-Clause / Apache-2.0 | ✅ `pdf`、`office-ocr` 版 |
+| 瀏覽器介面 | **FastAPI**、**Starlette**、**Uvicorn** | MIT / BSD | ✅ 三版 |
+| 命令列介面 | **Typer**、**Rich** | MIT | — App 沒有命令列 |
+| 掃描檔偵測 | **pypdf**，沒有時改用內建的串流分析器 | BSD-3-Clause | — App 直接讀文字層 |
 | 打包成 App | **PyInstaller** | GPL-2.0-or-later，**附 Bootloader 例外條款** | ✅ 僅啟動器 |
 | 含版面與表格模型的 PDF 流程 | Docling 的模型流程，需 **PyTorch** 並下載模型權重 | 程式碼 MIT，模型條款另計 | ❌ |
-| Office 讀取（不跑模型） | 透過 Docling 使用 **python-docx**、**python-pptx**、**openpyxl** | MIT | ❌ |
+| Office 讀取（不跑模型） | 透過 Docling 使用 **python-docx**、**python-pptx**、**openpyxl** | MIT | ✅ `office-ocr` 版 |
 | Docling 模型流程中的 OCR | **RapidOCR** 與 PaddleOCR 模型，由 **ONNX Runtime** 執行 | Apache-2.0 / MIT | ❌ |
-| macOS 上的 OCR | Apple 的 **Vision** 框架，透過 **PyObjC** 呼叫 | macOS 內建 / MIT | ❌ |
+| macOS 上的 OCR | Apple 的 **Vision** 框架，透過 **PyObjC** 呼叫 | macOS 內建 / MIT | ✅ `office-ocr` 版含 PyObjC；Vision 是 macOS 內建的 |
 | 其他 PDF／OCR 引擎 | **Marker**、**MinerU** | 程式碼 Apache-2.0；模型與附加條款另計 | ❌ |
 
-**OCR：本專案沒有附帶任何 OCR。** 兩個 macOS 版本都不含任何 OCR 引擎或模型，
-App 會把掃描檔明確回報為「沒有文字層」，而不是硬猜內容。
+**OCR：本專案沒有附帶任何 OCR。** 所有 macOS 版本都不含任何 OCR 引擎或模型。
+`text` 與 `pdf` 版會把掃描檔明確回報為「沒有文字層」，而不是硬猜內容；
+`office-ocr` 版透過 PyObjC 使用 macOS 本來就有的辨識器。
 從原始碼安裝時，OCR 來自 Docling 的模型流程、`apple-vision`（使用 macOS 本來就有的辨識器），
 或你自己安裝的 Marker、MinerU（受它們自己的條款約束）——
 查證紀錄見 [`docs/LICENSE_AUDIT.md`](docs/LICENSE_AUDIT.md)。

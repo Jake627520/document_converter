@@ -1,6 +1,6 @@
 # Third-party components and notices
 
-Updated: 2026-10-16.
+Updated: 2026-11-09.
 
 Document Converter's original code is covered by the custom proprietary `LICENSE`. That license permits personal and company internal use, including internal commercial use, and restricts resale and redistribution of the original Software. **Those restrictions do not apply to third-party components.** Each third-party component retains its own license, notices, and rights; its applicable terms prevail for that component.
 
@@ -20,19 +20,23 @@ The package's generated inventory and collected original texts identify what tha
 |---|---|---|
 | `text` profile installer | Local interface and Markdown/plain-text conversion | Bundles no document engine. Excludes Docling, PyMuPDF/MuPDF, Marker, MinerU, model weights, and OCR/PDF engines; verify the actual build inventory and files before release |
 | `pdf` profile installer | The `text` profile plus PDFs that already carry a text layer | Adds Docling's model-free PDF reader and its dependencies (below). Runs no model and bundles no model weights, no OCR engine, no deep-learning runtime, and none of PyMuPDF/MuPDF, Marker or MinerU; verify the actual build inventory and files before release |
-| Docling (`docling-slim`, `docling-core`, `docling-parse`) | Model-free PDF reader, `pdf` profile only | MIT. Only the `NativePdfPipeline`, which runs no model, is bundled. Docling's model-based pipeline and its model weights are not bundled and remain a separate review |
-| `pypdfium2` and the PDFium build it ships | PDF parsing, `pdf` profile only | BSD-3-Clause or Apache-2.0 for the binding. The PDFium binary comes with 15 further license files covering PDFium itself and the components built into it (FreeType, libjpeg-turbo, ICU, libpng, zlib, OpenJPEG, Little CMS, Abseil, and others), collected as shipped; two of them require the acknowledgements below |
+| `office-ocr` profile installer | The `pdf` profile plus Word, PowerPoint and Excel files, scanned PDFs and images | Adds Docling's Office readers and PyObjC (below). Text in scans and images is recognized by the OCR built into macOS, which is part of the operating system and is not bundled. Bundles no OCR engine, no model weights and no deep-learning runtime; verify the actual build inventory and files before release |
+| Docling (`docling-slim`, `docling-core`, `docling-parse`) | Model-free PDF reader, `pdf` and `office-ocr` profiles | MIT. Only the `NativePdfPipeline`, which runs no model, is bundled. Docling's model-based pipeline and its model weights are not bundled and remain a separate review |
+| `pypdfium2` and the PDFium build it ships | PDF parsing in the `pdf` and `office-ocr` profiles; page rendering for OCR in `office-ocr` | BSD-3-Clause or Apache-2.0 for the binding. The PDFium binary comes with 15 further license files covering PDFium itself and the components built into it (FreeType, libjpeg-turbo, ICU, libpng, zlib, OpenJPEG, Little CMS, Abseil, and others), collected as shipped; two of them require the acknowledgements below |
+| python-docx, python-pptx, openpyxl, et-xmlfile, XlsxWriter, pylatexenc | Docling's Word, PowerPoint and Excel readers, `office-ocr` profile only | MIT, except XlsxWriter (BSD-2-Clause); each wheel ships its license |
+| PyObjC (`pyobjc-core`, `pyobjc-framework-Vision`, `-CoreML`, `-Quartz`, `-Cocoa`) | Calls Apple's Vision framework, `office-ocr` profile only | MIT. The `pyobjc-core`, `-Vision` and `-CoreML` wheels ship no license file; their source distributions do, and that text is collected under `legal/third-party/<package>/sdist/` with the source archive's SHA-256 recorded in the inventory |
+| Apple Vision framework | Text recognition, `office-ocr` profile | Part of macOS, used through its public API on the user's machine. Not copied into the application or redistributed |
 | Typer, Rich and local web dependencies | CLI, output, local interface | Exact installed versions and transitive dependencies come from the build inventory |
 | Python runtime and standard library | Executable runtime | Include the actual runtime's license material and any bundled component notices |
-| Docling model-based pipeline and models | Separately installed document engine | Not bundled in either profile. Code and model terms are reviewed separately; its MIT code label does not clear the models |
-| PyMuPDF/MuPDF | PDF analyzer available in some developer environments | AGPL-3.0 or an Artifex commercial license; requires a separate decision. Absent from both profiles |
-| Marker/Surya | Separately installed PDF/OCR engine and models | Code is Apache-2.0; model weights carry separate terms with commercial limits. Absent from both profiles |
-| MinerU/Magic-PDF | Separately installed PDF/OCR engine | MinerU 4.x uses the MinerU Open Source License (Apache-2.0 with additional terms); the earlier `magic-pdf` package is AGPL-3.0, and the `mineru` extra installs MinerU 4.x, not `magic-pdf`. Model artifacts are reviewed separately. Absent from both profiles |
+| Docling model-based pipeline and models | Separately installed document engine | Not bundled in any profile. Code and model terms are reviewed separately; its MIT code label does not clear the models |
+| PyMuPDF/MuPDF | PDF analyzer available in some developer environments | AGPL-3.0 or an Artifex commercial license; requires a separate decision. Absent from every profile |
+| Marker/Surya | Separately installed PDF/OCR engine and models | Code is Apache-2.0; model weights carry separate terms with commercial limits. Absent from every profile |
+| MinerU/Magic-PDF | Separately installed PDF/OCR engine | MinerU 4.x uses the MinerU Open Source License (Apache-2.0 with additional terms); the earlier `magic-pdf` package is AGPL-3.0, and the `mineru` extra installs MinerU 4.x, not `magic-pdf`. Model artifacts are reviewed separately. Absent from every profile |
 | Build, test and audit tools | Development and build environment | Being installed in the build environment does not mean a tool ships to users; bundled bootloader/runtime code still needs its applicable notices |
 
-## Required acknowledgements (`pdf` profile)
+## Required acknowledgements (`pdf` and `office-ocr` profiles)
 
-A `pdf` profile installer distributes the PDFium build that `pypdfium2` ships, in executable form. Two of its component licenses require a statement in the distribution documentation when only executable code is distributed. This file accompanies every installer in `legal/` and makes those statements:
+A `pdf` or `office-ocr` profile installer distributes the PDFium build that `pypdfium2` ships, in executable form. Two of its component licenses require a statement in the distribution documentation when only executable code is distributed. This file accompanies every installer in `legal/` and makes those statements:
 
 - **This software is based in part on the work of the FreeType Team.** (FreeType Project License, binary redistribution.)
 - **This software is based in part on the work of the Independent JPEG Group.** (IJG License clause 2, as libjpeg-turbo's terms restate it.)
@@ -45,7 +49,7 @@ FreeType, the Independent JPEG Group, libjpeg-turbo and the Unicode/ICU copyrigh
 
 - `certifi` and `tqdm` are MPL-2.0 (tqdm together with MIT). They are bundled unmodified; MPL-2.0 obligations attach to modified covered files, and the unmodified source is available at the pinned versions on PyPI.
 - PyInstaller is GPL-2.0-or-later **with its Bootloader exception**, which permits embedding the compiled bootloader in a program and distributing the result without restriction from the use of those files. `pyinstaller-hooks-contrib` is used at build time.
-- Every other bundled distribution of the `pdf` profile is under a permissive license (MIT, BSD, Apache-2.0, ISC, PSF, MIT-CMU or similar) as recorded in its own metadata; the collected texts in `legal/third-party/` are authoritative over that summary.
+- Every other bundled distribution of the `pdf` and `office-ocr` profiles is under a permissive license (MIT, BSD, Apache-2.0, ISC, PSF, MIT-CMU or similar) as recorded in its own metadata; the collected texts in `legal/third-party/` are authoritative over that summary.
 
 Private repository visibility, optional dependencies, and subprocess invocation do not establish license compliance. Installing an engine separately does not override its own terms or resolve whether a particular combined use is permitted.
 

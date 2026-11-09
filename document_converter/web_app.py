@@ -14,7 +14,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from .models import ConversionResult
-from .formats import PDF_TEXT_SUPPORTED, SUPPORTED, TEXT_SUPPORTED
+from .formats import OFFICE_OCR_SUPPORTED, OFFICE_SUFFIXES, PDF_TEXT_SUPPORTED, SUPPORTED, TEXT_SUPPORTED
 from .web_security import (
     ALLOWED_TARGETS,
     CSP_DIRECTIVES,
@@ -60,7 +60,12 @@ def size_limit(limit: int, locale: str = DEFAULT_LOCALE) -> str:
 
 TEXT_PROFILE = "text-only"
 PDF_PROFILE = "pdf-text"
-RELEASE_FORMATS = {TEXT_PROFILE: TEXT_SUPPORTED, PDF_PROFILE: PDF_TEXT_SUPPORTED}
+OFFICE_OCR_PROFILE = "office-ocr"
+RELEASE_FORMATS = {
+    TEXT_PROFILE: TEXT_SUPPORTED,
+    PDF_PROFILE: PDF_TEXT_SUPPORTED,
+    OFFICE_OCR_PROFILE: OFFICE_OCR_SUPPORTED,
+}
 # Docling JSON is the engine's own parse of a document, so a release that runs
 # no engine cannot offer it at all, and in the pdf release only a PDF produces
 # one: Markdown and text files are read directly. Markdown, HTML and plain text
@@ -69,6 +74,9 @@ RELEASE_FORMATS = {TEXT_PROFILE: TEXT_SUPPORTED, PDF_PROFILE: PDF_TEXT_SUPPORTED
 RELEASE_TARGETS = {
     TEXT_PROFILE: frozenset({"md", "html", "txt"}),
     PDF_PROFILE: frozenset({"md", "html", "txt", "json"}),
+    # Office files and text-layer PDFs are parsed by Docling; recognized text
+    # has no Docling document, so OCR output offers no JSON.
+    OFFICE_OCR_PROFILE: frozenset({"md", "html", "txt", "json"}),
 }
 MEDIA_TYPES = {
     "md": "text/markdown; charset=utf-8",
@@ -227,6 +235,16 @@ def configure_pdf_release():
     _configure_release(PDF_PROFILE)
 
 
+def configure_office_ocr_release():
+    """Permanently restrict this process to the reviewed Office-and-OCR release.
+
+    Office files go through Docling's readers, PDFs with a text layer through
+    the model-free reader, and scans and images through the OCR macOS ships.
+    The process loads no deep-learning runtime and downloads no model.
+    """
+    _configure_release(OFFICE_OCR_PROFILE)
+
+
 def _configure_release(profile: str):
     global _RELEASE_PROFILE
     if _RELEASE_PROFILE is not None and _RELEASE_PROFILE != profile:
@@ -279,6 +297,23 @@ def convert_one(path, engine_name, image_mode):
         # Imported here so the text-only release never reaches engine code.
         from .engines.docling_native_engine import DoclingNativePdfEngine
         return DoclingNativePdfEngine().convert(path, "none")
+    if _RELEASE_PROFILE == OFFICE_OCR_PROFILE:
+        suffix = path.suffix.lower()
+        if suffix not in OFFICE_OCR_SUPPORTED:
+            raise ValueError("This release accepts Office, PDF, image, Markdown and UTF-8 text files only")
+        if suffix in TEXT_SUPPORTED:
+            return _convert_text(path)
+        if suffix in OFFICE_SUFFIXES:
+            from .engines.docling_office_engine import DoclingOfficeEngine
+            return DoclingOfficeEngine().convert(path, "none")
+        if suffix == ".pdf":
+            from .engines.docling_native_engine import DoclingNativePdfEngine
+            result = DoclingNativePdfEngine().convert(path, "none")
+            if result.has_recovered_text():
+                return result
+            # No text layer: a scan, read with the OCR macOS ships instead.
+        from .engines.apple_vision_engine import AppleVisionOcrEngine
+        return AppleVisionOcrEngine().convert(path, "none")
     from .pipeline import convert_one as pipeline_convert_one
     return pipeline_convert_one(path, engine_name, image_mode)
 
@@ -448,6 +483,8 @@ async def index(request: Request, lang: str | None = None):
         return HTMLResponse(text_release_page(client_locale))
     if _RELEASE_PROFILE == PDF_PROFILE:
         return HTMLResponse(pdf_release_page(client_locale))
+    if _RELEASE_PROFILE == OFFICE_OCR_PROFILE:
+        return HTMLResponse(office_ocr_release_page(client_locale))
     return HTMLResponse(base_page(client_locale))
 
 
@@ -635,6 +672,17 @@ def _no_text_recovered(result: ConversionResult, locale: str = DEFAULT_LOCALE) -
         else:
             return "沒有辨識出任何文字。OCR 已經跑過，但頁面可能是空白的、只有不含文字的圖片，或字太淡認不出來。"
 
+    if result.engine == "docling-office":
+        if locale == "en":
+            return (
+                "No text was extracted from this file. The document may be empty or hold only pictures; "
+                "text inside pictures in a Word, PowerPoint or Excel file is not read."
+            )
+        elif locale == "zh-CN":
+            return "该文件未提取出任何文本。文档可能是空的，或只有图片；Word、PowerPoint、Excel 文件内图片里的文字不会被读取。"
+        else:
+            return "這個檔案沒有抽出任何文字。文件可能是空的，或只有圖片；Word、PowerPoint、Excel 檔案裡圖片中的文字不會被讀取。"
+
     if locale == "en":
         remedy = (
             "This release does not include OCR text recognition."
@@ -725,6 +773,15 @@ def _missing_component_message(original_name: str, error: ImportError, locale: s
 
 
 def _unavailable_target(target: str, result: ConversionResult, locale: str = DEFAULT_LOCALE) -> str:
+    if target == "json" and result.engine == "apple-vision":
+        if locale == "en":
+            return (
+                "Text recognized by OCR has no Docling JSON: no document engine parsed this file. "
+                "Please use Markdown, HTML, or plain text."
+            )
+        elif locale == "zh-CN":
+            return "OCR 识别出来的文字没有 Docling JSON：这个文件没有经过文档引擎解析。请改用 Markdown、HTML 或纯文本。"
+        return "OCR 辨識出來的文字沒有 Docling JSON：這個檔案沒有經過文件引擎解析。請改用 Markdown、HTML 或純文字。"
     if target == "json":
         if locale == "en":
             return (
@@ -809,6 +866,59 @@ def pdf_release_page(locale: str = DEFAULT_LOCALE) -> str:
             "引擎或模型的網路行為取決於其安裝與設定。",
             "此版本只使用不需模型的本機 PDF 讀取器，不下載任何模型。",
         )
+    return page
+
+
+# What the Office-and-OCR release says instead of the source install's text.
+# Every language is replaced, not only the page's: the page carries all three
+# translations and switches between them without asking the server again.
+OFFICE_OCR_TEXT = {
+    "zh-TW": {
+        "file_hint": "支援 PDF、Word、PowerPoint、Excel、圖片、Markdown 與 UTF-8 文字。",
+        "footer_text": (
+            "<strong>支援格式</strong>\u3000PDF、Word（.docx）、PowerPoint（.pptx）、Excel（.xlsx）、"
+            "圖片（.png、.jpg、.jpeg、.webp）、Markdown、UTF-8 文字。掃描檔與圖片用 macOS 內建的文字辨識讀取："
+            "只有段落，不還原標題階層與表格。不支援舊版 .doc、.ppt、.xls。"
+        ),
+        "privacy_note": "文件由本機服務處理，轉換後會立即清除暫存檔。<br>此版本不含任何模型，文字辨識使用 macOS 內建的功能，不下載任何東西。",
+        "fmt_json_desc": ".json · 文件結構，OCR 辨識的文字不提供",
+    },
+    "zh-CN": {
+        "file_hint": "支持 PDF、Word、PowerPoint、Excel、图片、Markdown 与 UTF-8 文本。",
+        "footer_text": (
+            "<strong>支持格式</strong>\u3000PDF、Word（.docx）、PowerPoint（.pptx）、Excel（.xlsx）、"
+            "图片（.png、.jpg、.jpeg、.webp）、Markdown、UTF-8 文本。扫描件与图片使用 macOS 自带的文字识别读取："
+            "只有段落，不还原标题层级与表格。不支持旧版 .doc、.ppt、.xls。"
+        ),
+        "privacy_note": "文件由本地服务处理，转换后立即清理临时文件。<br>此版本不含任何模型，文字识别使用 macOS 自带的功能，不下载任何东西。",
+        "fmt_json_desc": ".json · 文档结构，OCR 识别的文字不提供",
+    },
+    "en": {
+        "file_hint": "Supports PDF, Word, PowerPoint, Excel, images, Markdown, and UTF-8 text.",
+        "footer_text": (
+            "<strong>Supported formats:</strong> PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx), "
+            "images (.png, .jpg, .jpeg, .webp), Markdown, UTF-8 text. Scanned PDFs and images are read with the OCR "
+            "built into macOS: paragraphs only, no heading levels or tables. Older .doc, .ppt and .xls are not supported."
+        ),
+        "privacy_note": (
+            "Documents processed locally; temporary files cleared immediately after conversion.<br>"
+            "This release contains no model; text recognition uses the OCR built into macOS, and nothing is downloaded."
+        ),
+        "fmt_json_desc": ".json · Document structure, not for OCR text",
+    },
+}
+
+
+def office_ocr_release_page(locale: str = DEFAULT_LOCALE) -> str:
+    """Say what the Office-and-OCR release reads, and how it reads a scan."""
+    page = base_page(locale)
+    page = page.replace(
+        'accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm,.epub,.md,.markdown,.txt,.png,.jpg,.jpeg,.webp,.csv,.rtf,.odt,.ods,.odp"',
+        'accept=".pdf,.docx,.pptx,.xlsx,.png,.jpg,.jpeg,.webp,.md,.markdown,.txt"',
+    )
+    for language, texts in OFFICE_OCR_TEXT.items():
+        for key, text in texts.items():
+            page = page.replace(TRANSLATIONS[language][key], text)
     return page
 
 

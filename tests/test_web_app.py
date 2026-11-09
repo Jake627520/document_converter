@@ -10,6 +10,7 @@ import unittest
 import tempfile
 
 from document_converter.models import ConversionResult
+from office_samples import write_docx
 from pdf_samples import write_scanned_pdf, write_text_pdf
 
 try:
@@ -241,6 +242,139 @@ class ReleaseProfileTests(TestCase):
         self.assertEqual(response.status_code, 422)
         self.assertIn("沒有文字層", response.json()["detail"])
         self.assertIn("OCR", response.json()["detail"])
+
+
+def _office_reader_available():
+    try:
+        import docling.document_converter  # noqa: F401
+        import docx  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+requires_office_reader = unittest.skipUnless(
+    _office_reader_available(), "install the office extra: pip install -e '.[office]'"
+)
+
+
+@unittest.skipIf(TestClient is None, "install the optional web extra to run web tests")
+class OfficeOcrReleaseTests(TestCase):
+    """Ref: openspec/specs/release-profiles/spec.md"""
+
+    def setUp(self):
+        patcher = mock.patch.object(web_app, "_RELEASE_PROFILE", web_app.OFFICE_OCR_PROFILE)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.client = TestClient(web_app.app, headers={"host": "127.0.0.1"})
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def post(self, filename, data, target="md", lang=None):
+        form = {"target": target, **({"lang": lang} if lang else {})}
+        return self.client.post("/convert", data=form, files={"files": (filename, data, "application/octet-stream")})
+
+    def recognized(self, text="辨識出來的文字"):
+        """Stand in for macOS's OCR, which this platform may not have."""
+        return mock.patch(
+            "document_converter.engines.apple_vision_engine.AppleVisionOcrEngine.convert",
+            side_effect=lambda path, mode: ConversionResult(source=path, engine="apple-vision", markdown=text + "\n", text=text + "\n"),
+        )
+
+    def test_page_offers_office_images_and_pdf_in_every_language(self):
+        page = self.client.get("/").text
+        self.assertIn('accept=".pdf,.docx,.pptx,.xlsx,.png,.jpg,.jpeg,.webp,.md,.markdown,.txt"', page)
+        # All three languages, since the page switches between them itself.
+        for words in ("macOS 內建的文字辨識", "macOS 自带的文字识别", "OCR built into macOS", "不支援舊版 .doc"):
+            self.assertIn(words, page)
+        self.assertNotIn("EPUB", page)
+
+    def test_formats_outside_the_release_are_refused(self):
+        for filename in ("old.doc", "old.ppt", "old.xls", "page.html", "book.epub", "scan.tiff"):
+            with self.subTest(filename=filename):
+                self.assertEqual(self.post(filename, b"stub").status_code, 400)
+
+    def test_an_image_is_read_with_macos_ocr(self):
+        with self.recognized("收據 NT$ 120") as ocr:
+            response = self.post("receipt.png", b"png bytes")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.text, "收據 NT$ 120\n")
+        self.assertEqual(response.headers["x-conversion-notes"], "ocr")
+        ocr.assert_called_once()
+
+    def test_recognized_text_has_no_docling_json(self):
+        with self.recognized():
+            response = self.post("receipt.jpg", b"jpg bytes", target="json", lang="en")
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("recognized by OCR has no Docling JSON", response.json()["detail"])
+
+    @unittest.skipUnless(_native_pdf_available(), "install docling-slim to convert PDFs")
+    def test_a_pdf_with_a_text_layer_is_read_from_it_not_recognized(self):
+        sample = write_text_pdf(self.tmp / "sample.pdf").read_bytes()
+        with self.recognized() as ocr:
+            response = self.post("sample.pdf", sample)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("readable text stream", response.text)
+        self.assertEqual(response.headers["x-conversion-notes"], "model-free")
+        ocr.assert_not_called()
+
+    @unittest.skipUnless(_native_pdf_available(), "install docling-slim to convert PDFs")
+    def test_a_scanned_pdf_falls_through_to_macos_ocr(self):
+        scan = write_scanned_pdf(self.tmp / "scan.pdf").read_bytes()
+        with self.recognized("掃描的頁面") as ocr:
+            response = self.post("scan.pdf", scan)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.text, "掃描的頁面\n")
+        self.assertEqual(response.headers["x-conversion-notes"], "ocr")
+        ocr.assert_called_once()
+
+    @requires_office_reader
+    def test_word_converts_without_ocr(self):
+        sample = write_docx(self.tmp / "report.docx", ["季度報告 & 營收", "第二段"]).read_bytes()
+        with self.recognized() as ocr:
+            response = self.post("report.docx", sample)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.text.split(), ["季度報告", "&", "營收", "第二段"])
+        self.assertNotIn("x-conversion-notes", response.headers)
+        ocr.assert_not_called()
+        self.assertEqual(json.loads(self.post("report.docx", sample, target="json").text)["schema_name"], "DoclingDocument")
+
+    @requires_office_reader
+    def test_an_empty_office_file_says_pictures_are_not_read(self):
+        sample = write_docx(self.tmp / "empty.docx", []).read_bytes()
+        response = self.post("empty.docx", sample)
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("圖片中的文字不會被讀取", response.json()["detail"])
+
+    @requires_office_reader
+    def test_office_and_text_conversions_load_no_forbidden_module(self):
+        """The frozen app refuses to start if its conversions reach these."""
+        script = """
+import json, sys
+sys.path.insert(0, sys.argv[1])
+sys.path.insert(0, sys.argv[1] + "/tests")
+from fastapi.testclient import TestClient
+from document_converter import web_app
+from office_samples import write_docx
+import pathlib, tempfile
+web_app.configure_office_ocr_release()
+client = TestClient(web_app.app, headers={"host": "127.0.0.1"})
+docx = write_docx(pathlib.Path(tempfile.mkdtemp()) / "a.docx", ["本機"]).read_bytes()
+status = [client.post("/convert", data={"target": "md"}, files={"files": (name, data, "application/octet-stream")}).status_code
+          for name, data in (("a.docx", docx), ("notes.md", "# 本機\\n".encode()))]
+forbidden = ("torch", "onnxruntime", "rapidocr", "easyocr", "cv2", "huggingface_hub",
+             "document_converter.pipeline", "document_converter.cli", "document_converter.detector")
+loaded = sorted(m for m in sys.modules if any(m == f or m.startswith(f + ".") for f in forbidden))
+print(json.dumps({"status": status, "loaded": loaded}))
+"""
+        import subprocess
+        import sys
+
+        root = Path(__file__).resolve().parent.parent
+        run = subprocess.run([sys.executable, "-c", script, str(root)], capture_output=True, text=True, timeout=180)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        report = json.loads(run.stdout.strip().splitlines()[-1])
+        self.assertEqual(report, {"status": [200, 200], "loaded": []})
 
 
 @unittest.skipIf(TestClient is None, "install the optional web extra to run web tests")

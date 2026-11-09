@@ -16,15 +16,15 @@ the [case study](docs/case-study/README.md), also in [繁體中文](docs/case-st
 
 **Inputs.** What a given install accepts depends on which engines it has.
 
-| Input | From source, Docling installed | macOS app, `text` profile | macOS app, `pdf` profile |
-|---|---|---|---|
-| Markdown `.md` `.markdown` | ✅ | ✅ | ✅ |
-| UTF-8 text `.txt` | ✅ | ✅ | ✅ |
-| PDF **with a text layer** | ✅ | ❌ | ✅ |
-| PDF that is a **scan or photo** | ✅ with OCR: Docling's models (downloaded on first use), or on a Mac the `apple-vision` extra | ❌ | ❌ |
-| Office `.docx` `.pptx` `.xlsx` and older | ✅ (`.docx` `.pptx` `.xlsx` also with just the `office` extra, no PyTorch) | ❌ | ❌ |
-| `.html` `.htm` `.epub` `.csv` `.rtf` OpenDocument | ✅ | ❌ | ❌ |
-| Images `.png` `.jpg` `.jpeg` `.webp` | ✅ with OCR, as for a scan | ❌ | ❌ |
+| Input | From source, Docling installed | macOS app, `text` profile | macOS app, `pdf` profile | macOS app, `office-ocr` profile |
+|---|---|---|---|---|
+| Markdown `.md` `.markdown` | ✅ | ✅ | ✅ | ✅ |
+| UTF-8 text `.txt` | ✅ | ✅ | ✅ | ✅ |
+| PDF **with a text layer** | ✅ | ❌ | ✅ | ✅ |
+| PDF that is a **scan or photo** | ✅ with OCR: Docling's models (downloaded on first use), or on a Mac the `apple-vision` extra | ❌ | ❌ | ✅ macOS's own OCR |
+| Office `.docx` `.pptx` `.xlsx` and older | ✅ (`.docx` `.pptx` `.xlsx` also with just the `office` extra, no PyTorch) | ❌ | ❌ | ✅ `.docx` `.pptx` `.xlsx` only |
+| `.html` `.htm` `.epub` `.csv` `.rtf` OpenDocument | ✅ | ❌ | ❌ | ❌ |
+| Images `.png` `.jpg` `.jpeg` `.webp` | ✅ with OCR, as for a scan | ❌ | ❌ | ✅ macOS's own OCR |
 
 A file the install does not accept is refused before any conversion starts, and
 the message names the formats that would work — for example, from the `pdf`
@@ -45,12 +45,12 @@ that and why, rather than downloading a 0-byte file.
 
 **Outputs.**
 
-| Output | From source (CLI and browser) | macOS app, `text` profile | macOS app, `pdf` profile |
-|---|---|---|---|
-| Markdown (`.md`) | ✅ | ✅ | ✅ |
-| HTML (`.html`) | ✅ | ✅ | ✅ |
-| Plain text (`.txt`) | ✅ | ✅ | ✅ |
-| Docling JSON (`.json`) | ✅ when a Docling engine parsed the file | — | ✅ PDF input only |
+| Output | From source (CLI and browser) | macOS app, `text` profile | macOS app, `pdf` profile | macOS app, `office-ocr` profile |
+|---|---|---|---|---|
+| Markdown (`.md`) | ✅ | ✅ | ✅ | ✅ |
+| HTML (`.html`) | ✅ | ✅ | ✅ | ✅ |
+| Plain text (`.txt`) | ✅ | ✅ | ✅ | ✅ |
+| Docling JSON (`.json`) | ✅ when a Docling engine parsed the file | — | ✅ PDF input only | ✅ Office files and PDFs with a text layer |
 
 Docling JSON is the engine's own structural parse of a document, so it exists
 only where an engine read the file. Markdown and text files are read directly,
@@ -58,17 +58,26 @@ and the `text` app runs no engine at all.
 
 ## 2. macOS app
 
-It runs on Apple Silicon (M-series) Macs only. Two reviewed profiles exist:
+It runs on Apple Silicon (M-series) Macs only. Three reviewed profiles exist:
 
 | Profile | Accepts | Bundles |
 |---|---|---|
 | `text` | UTF-8 `.md`, `.markdown`, `.txt` | No document engine and no model |
 | `pdf` | The above, plus **PDFs that already contain a text layer** | Docling's model-free PDF reader — no OCR, no AI model, no PyTorch, nothing downloaded |
+| `office-ocr` | The above, plus Word, PowerPoint and Excel (`.docx`, `.pptx`, `.xlsx`), **scanned PDFs** and images (`.png`, `.jpg`, `.jpeg`, `.webp`) | The `pdf` profile, Docling's Office readers and PyObjC, which reaches the text recognition built into macOS — no OCR engine, no AI model, no PyTorch, nothing downloaded |
 
 The `pdf` profile extracts the text a PDF already holds. It does not rebuild
 heading levels or tables, and a scanned PDF has no text layer: the app says so
 instead of returning an empty file. Office documents and images are not
-accepted by either profile.
+accepted by the `text` or `pdf` profile.
+
+The `office-ocr` profile reads a PDF's text layer first and hands a page-image
+PDF, or an image, to macOS's own text recognition (Apple's Vision framework,
+the recognizer Photos uses to select text in a picture). Recognized text comes
+back as paragraphs, without heading levels or tables, and the page says it
+should be checked. A PDF that mixes text pages with scanned pages is read from
+its text layer only, so its scanned pages are left out. Word, PowerPoint and Excel keep their headings, lists and
+tables. Older `.doc`, `.ppt` and `.xls` are not accepted.
 
 ### Opening the app
 
@@ -105,6 +114,7 @@ You do not need Python, Node.js, Docker or VS Code to run the app.
 |---|---|
 | ✅ Verified on an Apple Silicon Mac (2026-10-12/13) | `pdf` candidate built, signed ad-hoc and zipped; opened like any app and converted a real document; its frozen runtime reported no forbidden module; it carried 124 third-party notice files |
 | ✅ Rebuilt and checked (2026-11-08, macOS 27.2) | `pdf` candidate built from `ccd843d`, with Pillow 13.0.0, so it has the plain text and Docling JSON outputs and the download names; the 9 release tests pass; `--diagnostics` reports `pdf-text` and no forbidden module; `pip-audit` finds no known vulnerability in its pinned versions; the frozen app, started without a browser, converted a Chinese-named text-layer PDF to text and JSON under its own name, returned two files as a ZIP, refused `.docx` and explained a scan. Not yet opened through Finder |
+| ⏳ Not yet built | The `office-ocr` candidate. CI installs its pinned macOS lock on an Apple Silicon runner and runs it unfrozen with the real Vision framework, reading back a picture of English and Traditional Chinese; freezing it needs the audited Python build on the owner's Mac |
 | ⏳ Not yet verified | Installing on a second Mac — [`docs-release/macos-vm-verification.md`](docs-release/macos-vm-verification.md) covers it with a free macOS virtual machine |
 | ➖ Not planned | Developer ID signing and Apple notarization — the owner decided on 2026-10-29 to stay with ad-hoc signing, since the app is not sold through the App Store and goes to few people ([ROADMAP](docs/ROADMAP.md)); recipients open it once as described above, and every candidate stays marked `distribution_ready: false` |
 | ❌ Not available | A Windows app — there is no installer; running from source on Windows is covered below |
@@ -116,7 +126,8 @@ RELEASE_PROFILE=pdf BUILD_PYTHON="$HOME/.local/bin/python3.12" \
   sh scripts/packaging/bootstrap_macos.sh --output-dir build/private-release/candidate-pdf
 ```
 
-Leave out `RELEASE_PROFILE=pdf` for the `text` profile. The full build and
+Use `RELEASE_PROFILE=office-ocr` and another output directory for the
+`office-ocr` profile, or leave `RELEASE_PROFILE` out for the `text` profile. The full build and
 acceptance procedure is in [`docs-release/macos.md`](docs-release/macos.md).
 
 ## 3. From source (developers)
@@ -317,21 +328,22 @@ itself is done by these:
 
 | Part | Component | License | Bundled in the macOS app? |
 |---|---|---|---|
-| PDF reading, no model | **Docling** `docling-slim`, `docling-core`, `docling-parse` | MIT | ✅ `pdf` profile |
-| PDF parsing underneath it | **pypdfium2** and Google's **PDFium** | BSD-3-Clause / Apache-2.0 | ✅ `pdf` profile |
-| Browser interface | **FastAPI**, **Starlette**, **Uvicorn** | MIT / BSD | ✅ both |
-| Command line | **Typer**, **Rich** | MIT | ✅ both |
-| Scanned-PDF detection | **pypdf**, or a built-in stream reader when it is absent | BSD-3-Clause | ✅ both |
+| PDF reading, no model | **Docling** `docling-slim`, `docling-core`, `docling-parse` | MIT | ✅ `pdf`, `office-ocr` |
+| PDF parsing underneath it | **pypdfium2** and Google's **PDFium** | BSD-3-Clause / Apache-2.0 | ✅ `pdf`, `office-ocr` |
+| Browser interface | **FastAPI**, **Starlette**, **Uvicorn** | MIT / BSD | ✅ all three |
+| Command line | **Typer**, **Rich** | MIT | — the apps have no command line |
+| Scanned-PDF detection | **pypdf**, or a built-in stream reader when it is absent | BSD-3-Clause | — the apps read the text layer directly |
 | Packaging into an app | **PyInstaller** | GPL-2.0-or-later **with its Bootloader exception** | ✅ bootloader only |
 | PDF with layout and table models | Docling's model pipeline, needing **PyTorch** and downloaded weights | MIT code, model terms separate | ❌ |
-| Office reading, no model | **python-docx**, **python-pptx**, **openpyxl** through Docling | MIT | ❌ |
+| Office reading, no model | **python-docx**, **python-pptx**, **openpyxl** through Docling | MIT | ✅ `office-ocr` |
 | OCR in Docling's model pipeline | **RapidOCR** with PaddleOCR models, run by **ONNX Runtime** | Apache-2.0 / MIT | ❌ |
-| OCR on macOS | Apple's **Vision** framework, reached through **PyObjC** | Part of macOS / MIT | ❌ |
+| OCR on macOS | Apple's **Vision** framework, reached through **PyObjC** | Part of macOS / MIT | ✅ PyObjC in `office-ocr`; Vision is part of macOS |
 | Alternative PDF/OCR engines | **Marker**, **MinerU** | Apache-2.0 code; separate model and additional terms | ❌ |
 
 **OCR: this project bundles none.** No OCR engine or model is included in
-either macOS profile, and the app reports a scan as having no text layer
-rather than guessing at it. From source, OCR comes from Docling's model
+any macOS profile. The `text` and `pdf` apps report a scan as having no text
+layer rather than guessing at it; the `office-ocr` app asks the recognizer
+macOS already has, through PyObjC. From source, OCR comes from Docling's model
 pipeline, from `apple-vision` (which uses the recognizer macOS already has),
 or from Marker or MinerU under their own terms — see
 [`docs/LICENSE_AUDIT.md`](docs/LICENSE_AUDIT.md), which records what was
