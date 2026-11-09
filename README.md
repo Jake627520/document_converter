@@ -198,6 +198,14 @@ adds the `docling` extra and passes with no test skipped, so text-layer PDFs
 convert on Windows too. CI downloads no Docling models, so the model pipeline
 (layout, tables, OCR) has not been checked on Windows.
 
+On Windows, `docling-native` does not render page images: Docling's page
+renderer corrupts memory there when its worker threads exit
+([docling-parse #357](https://github.com/docling-project/docling-parse/issues/357)),
+which crashed conversions at random in CI. The text, Markdown and HTML are the
+same; the Docling JSON simply carries no picture of each page. Docling's model
+pipeline needs those pictures, so it still renders them and remains exposed
+until docling-parse is fixed.
+
 ### Browser workbench
 
 ```bash

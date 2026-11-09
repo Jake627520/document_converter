@@ -8,6 +8,7 @@ already contains and runs no models, so it works from a plain
 structure - there is no heading hierarchy, no Markdown table reconstruction, no
 reading-order recovery and no OCR, so a scanned PDF yields no text.
 """
+import sys
 from pathlib import Path
 from .base import Engine, EngineError
 from .docling_engine import build_result
@@ -22,6 +23,30 @@ NO_TEXT_WARNING = (
     "No text was recovered. The PDF has no text layer and this engine runs no OCR; "
     "use an engine with OCR support for scanned pages."
 )
+
+def _format_options(NativePdfPipelineOptions) -> dict:
+    """Pipeline and backend options; on Windows, without page images.
+
+    Docling's threaded parser renders a picture of every page while decoding it,
+    and the native pipeline stores that picture in the Docling JSON. On Windows
+    the renderer corrupts the heap when its worker threads exit (docling-parse
+    issue #357, open as of 7.25.0): access violations, then a crash in unrelated
+    code after any number of documents. There, pages are not rendered, so the
+    Docling JSON carries no page images; the text, Markdown and HTML are the
+    same. Elsewhere the renderer is sound and the output is left as it was. A
+    Docling without the threaded backend renders nothing it could turn off.
+    """
+    if sys.platform != "win32":
+        return {"pipeline_options": NativePdfPipelineOptions()}
+    try:
+        from docling.datamodel.backend_options import ThreadedDoclingParseBackendOptions
+    except ImportError:
+        return {"pipeline_options": NativePdfPipelineOptions()}
+    return {
+        "pipeline_options": NativePdfPipelineOptions(generate_page_images=False),
+        "backend_options": ThreadedDoclingParseBackendOptions(render_pages=False),
+    }
+
 
 class DoclingNativePdfEngine(Engine):
     name = "docling-native"
@@ -45,7 +70,7 @@ class DoclingNativePdfEngine(Engine):
                 format_options={
                     InputFormat.PDF: PdfFormatOption(
                         pipeline_cls=NativePdfPipeline,
-                        pipeline_options=NativePdfPipelineOptions(),
+                        **_format_options(NativePdfPipelineOptions),
                     )
                 }
             )

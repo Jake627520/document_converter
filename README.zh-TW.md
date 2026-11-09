@@ -177,6 +177,8 @@ uv pip install -e .
 
 Windows 上的原始碼安裝已在 CI 驗證：CI 在 `windows-latest`（Python 3.12）安裝 web extra，整套測試通過。Markdown 與純文字的轉換，以及瀏覽器工作台，都能在 Windows 上使用。另一個 job 加裝 `docling` extra，測試全數通過、沒有任何 skip，所以有文字層的 PDF 也能在 Windows 上轉換。CI 不下載 Docling 模型，所以模型流程（版面、表格、OCR）尚未在 Windows 上驗證。
 
+在 Windows 上，`docling-native` 不會把頁面畫成圖片：Docling 的頁面渲染器在 Windows 上，背景執行緒結束時會弄壞記憶體（[docling-parse #357](https://github.com/docling-project/docling-parse/issues/357)），造成轉換隨機當機。文字、Markdown 與 HTML 的結果不變，只是 Docling JSON 裡沒有每一頁的縮圖。Docling 的模型流程需要這些頁面圖片，所以仍會渲染，在 docling-parse 修好之前仍有這個風險。
+
 ### 瀏覽器工作台
 
 ```bash
