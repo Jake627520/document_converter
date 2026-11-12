@@ -112,7 +112,9 @@ class TestCli(unittest.TestCase):
             result = self.runner.invoke(
                 app, ["convert", str(source), "--engine", "docling-native", "-o", str(Path(temp) / "out")]
             )
-        self.assertEqual(result.exit_code, 0)
+        # The engine name is accepted (no usage error, exit 2); converting Markdown
+        # with a PDF-only engine then fails that file, so the command exits 1.
+        self.assertEqual(result.exit_code, 1)
         self.assertNotIn("engine must be", result.output)
 
     def test_a_scan_with_no_text_names_the_ocr_engines_to_install(self):
@@ -128,6 +130,48 @@ class TestCli(unittest.TestCase):
             result = self.runner.invoke(app, ["convert", str(source), "--engine", "nope"])
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("docling-native", result.output)
+
+    def test_convert_exits_non_zero_when_a_file_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            good = Path(temp) / "in" / "good.md"
+            good.parent.mkdir()
+            good.write_text("# Fine\n", encoding="utf-8")
+            (good.parent / "bad.md").write_text("# Broken\n", encoding="utf-8")
+            original = __import__("document_converter.pipeline", fromlist=["convert_one"]).convert_one
+
+            def fail_on_bad(path, *args, **kwargs):
+                if path.name == "bad.md":
+                    raise RuntimeError("boom")
+                return original(path, *args, **kwargs)
+
+            with patch("document_converter.pipeline.convert_one", side_effect=fail_on_bad):
+                result = self.runner.invoke(
+                    app, ["convert", str(good.parent), "--engine", "text_direct", "-o", str(Path(temp) / "out")]
+                )
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn("FAILED", result.output)
+
+    def test_list_engines_does_not_count_docling_slim_alone_as_a_pdf_reader(self):
+        # Bare docling-slim provides the docling namespace but not docling-parse,
+        # the PDF parser, nor docling-ibm-models, the full pipeline's layout models.
+        present = {"docling", "docling.document_converter", "docling.pipeline.native_pdf_pipeline"}
+        with patch("document_converter.cli._importable", side_effect=lambda name: name in present):
+            result = self.runner.invoke(app, ["list-engines"])
+        lines = {line.split()[0]: line for line in result.output.splitlines() if line.strip()}
+        self.assertIn("not detected", lines["docling"])
+        self.assertIn("not detected", lines["docling-native"])
+
+    def test_list_engines_detects_the_pdf_readers_when_their_parts_are_installed(self):
+        present = {
+            "docling", "docling.document_converter", "docling.pipeline.native_pdf_pipeline",
+            "docling_parse", "docling_ibm_models",
+        }
+        with patch("document_converter.cli._importable", side_effect=lambda name: name in present):
+            result = self.runner.invoke(app, ["list-engines"])
+        lines = {line.split()[0]: line for line in result.output.splitlines() if line.strip()}
+        self.assertNotIn("not detected", lines["docling"])
+        self.assertNotIn("not detected", lines["docling-native"])
+        self.assertIn("format-pdf", lines["docling-native"])
 
 if __name__ == "__main__":
     unittest.main()
