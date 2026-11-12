@@ -117,6 +117,8 @@ def convert(
             table.add_row(str(path), "-", path.suffix.lower(), ", ".join(to), f"FAILED: {item.get('error')}")
 
     console.print(table)
+    if any(not item["success"] for item in batch_results):
+        raise typer.Exit(code=1)
 
 @app.command("inspect")
 def inspect_cmd(
@@ -158,7 +160,7 @@ def list_engines():
     rows = [
         ("text_direct", "built-in (always available)", "UTF-8 Markdown / plain text"),
         ("docling", "pip install docling", "primary/local"),
-        ("docling-native", "pip install docling-slim", "model-free PDF text reader"),
+        ("docling-native", 'pip install "docling-slim[convert-core,format-pdf]"', "model-free PDF text reader"),
         ("docling-office", 'pip install "docling-slim[convert-core,format-office]"', "model-free Office reader"),
         ("apple-vision", "pip install pyobjc-framework-Vision pypdfium2", "macOS built-in OCR"),
         ("marker", "pip install marker-pdf", "optional PDF fallback"),
@@ -169,8 +171,10 @@ def list_engines():
             found = "installed"
         else:
             found = "installed" if (
-                (name == "docling" and _importable("docling")) or
-                (name == "docling-native" and _importable("docling.pipeline.native_pdf_pipeline")) or
+                # docling-slim alone provides the docling namespace; PDF reading
+                # also needs docling-parse, and the full pipeline its layout models.
+                (name == "docling" and all(map(_importable, ("docling.document_converter", "docling_parse", "docling_ibm_models")))) or
+                (name == "docling-native" and all(map(_importable, ("docling.pipeline.native_pdf_pipeline", "docling_parse")))) or
                 (name == "docling-office" and all(map(_importable, ("docling", "docx", "pptx", "openpyxl")))) or
                 (name == "apple-vision" and sys.platform == "darwin" and _importable("Vision")) or
                 (name == "marker" and shutil.which("marker_single")) or
